@@ -1,0 +1,10 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+SQLAlchemy>=2.0
+python-multipart>=0.0.9
+pydantic>=2.6
+
+# Postgres driver. Only actually used when DATABASE_URL points at Postgres
+# (Supabase, Render, Neon…); with the default SQLite it is never imported, so
+# it costs a local run nothing but an install.
+psycopg2-binary>=2.9

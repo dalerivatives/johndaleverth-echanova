@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Johndaleverth “Dale” Echanova — Computer Engineer and full-stack developer building web apps, embedded prototypes, and computer-vision systems from Marinduque, Philippines.">
+<meta name="theme-color" content="#05080b">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2305080b'/%3E%3Ctext x='32' y='43' font-family='monospace' font-size='30' fill='%234dff91' text-anchor='middle'%3ED%3C/text%3E%3C/svg%3E">
+<title>Dale — Dynamic Stack Portfolio</title>
+
+<!-- ============================================================
+     LINK PREVIEW (Open Graph + Twitter cards)
+     This is what shows up when the site's link is pasted into Facebook,
+     Messenger, LinkedIn, X, Discord, WhatsApp, Slack — a title, a blurb
+     and the preview image, instead of a bare grey link.
+
+     ONE THING TO EDIT after you deploy: change SITE_URL below to the real
+     address (e.g. https://trevelade.onrender.com). Preview images have to
+     be absolute URLs, so the placeholder must be replaced or Facebook
+     can't fetch the image.
+     ============================================================ -->
+<link rel="canonical" href="https://example.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Trevelade — Johndaleverth Echanova">
+<meta property="og:title" content="Johndaleverth “Dale” Echanova — Computer Engineer &amp; Full-Stack Developer">
+<meta property="og:description" content="Full-stack web apps, embedded/IoT prototypes, and computer-vision systems — built from Marinduque, Philippines.">
+<meta property="og:image" content="https://example.com/assets/og-preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Trevelade — Johndaleverth Echanova, Computer Engineer and Full-Stack Developer">
+<meta property="og:url" content="https://example.com/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Johndaleverth “Dale” Echanova — Computer Engineer &amp; Full-Stack Developer">
+<meta name="twitter:description" content="Full-stack web apps, embedded/IoT prototypes, and computer-vision systems — built from Marinduque, Philippines.">
+<meta name="twitter:image" content="https://example.com/assets/og-preview.png">
+
+<!-- Structured data: tells Google this page is a person, not a company,
+     so the name, job title, location and links can be understood properly
+     when someone searches for you. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "name": "Johndaleverth Pastorfide Echanova",
+  "alternateName": "Dale",
+  "jobTitle": "Computer Engineer, Full-Stack Developer",
+  "description": "Computer Engineer building full-stack web applications, embedded/IoT prototypes, and computer-vision systems.",
+  "url": "https://example.com/",
+  "email": "mailto:johndaleverthpechanova@gmail.com",
+  "address": {
+    "@type": "PostalAddress",
+    "addressLocality": "Santa Cruz",
+    "addressRegion": "Marinduque",
+    "addressCountry": "PH"
+  },
+  "alumniOf": {
+    "@type": "CollegeOrUniversity",
+    "name": "Marinduque State University"
+  },
+  "knowsLanguage": ["English", "Filipino"],
+  "knowsAbout": ["Full-Stack Web Development", "Embedded Systems", "Computer Vision", "Python", "FastAPI", "Internet of Things"],
+  "sameAs": ["https://github.com/dalerivatives"]
+}
+</script>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+<link rel="stylesheet" href="style.css?v=43">
+</head>
+<body>
+<!-- Keyboard users land here first: one Tab press, one Enter, straight past
+     the theme picker and social icons into the actual page content. -->
+<a class="skip-link" href="#mainContent">Skip to content</a>
+<div class="app" id="app">
+  <div class="ambient" aria-hidden="true"></div>
+  <div class="code-field" id="codeField" aria-hidden="true"></div>
+  <!-- Generated algorithm graphs — trees, meshes, shortest-path networks —
+       with a breadth-first traversal animating along their edges. -->
+  <div class="graph-field" id="graphField" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="online"><i></i> <span id="viewerCount" aria-live="polite">Connecting …</span></span>
+    </div>
+    <div class="top-actions">
+      <button class="palette-btn" id="paletteBtn" type="button" aria-label="Choose a color theme" aria-expanded="false" data-tooltip="Choose a color theme"><i class="fa-solid fa-palette"></i></button>
+      <!-- Filled from the social links list in Site settings — add as many
+           as you like there and they all appear here. -->
+      <div class="socials" id="topSocials"></div>
+    </div>
+  </header>
+  <div class="palette-menu" id="paletteMenu" role="menu" aria-label="Color matrix">
+    <div class="palette-head">
+      <div><span class="matrix-kicker">COLOR MATRIX</span><strong id="themeName">SYSTEM</strong></div>
+    </div>
+    <div class="theme-grid">
+      <button type="button" class="theme-card" data-theme="dark" role="menuitem" title="Emerald system mode"><span class="theme-orb"></span><span><b>System</b><small>EMERALD</small></span></button>
+      <button type="button" class="theme-card" data-theme="cyber" role="menuitem" title="Cyan cyber mode"><span class="theme-orb"></span><span><b>Cyber</b><small>CYAN</small></span></button>
+      <button type="button" class="theme-card" data-theme="ocean" role="menuitem" title="Ocean engineering mode"><span class="theme-orb"></span><span><b>Ocean</b><small>BLUE</small></span></button>
+      <button type="button" class="theme-card" data-theme="violet" role="menuitem" title="Violet creative mode"><span class="theme-orb"></span><span><b>Violet</b><small>MAGENTA</small></span></button>
+      <button type="button" class="theme-card" data-theme="amber" role="menuitem" title="Amber hardware mode"><span class="theme-orb"></span><span><b>Hardware</b><small>AMBER</small></span></button>
+      <button type="button" class="theme-card" data-theme="light" role="menuitem" title="Clean light mode"><span class="theme-orb"></span><span><b>Light</b><small>STUDIO</small></span></button>
+    </div>
+  </div>
+
+  <aside class="stack-shell" aria-label="Portfolio navigation">
+    <nav class="stack" id="stack"></nav>
+  </aside>
+
+  <main class="workspace" id="mainContent" tabindex="-1">
+    <div class="page-view active" id="profileView" data-view="profile">
+    <section class="hero">
+      <div class="identity">
+        <!-- Every data-setting below is filled in from /api/settings, so all
+             of this wording is editable in the editor's "Site settings" tab.
+             The text kept here is the fallback shown if the API is slow or
+             unreachable, so the page is never blank. -->
+        <div class="eyebrow" data-setting="hero_eyebrow">// COMPUTER ENGINEER</div>
+        <h1><span data-setting="hero_name_first">Johndaleverth</span> <span data-setting="hero_name_rest">Pastorfide Echanova</span></h1>
+        <p class="sub" data-setting="hero_tagline">Full Stack Developer · Embedded Systems Builder · Inventor</p>
+        <!-- Shown only once a resume has been uploaded in the editor. -->
+        <a class="resume-btn" id="resumeBtn" href="#" download hidden>
+          <i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i> Download resume
+        </a>
+      </div>
+
+      <div class="human-backdrop" aria-hidden="true">
+        <img id="asciiArt" class="coded-human-outline" src="assets/human-coded-exact-contour.png" alt="" aria-hidden="true" draggable="false">
+        <img id="realPortrait" class="real-portrait" src="assets/profile-transparent.png" alt="Johndaleverth Pastorfide Echanova">
+      </div>
+    </section>
+
+    <section class="terminal panel" id="panel">
+      <div class="window-head">
+        <div class="dots"><b></b><b></b><b></b></div>
+      </div>
+      <div class="terminal-body">
+        <div class="line"><span>01</span></div>
+        <div class="line"><span>02</span><span data-setting="terminal_line_1">“Hello World.” I’m Dale — a Computer Engineer,</span></div>
+        <div class="line"><span>02</span><span data-setting="terminal_line_2">Full Stack Developer, Inventor, who enjoys building codes</span></div>
+        <div class="line"><span>03</span><span data-setting="terminal_line_3">and turning out of the “blue” ideas into Output</span></div>
+        <div class="line"><span>05</span></div>
+      </div>
+      <div class="terminal-footer">PS C:\whoami&gt; <input id="whoamiField" class="whoami-field" type="text" placeholder="Type “whoami” to see the man behind the code" aria-label="Type whoami to reveal the man behind the code" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button type="button" class="term-speak" id="termSpeak" aria-label="Read this terminal aloud" title="Read aloud"><i class="fa-solid fa-volume-high" aria-hidden="true"></i></button>
+      </div>
+    </section>
+
+    <section class="activity panel">
+      <div class="section-head">
+        <div><span class="label">ACTIVITY.LOG</span><h2 id="contribCount">— <small>contributions in the last year</small></h2></div>
+      </div>
+      <div class="heatmap" id="heatmap" aria-live="polite" role="img" aria-label="GitHub contribution activity heatmap"></div>
+      <div class="legend"><span>Less</span><i></i><i></i><i></i><i></i><i></i><span>More</span></div>
+      <p class="sync-note" id="syncNote">Syncing GitHub activity…</p>
+    </section>
+
+    </div>
+
+    <section class="page-view content-page panel cms-page" id="projectsView" data-view="projects">
+      <span class="eyebrow">// PROJECTS.DIRECTORY</span>
+      <div class="cms-section" id="projectsCms" data-section="project" data-empty-label="No projects yet."></div>
+    </section>
+    <section class="page-view content-page panel cms-page" id="achievementsView" data-view="achievements">
+      <span class="eyebrow">// ACHIEVEMENTS.LOG</span>
+      <div class="cms-section" id="achievementsCms" data-section="achievement" data-empty-label="No achievements yet."></div>
+    </section>
+    <section class="page-view content-page panel cms-page" id="toolsView" data-view="tools">
+      <span class="eyebrow">// TOOLCHAIN.STATUS</span>
+      <div class="cms-section" id="toolsCms" data-section="tool" data-empty-label="No tools yet."></div>
+
+      <!-- ==========================================================
+           MASTER DISCOVERIES
+           Practice notes rather than a project list: things learned while
+           building real systems, written down so they're shared instead of
+           re-learned. Hidden entirely when the list is empty.
+           ========================================================== -->
+      <section class="discoveries" id="discoveries" hidden>
+        <div class="disc-head">
+          <span class="disc-eyebrow">// MASTER.DISCOVERIES</span>
+          <h3 data-setting="discoveries_title">Master Discoveries</h3>
+          <p class="disc-note" data-setting="discoveries_note"></p>
+        </div>
+        <div class="disc-grid" id="discList"></div>
+      </section>
+
+      <!-- ==========================================================
+           MUSIC PLAYER
+           A playlist of YouTube links, added from the editor. The video
+           plays inside this page — the player is the point, not a link
+           out to YouTube. Hidden entirely when the playlist is empty.
+           ========================================================== -->
+      <section class="music" id="music" hidden>
+        <div class="music-head">
+          <span class="music-eyebrow">// NOW.PLAYING</span>
+          <h3 data-setting="music_title">Playlist</h3>
+          <p class="music-note" data-setting="music_note"></p>
+        </div>
+
+        <div class="music-body">
+        <div class="music-deck">
+          <div class="music-screen">
+            <!-- The YouTube player mounts here. -->
+            <div id="musicFrame" class="music-frame"></div>
+            <div class="music-idle" id="musicIdle">
+              <span class="music-idle-mark" aria-hidden="true"><i class="fa-solid fa-compact-disc"></i></span>
+              <b>Pick a track to start</b>
+            </div>
+          </div>
+
+          <div class="music-bar">
+            <button type="button" class="music-btn" id="musicPrev" aria-label="Previous track"><i class="fa-solid fa-backward-step" aria-hidden="true"></i></button>
+            <button type="button" class="music-btn primary" id="musicPlay" aria-label="Play"><i class="fa-solid fa-play" aria-hidden="true"></i></button>
+            <button type="button" class="music-btn" id="musicNext" aria-label="Next track"><i class="fa-solid fa-forward-step" aria-hidden="true"></i></button>
+            <span class="music-now" id="musicNow">—</span>
+            <button type="button" class="music-btn" id="musicShuffle" aria-pressed="false" aria-label="Shuffle"><i class="fa-solid fa-shuffle" aria-hidden="true"></i></button>
+            <button type="button" class="music-btn" id="musicLoop" aria-pressed="false" aria-label="Repeat"><i class="fa-solid fa-repeat" aria-hidden="true"></i></button>
+          </div>
+        </div>
+
+        <ol class="music-list" id="musicList"></ol>
+        </div>
+      </section>
+    </section>
+    <!-- WORLD CHAT — a real one. Any visitor picks a display name and posts;
+         everyone else sees it. Messages come from /api/chat. -->
+    <section class="page-view content-page chat-page" id="chatView" data-view="chat">
+      <span class="eyebrow">// WORLD.CHAT</span>
+      <div class="chat-shell">
+        <div class="chat-head">
+          <div>
+            <h2>World Chat</h2>
+          </div>
+        </div>
+
+        <!-- Two columns on a wide screen: the robot on the left, the
+             conversation on the right. Stacks on narrow screens. -->
+        <div class="chat-main">
+
+        <!-- ==========================================================
+             THE ROBOT — one shared robot everyone on the site is hitting.
+             HP lives on the server, and every tap is broadcast, so all
+             viewers see each other's hits land in real time.
+             Framed as an inverted captcha, which is the joke.
+             ========================================================== -->
+        <div class="chat-left">
+        <!-- The robot lives in a phone: it's the thing you poke with a finger,
+             and the frame says so without a word of instruction. -->
+        <div class="device phone">
+          <div class="phone-bezel">
+            <span class="phone-speaker" aria-hidden="true"></span>
+            <div class="phone-screen">
+        <div class="robot-arena" id="robotArena">
+          <div class="robot-captcha">
+            <span class="robot-check" id="robotCheck" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+            <span class="robot-captcha-text">
+              <b>I am a robot.</b>
+              <em id="robotCaptchaSub">Destroy me to unlock the chat.</em>
+            </span>
+          </div>
+
+          <div class="robot-hud">
+            <div class="robot-hud-left">
+              <button type="button" class="robot-sound" id="robotSound" aria-pressed="true" aria-label="Turn robot sound off"><i class="fa-solid fa-volume-high" aria-hidden="true"></i></button>
+              <span class="robot-label-wrap">
+                <span class="robot-label">UNIT-01</span>
+                <span class="robot-status" id="robotStatus">Awaiting attack</span>
+              </span>
+            </div>
+            <div class="robot-hud-right">
+              <span class="robot-hp-value" id="robotHpValue">100%</span>
+              <span class="robot-kills" id="robotKills">0 destroyed</span>
+            </div>
+          </div>
+          <div class="robot-hp-track"><div class="robot-hp-fill" id="robotHpFill"></div></div>
+
+          <button type="button" class="robot-stage" id="robotStage" aria-label="Strike the robot to damage it">
+            <!-- The WebGL robot mounts here. -->
+            <div class="robot-3d" id="robot3dHost" aria-hidden="true"></div>
+
+            <!-- Flat fallback, shown only if WebGL isn't available. -->
+            <div class="robot-body robot-fallback" id="robotBody" aria-hidden="true" hidden>
+              <svg viewBox="0 0 120 130" class="robot-svg" xmlns="http://www.w3.org/2000/svg">
+                <rect x="30" y="18" width="60" height="44" rx="12" class="r-shell"/>
+                <rect x="40" y="32" width="40" height="18" rx="7" class="r-visor"/>
+                <g class="r-eyes">
+                  <circle cx="51" cy="41" r="4.4" class="r-eye"/>
+                  <circle cx="69" cy="41" r="4.4" class="r-eye"/>
+                </g>
+                <rect x="26" y="66" width="68" height="44" rx="13" class="r-shell"/>
+                <rect x="44" y="78" width="32" height="20" rx="6" class="r-core"/>
+                <circle cx="60" cy="88" r="5" class="r-core-light"/>
+                <rect x="10" y="70" width="13" height="32" rx="6" class="r-shell r-arm-l"/>
+                <rect x="97" y="70" width="13" height="32" rx="6" class="r-shell r-arm-r"/>
+                <rect x="38" y="112" width="14" height="14" rx="5" class="r-shell"/>
+                <rect x="68" y="112" width="14" height="14" rx="5" class="r-shell"/>
+              </svg>
+            </div>
+
+            <!-- Step one. Covers the robot until a name exists. -->
+            <div class="robot-name-gate" id="robotNameGate">
+              <span class="robot-gate-mark" aria-hidden="true"><i class="fa-solid fa-id-badge"></i></span>
+              <b>Enter your name first</b>
+              <em>Then destroy UNIT-01 to unlock the chat.</em>
+            </div>
+
+            <div class="robot-fx" id="robotFx" aria-hidden="true"></div>
+            <div class="robot-respawn" id="robotRespawn" aria-hidden="true" hidden>
+              <span class="robot-respawn-label">REBUILDING</span>
+              <span class="robot-respawn-count" id="robotRespawnCount">10</span>
+            </div>
+          </button>
+
+          <!-- Who's swinging right now -->
+          <div class="robot-attackers" id="robotAttackers" aria-live="polite"></div>
+          <p class="robot-foot"><span id="robotLastHit"></span></p>
+        </div>
+
+        <section class="board" id="robotBoard">
+          <!-- Who destroyed the LAST one. Crowned on damage dealt during that
+               life, not on the final blow. -->
+          <div class="board-champ" id="boardChamp" hidden>
+            <span class="board-crown" aria-hidden="true"><i class="fa-solid fa-crown"></i></span>
+            <span class="board-champ-face" id="boardChampFace" aria-hidden="true"></span>
+            <span class="board-champ-who">
+              <em title="Most damage dealt to that UNIT-01">DESTROYER #<b id="boardChampRound">1</b></em>
+              <b id="boardChampName">—</b>
+            </span>
+            <span class="board-champ-dmg" id="boardChampDmg">—</span>
+          </div>
+
+          <!-- The fight happening now. Empties the moment UNIT-01 falls. -->
+          <div class="board-head">
+            <span class="board-title">THIS ROUND</span>
+            <span class="board-note" id="boardNote">most damage wins</span>
+          </div>
+          <ol class="board-list" id="boardList"></ol>
+          <p class="board-empty" id="boardEmpty">No one has landed a hit on this one yet.</p>
+        </section>
+            </div>
+            <span class="phone-bar" aria-hidden="true"></span>
+          </div>
+        </div>
+
+        </div><!-- /chat-left -->
+
+        <div class="chat-column">
+
+        <!-- ...and the conversation lives on a desktop, because that's where
+             you sit down and type. -->
+        <div class="device desktop">
+          <div class="desktop-body">
+          <div class="desktop-head">
+            <span class="desktop-dots" aria-hidden="true"><b></b><b></b><b></b></span>
+            <span class="desktop-title">world-chat</span>
+            <span class="chat-who" id="chatWho" hidden>
+              <span class="chat-who-face" id="chatWhoFace" aria-hidden="true"></span>
+              <b id="chatWhoName"></b>
+            </span>
+            <button type="button" class="chat-voice" id="chatVoice" aria-pressed="true"
+                    aria-label="Turn the robot's voice off"
+                    title="UNIT-01 reads new messages aloud"><i class="fa-solid fa-comment-dots" aria-hidden="true"></i></button>
+          </div>
+          <div class="desktop-screen">
+        <div class="chat-panel">
+          <div class="chat-log" id="chatLog" role="log" aria-live="polite" aria-label="World chat messages">
+            <div class="chat-empty"><span class="chat-empty-mark" aria-hidden="true"><i class="fa-regular fa-comments"></i></span><b>Loading messages…</b></div>
+          </div>
+
+          <!-- Step 1: pick a name (this is all that shows until one is set).
+               Deliberately the SAME shape as the send composer below — a
+               leading disc, a borderless field, a round action — so joining
+               and posting read as one control in two states rather than a
+               form followed by a chat. -->
+          <form class="chat-name-form" id="chatNameForm">
+            <div class="chat-composer">
+              <span class="chat-composer-avatar placeholder" aria-hidden="true"><i class="fa-solid fa-user-plus"></i></span>
+              <input type="text" id="chatNameInput" maxlength="40" placeholder="Type your name to join…" autocomplete="nickname" required>
+              <button type="submit" id="chatJoinBtn" aria-label="Join the chat"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>
+            </div>
+            <p class="chat-error" id="chatNameError" hidden></p>
+          </form>
+
+          <!-- The gate. The composer stays locked until this viewer has
+               watched the robot go down — that is what the inverted captcha
+               is actually for. -->
+          <div class="chat-locked" id="chatLocked" hidden>
+            <span class="chat-locked-mark" aria-hidden="true"><i class="fa-solid fa-lock"></i></span>
+            <div class="chat-locked-text">
+              <b>Chat is locked.</b>
+              <em>Destroy UNIT-01 to prove you are not a robot — then you can chat.</em>
+            </div>
+            <span class="chat-locked-hp" id="chatLockedHp">100%</span>
+          </div>
+
+          <!-- Step 2: send messages -->
+          <form class="chat-send-form" id="chatSendForm" hidden>
+            <div class="chat-composer">
+              <span class="chat-composer-avatar" id="chatComposerAvatar" aria-hidden="true"></span>
+              <input type="text" id="chatBodyInput" maxlength="500" placeholder="Say something…" autocomplete="off">
+              <button type="submit" id="chatSendBtn" aria-label="Send message"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>
+            </div>
+            <p class="chat-error" id="chatError" hidden></p>
+          </form>
+        </div>
+          </div>
+          </div>
+          <span class="desktop-neck" aria-hidden="true"></span>
+          <span class="desktop-base" aria-hidden="true"></span>
+        </div>
+
+        </div><!-- /chat-column -->
+        </div><!-- /chat-main -->
+      </div>
+
+      <!-- Filled from the social links list in Site settings -->
+      <div class="chat-socials" id="chatSocials" aria-label="Other ways to connect"></div>
+    </section>
+  </main>
+</div>
+
+<footer class="site-footer">
+  <span data-setting="footer_text">Developed by the Company Trevelade</span>
+<time class="footer-clock" aria-live="polite">
+    <span id="footerDate">LOADING DATE</span>
+    <i aria-hidden="true"></i>
+    <span id="footerClock">LOADING TIME</span>
+    <i aria-hidden="true"></i>
+    <span id="footerZone">LOADING ZONE</span>
+</time>
+</footer>
+<script src="background.js?v=43"></script>
+<script src="avatar.js?v=43"></script>
+<script src="speech.js?v=43"></script>
+<script src="vendor/three.min.js?v=43"></script>
+<script src="robot3d.js?v=43"></script>
+<script src="script.js?v=43"></script>
+</body>
+</html>

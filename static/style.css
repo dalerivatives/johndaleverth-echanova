@@ -1,0 +1,1632 @@
+/* ============================================================
+   HUMAN POSITION CONTROLS — EDIT ONLY THESE VALUES
+   --human-shift-x: positive = right, negative = left
+   --human-shift-y: positive = down, negative = up
+   --human-scale: 1 = current size
+   ============================================================ */
+:root{
+  --human-shift-x:0px;
+  --human-shift-y:52px;
+  --human-scale:1;
+}
+
+/* HUMAN SIZE & POSITION CONTROLS */
+:root{
+}
+:root{
+  --bg:#05080b;--panel:rgba(10,15,20,.78);--panel2:rgba(12,19,25,.68);
+  --text:#e8edf0;--muted:#8c989f;--line:rgba(255,255,255,.12);
+  --accent:#4dff91;--accent2:#21d9ff;--glow:rgba(77,255,145,.24);
+  --code:rgba(77,255,145,.12);--formula:rgba(33,217,255,.10);--hot:#b97aff;--header-h:82px;--footer-h:68px;
+  --topbar-bg:rgba(5,8,11,.8);--nav-bg:rgba(5,9,12,.74);--nav-border:rgba(255,255,255,.16);
+  --tooltip-bg:rgba(7,11,15,.92);--tooltip-text:#edf2f3;--control-bg:rgba(255,255,255,.06);
+  --control-icon-bg:#172229;--control-icon:#c7d1d5;--control-text:#cdd5d9;--social-text:#dce4e7;
+  --tile-bg:rgba(255,255,255,.025);--tile-hover:rgba(255,255,255,.08);--panel-shadow:rgba(0,0,0,.3);
+  --nav-shadow:rgba(0,0,0,.4);--grid-empty:#182127;--line-number:#59666e;--footer-text:#c5cdd0;--menu-bg:rgba(5,8,11,.94);
+  --card-bg:#0e141a;
+}
+*{box-sizing:border-box}
+
+/* Author styles always beat the browser's own [hidden]{display:none}, so any
+   element given a display value in this file would ignore the hidden
+   attribute entirely — which showed up as the chat's "posting as" chip and
+   the socials row staying visible when JS had hidden them. This makes hidden
+   mean hidden everywhere. */
+[hidden]{display:none!important}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+body{overflow-x:hidden}
+button,a{font:inherit}
+button{cursor:pointer}
+.app{min-height:100vh;position:relative;overflow:hidden;padding:var(--header-h) 0 var(--footer-h);color:var(--text);background:
+ radial-gradient(circle at 78% 22%,rgba(33,217,255,.07),transparent 28%),
+ radial-gradient(circle at 35% 55%,var(--glow),transparent 30%),
+ linear-gradient(135deg,var(--bg),#020406)}
+.app.light-mode,body.light-mode{--bg:#edf3f5;--panel:rgba(255,255,255,.88);--panel2:rgba(242,248,250,.86);--text:#17242b;--muted:#53646d;--line:rgba(20,42,52,.18);--accent:#078a52;--accent2:#007eaa;--glow:rgba(7,138,82,.18);--code:rgba(0,91,122,.12);--formula:rgba(0,126,170,.10);--topbar-bg:rgba(237,243,245,.88);--nav-bg:rgba(255,255,255,.78);--nav-border:rgba(20,42,52,.18);--tooltip-bg:rgba(255,255,255,.97);--tooltip-text:#17242b;--control-bg:rgba(7,138,82,.12);--control-icon-bg:#078a52;--control-icon:#fff;--control-text:#26373f;--social-text:#26373f;--tile-bg:rgba(255,255,255,.92);--tile-hover:rgba(7,138,82,.1);--panel-shadow:rgba(24,52,62,.12);--nav-shadow:rgba(24,52,62,.16);--grid-empty:#d7e2e5;--line-number:#71828a;--footer-text:#40535c;--menu-bg:rgba(255,255,255,.96);--card-bg:#ffffff;background:radial-gradient(circle at 78% 22%,rgba(0,126,170,.12),transparent 28%),radial-gradient(circle at 35% 55%,var(--glow),transparent 30%),linear-gradient(135deg,var(--bg),#dce8eb)}
+.app.ocean-mode,body.ocean-mode{--bg:#061720;--panel:rgba(10,35,47,.86);--panel2:rgba(14,45,59,.78);--text:#e7f6fb;--muted:#9bb8c2;--line:rgba(151,220,239,.2);--accent:#58ddff;--accent2:#91a7ff;--glow:rgba(88,221,255,.2);--code:rgba(88,221,255,.12);--formula:rgba(145,167,255,.10);--topbar-bg:rgba(5,23,32,.9);--nav-bg:rgba(7,31,42,.82);--nav-border:rgba(151,220,239,.2);--tooltip-bg:rgba(9,36,48,.97);--tooltip-text:#e7f6fb;--control-bg:rgba(88,221,255,.13);--control-icon-bg:#125b74;--control-icon:#e7f6fb;--control-text:#d9eff5;--social-text:#d9eff5;--tile-bg:rgba(151,220,239,.07);--tile-hover:rgba(88,221,255,.14);--panel-shadow:rgba(0,0,0,.32);--nav-shadow:rgba(0,0,0,.4);--grid-empty:#193d4b;--line-number:#7597a2;--footer-text:#c5e3eb;--menu-bg:rgba(9,36,48,.97);--card-bg:#0e2733;background:radial-gradient(circle at 78% 22%,rgba(88,221,255,.12),transparent 28%),radial-gradient(circle at 35% 55%,var(--glow),transparent 30%),linear-gradient(135deg,var(--bg),#082b38)}
+.app.violet-mode,body.violet-mode{--bg:#171022;--panel:rgba(34,24,49,.88);--panel2:rgba(44,31,62,.78);--text:#f4efff;--muted:#c2b6d5;--line:rgba(225,208,255,.2);--accent:#c4a8ff;--accent2:#ff9ddf;--glow:rgba(196,168,255,.2);--code:rgba(196,168,255,.12);--formula:rgba(255,157,223,.10);--topbar-bg:rgba(23,16,34,.9);--nav-bg:rgba(32,22,46,.84);--nav-border:rgba(225,208,255,.2);--tooltip-bg:rgba(40,27,56,.97);--tooltip-text:#f4efff;--control-bg:rgba(196,168,255,.13);--control-icon-bg:#67489a;--control-icon:#fff;--control-text:#eee8fa;--social-text:#eee8fa;--tile-bg:rgba(225,208,255,.07);--tile-hover:rgba(196,168,255,.15);--panel-shadow:rgba(0,0,0,.32);--nav-shadow:rgba(0,0,0,.4);--grid-empty:#40334f;--line-number:#a79ab9;--footer-text:#e2daf0;--menu-bg:rgba(40,27,56,.97);--card-bg:#241933;background:radial-gradient(circle at 78% 22%,rgba(255,157,223,.12),transparent 28%),radial-gradient(circle at 35% 55%,var(--glow),transparent 30%),linear-gradient(135deg,var(--bg),#2a1b3c)}
+.app.cyber-mode,body.cyber-mode{--bg:#050b18;--panel:rgba(9,18,36,.84);--panel2:rgba(10,23,45,.78);--text:#eaf8ff;--muted:#8aa9bd;--line:rgba(76,224,255,.20);--accent:#38f4ff;--accent2:#7d8cff;--glow:rgba(56,244,255,.23);--code:rgba(56,244,255,.13);--formula:rgba(125,140,255,.13);--topbar-bg:rgba(5,11,24,.90);--nav-bg:rgba(7,18,35,.84);--nav-border:rgba(76,224,255,.22);--tooltip-bg:rgba(7,19,38,.97);--tooltip-text:#eaf8ff;--control-bg:rgba(56,244,255,.13);--control-icon-bg:#135f78;--control-icon:#fff;--control-text:#dff9ff;--social-text:#dff9ff;--tile-bg:rgba(56,244,255,.055);--tile-hover:rgba(56,244,255,.14);--panel-shadow:rgba(0,0,0,.38);--nav-shadow:rgba(0,0,0,.45);--grid-empty:#102b3a;--line-number:#66899a;--footer-text:#c9edf4;--menu-bg:rgba(7,19,38,.98);--card-bg:#0b1729;background:radial-gradient(circle at 78% 22%,rgba(56,244,255,.15),transparent 28%),radial-gradient(circle at 20% 70%,rgba(125,140,255,.12),transparent 30%),linear-gradient(135deg,var(--bg),#07132a)}
+.app.amber-mode,body.amber-mode{--bg:#120b05;--panel:rgba(31,20,10,.86);--panel2:rgba(43,28,13,.78);--text:#fff5df;--muted:#c0a985;--line:rgba(255,190,73,.20);--accent:#ffbf4a;--accent2:#ff7b35;--glow:rgba(255,191,74,.22);--code:rgba(255,191,74,.13);--formula:rgba(255,123,53,.12);--topbar-bg:rgba(18,11,5,.90);--nav-bg:rgba(29,19,9,.84);--nav-border:rgba(255,190,73,.22);--tooltip-bg:rgba(32,21,10,.98);--tooltip-text:#fff5df;--control-bg:rgba(255,191,74,.13);--control-icon-bg:#8a5a16;--control-icon:#fff5df;--control-text:#fff0cf;--social-text:#fff0cf;--tile-bg:rgba(255,191,74,.055);--tile-hover:rgba(255,191,74,.14);--panel-shadow:rgba(0,0,0,.4);--nav-shadow:rgba(0,0,0,.48);--grid-empty:#3a2914;--line-number:#a88a58;--footer-text:#f0d7a7;--menu-bg:rgba(32,21,10,.98);--card-bg:#211609;background:radial-gradient(circle at 78% 22%,rgba(255,191,74,.14),transparent 28%),radial-gradient(circle at 22% 72%,rgba(255,123,53,.11),transparent 30%),linear-gradient(135deg,var(--bg),#281507)}
+.app.light-mode .palette-btn{background:rgba(7,138,82,.16);border-color:rgba(7,138,82,.35)}
+.app.cyber-mode,body.cyber-mode{--bg:#050b18;--panel:rgba(9,18,36,.84);--panel2:rgba(10,23,45,.78);--text:#eaf8ff;--muted:#8aa9bd;--line:rgba(76,224,255,.20);--accent:#38f4ff;--accent2:#7d8cff;--glow:rgba(56,244,255,.23);--code:rgba(56,244,255,.13);--formula:rgba(125,140,255,.13);--topbar-bg:rgba(5,11,24,.90);--nav-bg:rgba(7,18,35,.84);--nav-border:rgba(76,224,255,.22);--tooltip-bg:rgba(7,19,38,.97);--tooltip-text:#eaf8ff;--control-bg:rgba(56,244,255,.13);--control-icon-bg:#135f78;--control-icon:#fff;--control-text:#dff9ff;--social-text:#dff9ff;--tile-bg:rgba(56,244,255,.055);--tile-hover:rgba(56,244,255,.14);--panel-shadow:rgba(0,0,0,.38);--nav-shadow:rgba(0,0,0,.45);--grid-empty:#102b3a;--line-number:#66899a;--footer-text:#c9edf4;--menu-bg:rgba(7,19,38,.98);--card-bg:#0b1729;background:radial-gradient(circle at 78% 22%,rgba(56,244,255,.15),transparent 28%),radial-gradient(circle at 20% 70%,rgba(125,140,255,.12),transparent 30%),linear-gradient(135deg,var(--bg),#07132a)}
+.app.amber-mode,body.amber-mode{--bg:#120b05;--panel:rgba(31,20,10,.86);--panel2:rgba(43,28,13,.78);--text:#fff5df;--muted:#c0a985;--line:rgba(255,190,73,.20);--accent:#ffbf4a;--accent2:#ff7b35;--glow:rgba(255,191,74,.22);--code:rgba(255,191,74,.13);--formula:rgba(255,123,53,.12);--topbar-bg:rgba(18,11,5,.90);--nav-bg:rgba(29,19,9,.84);--nav-border:rgba(255,190,73,.22);--tooltip-bg:rgba(32,21,10,.98);--tooltip-text:#fff5df;--control-bg:rgba(255,191,74,.13);--control-icon-bg:#8a5a16;--control-icon:#fff5df;--control-text:#fff0cf;--social-text:#fff0cf;--tile-bg:rgba(255,191,74,.055);--tile-hover:rgba(255,191,74,.14);--panel-shadow:rgba(0,0,0,.4);--nav-shadow:rgba(0,0,0,.48);--grid-empty:#3a2914;--line-number:#a88a58;--footer-text:#f0d7a7;--menu-bg:rgba(32,21,10,.98);--card-bg:#211609;background:radial-gradient(circle at 78% 22%,rgba(255,191,74,.14),transparent 28%),radial-gradient(circle at 22% 72%,rgba(255,123,53,.11),transparent 30%),linear-gradient(135deg,var(--bg),#281507)}
+.app.light-mode .palette-btn i{transform:translateX(22px);background:var(--accent);color:white}
+.app.light-mode .nav-label,.app.light-mode .socials a:after,.app.cyber-mode,body.cyber-mode{--bg:#050b18;--panel:rgba(9,18,36,.84);--panel2:rgba(10,23,45,.78);--text:#eaf8ff;--muted:#8aa9bd;--line:rgba(76,224,255,.20);--accent:#38f4ff;--accent2:#7d8cff;--glow:rgba(56,244,255,.23);--code:rgba(56,244,255,.13);--formula:rgba(125,140,255,.13);--topbar-bg:rgba(5,11,24,.90);--nav-bg:rgba(7,18,35,.84);--nav-border:rgba(76,224,255,.22);--tooltip-bg:rgba(7,19,38,.97);--tooltip-text:#eaf8ff;--control-bg:rgba(56,244,255,.13);--control-icon-bg:#135f78;--control-icon:#fff;--control-text:#dff9ff;--social-text:#dff9ff;--tile-bg:rgba(56,244,255,.055);--tile-hover:rgba(56,244,255,.14);--panel-shadow:rgba(0,0,0,.38);--nav-shadow:rgba(0,0,0,.45);--grid-empty:#102b3a;--line-number:#66899a;--footer-text:#c9edf4;--menu-bg:rgba(7,19,38,.98);--card-bg:#0b1729;background:radial-gradient(circle at 78% 22%,rgba(56,244,255,.15),transparent 28%),radial-gradient(circle at 20% 70%,rgba(125,140,255,.12),transparent 30%),linear-gradient(135deg,var(--bg),#07132a)}
+.app.amber-mode,body.amber-mode{--bg:#120b05;--panel:rgba(31,20,10,.86);--panel2:rgba(43,28,13,.78);--text:#fff5df;--muted:#c0a985;--line:rgba(255,190,73,.20);--accent:#ffbf4a;--accent2:#ff7b35;--glow:rgba(255,191,74,.22);--code:rgba(255,191,74,.13);--formula:rgba(255,123,53,.12);--topbar-bg:rgba(18,11,5,.90);--nav-bg:rgba(29,19,9,.84);--nav-border:rgba(255,190,73,.22);--tooltip-bg:rgba(32,21,10,.98);--tooltip-text:#fff5df;--control-bg:rgba(255,191,74,.13);--control-icon-bg:#8a5a16;--control-icon:#fff5df;--control-text:#fff0cf;--social-text:#fff0cf;--tile-bg:rgba(255,191,74,.055);--tile-hover:rgba(255,191,74,.14);--panel-shadow:rgba(0,0,0,.4);--nav-shadow:rgba(0,0,0,.48);--grid-empty:#3a2914;--line-number:#a88a58;--footer-text:#f0d7a7;--menu-bg:rgba(32,21,10,.98);--card-bg:#211609;background:radial-gradient(circle at 78% 22%,rgba(255,191,74,.14),transparent 28%),radial-gradient(circle at 22% 72%,rgba(255,123,53,.11),transparent 30%),linear-gradient(135deg,var(--bg),#281507)}
+.app.light-mode .palette-btn:after{background:rgba(255,255,255,.96);color:#17242b}
+.app.light-mode .socials{background:rgba(255,255,255,.45)}
+.app.light-mode .topbar{background:var(--topbar-bg)}
+.app:before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.28;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:34px 34px;mask-image:linear-gradient(to bottom,black,transparent 90%)}
+.ambient{position:absolute;width:420px;height:420px;border-radius:50%;background:var(--glow);filter:blur(90px);left:28%;top:35%;opacity:.25;pointer-events:none}
+.topbar{position:fixed;z-index:50;top:0;left:0;right:0;min-height:82px;display:flex;justify-content:space-between;align-items:center;padding:18px 38px 18px 30px;border-bottom:1px solid var(--line);background:var(--topbar-bg);backdrop-filter:blur(18px)}
+.brand{font:14px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted)}
+.prompt{color:var(--accent)}
+.caret{animation:blink 1s steps(1) infinite}
+.top-actions{display:flex;align-items:center;gap:14px;margin-left:auto}
+.online{font:13px ui-monospace,monospace;color:var(--control-text)}.online i{display:inline-block;width:7px;height:7px;background:var(--accent);border-radius:50%;box-shadow:0 0 12px var(--accent);margin-right:7px}
+.palette-btn{position:relative;width:52px;height:29px;padding:0;border:1px solid var(--line);border-radius:999px;background:var(--control-bg);color:var(--control-text);transition:background .3s,border-color .3s,color .3s}
+.palette-btn i{position:absolute;top:3px;left:3px;width:21px;height:21px;display:grid;place-items:center;border-radius:50%;background:var(--control-icon-bg);color:var(--control-icon);font-size:12px;transition:transform .35s cubic-bezier(.2,.9,.2,1),background .3s,color .3s}
+.palette-btn:hover{border-color:var(--accent);color:var(--accent)}
+.palette-btn:after{content:attr(data-tooltip);position:absolute;top:calc(100% + 10px);left:50%;transform:translate(-50%,-6px);opacity:0;pointer-events:none;white-space:nowrap;border:1px solid var(--line);background:var(--tooltip-bg);padding:8px 11px;border-radius:8px;color:var(--tooltip-text);font:13px Inter,ui-sans-serif,system-ui,sans-serif;transition:.18s;box-shadow:0 10px 30px var(--panel-shadow)}
+@media(hover:hover) and (pointer:fine){.palette-btn:hover:after{opacity:1;transform:translate(-50%,0)}}
+.socials{display:flex;gap:7px;border:1px solid var(--line);padding:6px;border-radius:11px;background:var(--tile-bg)}
+.socials a{position:relative;width:31px;height:31px;display:grid;place-items:center;color:var(--social-text);text-decoration:none;border-radius:7px;font-weight:700;font-size:18px}
+.socials a:hover{background:var(--tile-hover);color:var(--accent)}
+.socials a:after{content:attr(data-tooltip);position:absolute;top:calc(100% + 10px);left:50%;transform:translate(-50%,-6px);opacity:0;pointer-events:none;white-space:nowrap;border:1px solid var(--line);background:var(--tooltip-bg);padding:8px 11px;border-radius:8px;color:var(--tooltip-text);font:13px Inter,ui-sans-serif,system-ui,sans-serif;transition:.18s;box-shadow:0 10px 30px var(--panel-shadow)}
+@media(hover:hover) and (pointer:fine){.socials a:hover:after{opacity:1;transform:translate(-50%,0)}}
+.stack-shell{position:fixed;z-index:10;left:28px;top:calc(var(--header-h) + 30px);bottom:calc(var(--footer-h) + 28px)}
+.stack{width:72px;padding:10px 9px;border:1px solid var(--nav-border);border-radius:38px;background:var(--nav-bg);backdrop-filter:blur(16px);box-shadow:0 18px 60px var(--nav-shadow)}
+.nav-item{position:relative;height:60px;display:flex;align-items:center;justify-content:center;transition:transform .35s cubic-bezier(.2,.9,.2,1),height .35s,opacity .25s}
+.nav-btn{width:48px;height:48px;border:1px solid transparent;border-radius:50%;background:transparent;color:var(--control-text);display:grid;place-items:center;font-size:20px;transition:.25s;position:relative}
+.nav-item.active .nav-btn{color:var(--accent);border-color:var(--accent);background:var(--tile-bg);box-shadow:0 0 24px var(--glow),inset 0 0 18px var(--glow);transform:scale(1.05)}
+.nav-label{position:absolute;left:58px;white-space:nowrap;opacity:0;transform:translateX(-8px);pointer-events:none;border:1px solid var(--line);background:var(--tooltip-bg);padding:8px 11px;border-radius:8px;color:var(--tooltip-text);font-size:13px;transition:.18s;box-shadow:0 10px 30px var(--panel-shadow)}
+@media(hover:hover) and (pointer:fine){.nav-item:hover .nav-label{opacity:1;transform:none}.nav-item:hover .nav-btn{color:var(--accent2)}}
+@media(hover:hover) and (pointer:fine){
+ .stack-shell{top:auto;bottom:calc(var(--footer-h) + 28px)}
+ .stack{display:flex;flex-direction:column-reverse;align-items:center;padding:10px 9px;transition:padding .35s,border-radius .35s,box-shadow .35s}
+ .nav-item{height:0;opacity:0;overflow:hidden;transform:translateY(8px);pointer-events:none;transition:height .35s cubic-bezier(.2,.9,.2,1),opacity .2s,transform .35s}
+ .nav-item.active{height:48px;opacity:1;overflow:visible;transform:none;pointer-events:auto}
+ .stack:hover .nav-item,.stack:focus-within .nav-item{height:60px;opacity:1;overflow:visible;transform:none;pointer-events:auto}
+ .stack:hover,.stack:focus-within{padding:10px 9px;border-radius:38px;box-shadow:0 18px 60px var(--nav-shadow)}
+}
+.workspace{position:relative;z-index:2;width:min(1120px,calc(100% - 280px));min-height:calc(100vh - var(--header-h) - var(--footer-h));margin:0 auto;padding:42px 0 36px}.page-view{display:none}.page-view.active{display:block}.content-page{min-height:calc(100vh - var(--header-h) - var(--footer-h) - 78px);padding:42px;animation:view-in .3s ease both}.content-page h2{font-size:clamp(30px,4vw,52px);font-weight:500;letter-spacing:-1.5px;margin:10px 0 30px}.page-copy.intro{margin:-14px 0 26px;max-width:70ch}.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}.card-grid article,.timeline p{border:1px solid var(--line);border-radius:10px;background:var(--tile-bg);padding:20px;margin:0}.card-grid b,.timeline b{font:12px ui-monospace,monospace;color:var(--accent)}.card-grid p,.page-copy{color:var(--muted);line-height:1.7}.card-grid article p{margin:8px 0 12px}.tags{display:flex;flex-wrap:wrap;gap:6px}.tags span{border:1px solid var(--line);background:var(--panel2);color:var(--accent2);font:11px ui-monospace,monospace;padding:5px 9px;border-radius:7px;line-height:1}.timeline{display:grid;gap:10px}.timeline p{display:grid;grid-template-columns:110px 1fr;gap:15px}.timeline span{color:var(--muted)}.tool-groups{display:grid;gap:22px}.tool-group h3{font:12px ui-monospace,monospace;letter-spacing:.08em;color:var(--muted);margin:0 0 10px;text-transform:uppercase}.chip-list{display:flex;flex-wrap:wrap;gap:10px}.chip-list span{border:1px solid var(--line);padding:11px 14px;border-radius:9px;background:var(--tile-bg);font:13px ui-monospace,monospace;color:var(--accent2)}.page-action{display:inline-block;margin-top:20px;color:var(--accent);text-decoration:none;border-bottom:1px solid currentColor;padding-bottom:4px}.signal{margin-top:34px;font:14px ui-monospace,monospace;color:var(--muted)}.signal b{color:var(--accent)}
+.chat-socials{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px;padding-top:22px;border-top:1px solid var(--line)}.chat-socials a{width:38px;height:38px;display:grid;place-items:center;border:1px solid var(--line);border-radius:9px;background:var(--tile-bg);color:var(--social-text);text-decoration:none;font-size:16px;transition:.2s}.chat-socials a:hover{background:var(--tile-hover);color:var(--accent)}
+.page-copy.intro a{color:var(--accent);text-decoration:none;border-bottom:1px solid currentColor;padding-bottom:1px;white-space:nowrap}
+.page-copy.intro a:hover{color:var(--accent2)}
+
+/* ============================================================
+   CMS SECTIONS — category headings, each a single-card-at-a-time
+   swipeable carousel ("frontal" paging: one full card in view,
+   arrows/dots/swipe to move to the next). Only the card itself is
+   a bordered container — the row around it stays borderless.
+   Used by Projects, Achievements, and Tools, all fed from the
+   same backend content API.
+   ============================================================ */
+.cms-section{display:flex;flex-direction:column;gap:34px;margin-top:22px}
+.cms-empty{color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:22px;text-align:center}
+.cms-loading{color:var(--muted);font:12px ui-monospace,monospace}
+.cms-category{display:flex;flex-direction:column}
+.cms-category-head{margin-bottom:14px}
+.cms-category-head h3{font:13px ui-monospace,monospace;letter-spacing:.06em;color:var(--accent);text-transform:uppercase;margin:0}
+.carousel{position:relative;display:flex;align-items:center;justify-content:center;gap:12px}
+.carousel-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;flex:0 1 620px;max-width:620px;min-width:0;cursor:grab;
+  scrollbar-width:none;-ms-overflow-style:none;
+  padding:6px 2px 6px;margin:-6px -2px -6px}
+/* Setting overflow-x:auto forces overflow-y to compute as "auto" too (per
+   spec, a non-visible x with a visible y isn't allowed), which clips ALL
+   painted content to the padding box, not just actual scrollable
+   overflow — .cms-card has no box-shadow now (see its rule above), so
+   there's nothing large left to protect from that clip. This small
+   padding/negative-margin pair is just a safety margin against
+   sub-pixel/anti-aliasing edge cases at the card's own border, pulled
+   back to the original footprint so surrounding spacing is unaffected. */
+.carousel-track::-webkit-scrollbar{display:none;width:0;height:0}
+.carousel-track:active{cursor:grabbing}
+/* While a mouse drag is in flight the track must follow the cursor exactly.
+   `scroll-behavior:smooth` animates every scrollLeft assignment, so a drag
+   that reassigns it each pointermove restarts the animation ~60x a second
+   and the track barely moves; snapping fights it the same way. Both are
+   turned off for the duration and restored on release, where the smooth
+   snap-to-card is exactly what you want. */
+.carousel-track.dragging{scroll-snap-type:none;scroll-behavior:auto}
+.cms-card{scroll-snap-align:center;flex:0 0 100%;width:100%;border:1px solid var(--line);border-radius:12px;background:var(--card-bg);backdrop-filter:none;box-shadow:none;padding:22px;display:flex;flex-direction:column;gap:10px;user-select:none}
+/* Solid flat card, no blur, no shadow. Every earlier attempt used a
+   TRANSLUCENT background (--panel, alpha < 1) meant to be paired with
+   backdrop-filter:blur() — that's what kept reading as a "gradient": a
+   see-through tint over the page's own radial-glow background is, by
+   definition, a gradient. --card-bg is a fully opaque, theme-matched solid
+   color (same hue as --panel, alpha 1), so the card reads as a plain flat
+   tile — border + solid fill, nothing blended, nothing painted outside the
+   box to clip or smear while swiping. */
+.cms-card h4{margin:0;font:16px/1.4 Inter,ui-sans-serif,sans-serif;font-weight:600;color:var(--text)}
+.cms-card p{margin:0;color:var(--muted);line-height:1.65;font-size:13.5px}
+.cms-card .tags{margin-top:auto;padding-top:4px}
+.cms-card-media{width:100%;border-radius:8px;overflow:hidden;background:var(--panel2);border:1px solid var(--line)}
+.cms-card-media img,.cms-card-media video{display:block;width:100%;max-height:220px;object-fit:cover}
+.cms-card-media .yt-embed{position:relative;width:100%;aspect-ratio:16/9}
+.cms-card-media .yt-embed iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+/* ============================================================
+   LINK PREVIEW CARD
+   A pasted link that isn't a picture or a video becomes this: the target
+   site's own preview image, title and blurb, fetched server-side. Clicking
+   anywhere on it opens the real site.
+   ============================================================ */
+.link-preview{display:grid;grid-template-columns:96px 1fr auto;align-items:center;gap:14px;
+  padding:12px;border:1px solid var(--line);border-radius:11px;background:var(--panel2);
+  text-decoration:none;color:inherit;transition:border-color .18s,background .18s,transform .18s}
+.link-preview:hover{border-color:var(--accent);background:var(--tile-hover);transform:translateY(-1px)}
+
+.link-preview-shot{width:96px;height:68px;border-radius:8px;overflow:hidden;flex:0 0 auto;
+  display:grid;place-items:center;background:var(--card-bg);border:1px solid var(--line);
+  color:var(--accent2);font-size:20px}
+.link-preview-shot{position:relative}
+.link-preview-shot.has-image{border-color:transparent}
+/* The icon sits underneath and is covered once the real thumbnail loads —
+   so a broken image URL degrades to the icon instead of an empty box. */
+.link-preview-shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.link-preview-shot.has-image i{opacity:0}
+
+.link-preview-text{min-width:0;display:flex;flex-direction:column;gap:3px}
+.link-preview-host{font:10.5px ui-monospace,monospace;color:var(--accent2);letter-spacing:.04em;
+  display:inline-flex;align-items:center;gap:6px;text-transform:lowercase}
+.link-preview-title{font:14px/1.4 Inter,ui-sans-serif,sans-serif;font-weight:600;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.link-preview-desc{font-size:12px;line-height:1.5;color:var(--muted);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.link-preview-desc:empty{display:none}
+.link-preview-go{flex:0 0 auto;color:var(--muted);font-size:13px;transition:.18s}
+.link-preview:hover .link-preview-go{color:var(--accent);transform:translateX(2px)}
+
+/* While the preview is still being fetched, the title placeholder shimmers
+   gently rather than the card popping in from nothing. */
+.link-preview.loading .link-preview-title{opacity:.55}
+
+@media(max-width:560px){
+  .link-preview{grid-template-columns:64px 1fr;gap:11px;padding:10px}
+  .link-preview-shot{width:64px;height:52px}
+  .link-preview-go{display:none}
+}
+.carousel-nav{flex:0 0 auto;width:34px;border:1px solid var(--line);background:var(--tile-bg);color:var(--control-text);border-radius:50%;height:34px;display:grid;place-items:center;transition:.2s}
+.carousel-nav:hover{border-color:var(--accent);color:var(--accent);background:var(--tile-hover)}
+.carousel-nav:disabled{opacity:.3;pointer-events:none}
+@media(hover:none){.carousel-nav{display:none}}
+.carousel-dots{display:flex;justify-content:center;gap:7px;margin-top:12px}
+.carousel-dots button{width:6px;height:6px;padding:0;border:0;border-radius:50%;background:var(--line)}
+.carousel-dots button.active{background:var(--accent);box-shadow:0 0 8px var(--glow);width:16px;border-radius:4px;transition:width .2s,border-radius .2s}
+@media(max-width:560px){.cms-section{gap:24px}.cms-card{padding:16px}.carousel-track{flex-basis:100%}}
+.section-head{flex-wrap:wrap;gap:12px 20px}
+.sync-note{margin:12px 2px 0;font:11px ui-monospace,monospace;color:var(--muted);line-height:1.6}
+.hero{display:grid;grid-template-columns:1.05fr .95fr;gap:30px;align-items:center;min-height:225px}
+.identity h1{font-size:clamp(28px,3.5vw,48px);font-weight:500;letter-spacing:-1.8px;margin:8px 0 8px}
+.identity h1 span{color:var(--accent)}
+.eyebrow,.ascii-title,.label{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent)}
+.sub{color:var(--muted);font-size:14px}
+.ascii-wrap{text-align:center;min-height:220px}
+.ascii-title{margin-bottom:4px;opacity:.75}
+pre{margin:0;color:var(--accent);font:8px/8px ui-monospace,monospace;opacity:.72;text-shadow:0 0 12px var(--glow);white-space:pre}
+.panel{border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(14px);border-radius:12px;box-shadow:0 20px 70px var(--panel-shadow)}
+
+/* Projects/Achievements/Tools pages: no outer "container" box around the
+   whole page — only the individual .cms-card should read as a card. The
+   eyebrow, category headings, and single-card carousel sit directly on the
+   ambient background instead of inside a second, page-level panel. */
+.content-page.cms-page{border:none;background:transparent;backdrop-filter:none;box-shadow:none;border-radius:0}
+.terminal{overflow:hidden}
+.window-head{height:44px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:center;position:relative;color:var(--accent);font:12px ui-monospace,monospace;letter-spacing:1px}
+.dots{position:absolute;left:15px;display:flex;gap:7px}.dots b{width:10px;height:10px;border-radius:50%;background:#56616a}.dots b:nth-child(1){background:#db7469}.dots b:nth-child(2){background:#c8ad63}.dots b:nth-child(3){background:#67bb7c}
+.window-status{position:absolute;right:15px;color:var(--muted);font-size:10px}
+.terminal-body{padding:22px 28px;font:14px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace}
+.line{display:grid;grid-template-columns:34px 1fr;min-height:24px}.line>span:first-child{color:var(--line-number)}.line em{font-style:normal;color:var(--accent)}.line strong{color:var(--accent2);font-weight:500}
+.terminal-footer{border-top:1px solid var(--line);padding:11px 17px;font:13px ui-monospace,monospace;color:var(--footer-text)}.terminal-footer strong{color:var(--accent)}
+.activity{margin-top:24px;padding:18px 22px}
+.section-head{display:flex;justify-content:space-between;align-items:flex-start}.section-head h2{font:20px ui-monospace,monospace;margin:5px 0 14px}.section-head small{font-size:12px;color:var(--text);font-family:inherit}.settings{font:10px ui-monospace,monospace;color:var(--muted)}
+.heatmap{display:grid;grid-template-columns:repeat(52,1fr);gap:4px;overflow:hidden}.cell{aspect-ratio:1;border-radius:2px;background:var(--grid-empty);min-width:0}.cell.l1{background:color-mix(in srgb,var(--accent) 25%,var(--grid-empty))}.cell.l2{background:color-mix(in srgb,var(--accent) 45%,var(--grid-empty))}.cell.l3{background:color-mix(in srgb,var(--accent) 68%,var(--grid-empty))}.cell.l4{background:var(--accent);box-shadow:0 0 8px var(--glow)}
+.legend{display:flex;justify-content:flex-end;align-items:center;gap:5px;margin-top:12px;font:10px ui-monospace,monospace;color:var(--muted)}.legend i{width:12px;height:12px;border-radius:2px;background:var(--grid-empty)}.legend i:nth-of-type(2){background:color-mix(in srgb,var(--accent) 30%,var(--grid-empty))}.legend i:nth-of-type(3){background:color-mix(in srgb,var(--accent) 48%,var(--grid-empty))}.legend i:nth-of-type(4){background:color-mix(in srgb,var(--accent) 70%,var(--grid-empty))}.legend i:nth-of-type(5){background:var(--accent)}
+.site-footer{position:fixed;z-index:50;right:0;bottom:0;left:0;height:var(--footer-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-top:1px solid var(--line);text-align:center;color:var(--muted);font:11px ui-monospace,monospace;letter-spacing:.04em;background:var(--topbar-bg);backdrop-filter:blur(18px)}.site-footer>span{color:var(--accent)}.footer-clock{display:inline-flex;align-items:center;justify-content:center;gap:10px;color:var(--text);letter-spacing:.12em}.footer-clock i{width:5px;height:5px;border-radius:50%;background:var(--accent2);box-shadow:0 0 9px var(--accent2)}
+/* The code field never had a container rule of its own — the snippets were
+   absolutely positioned against whatever happened to be the nearest
+   positioned ancestor. It looked right by accident; now it's stated, and the
+   graph layer sits on the same footing. */
+.code-field{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+/* Backdrop code: text and nothing else.
+   `<pre>` carries browser defaults — a margin, and a background in some
+   engines — so each snippet was sitting on a faint slab, which is what read
+   as a box around it. Everything a box could come from is cleared here, the
+   weight is dialled down, and the whole layer is pushed to the same quiet
+   level as the graphs so it stays texture instead of competing with the
+   page. */
+.code{position:absolute;margin:0;padding:0;border:0;background:none;text-shadow:none;
+  color:var(--code);font:11px/1.4 ui-monospace,monospace;white-space:pre;
+  user-select:none;pointer-events:none;animation:drift linear infinite}
+.formula{color:var(--formula)}
+.palette-menu{position:fixed;z-index:60;right:36px;top:76px;display:none;gap:5px;padding:7px;border:1px solid var(--line);background:var(--menu-bg);border-radius:10px;backdrop-filter:blur(14px);box-shadow:0 12px 32px var(--panel-shadow)}.palette-menu.open{display:flex}.palette-menu button{border:0;background:transparent;color:var(--text);padding:7px 9px;border-radius:7px;font-size:12px}.palette-menu button:hover,.palette-menu button.selected{background:var(--tile-hover);color:var(--accent)}
+@keyframes drift{from{transform:translate3d(0,0,0) rotate(var(--rot))}50%{transform:translate3d(var(--dx),var(--dy),0) rotate(var(--rot))}to{transform:translate3d(0,0,0) rotate(var(--rot))}}@keyframes blink{50%{opacity:0}}
+@keyframes view-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media(max-width:850px){:root{--header-h:68px}.topbar{min-height:var(--header-h);padding:14px 18px}.socials{display:none}.stack-shell{left:12px;top:calc(var(--header-h) + 14px);bottom:calc(var(--footer-h) + 14px)}.stack{width:58px}.nav-btn{width:42px;height:42px}.workspace{width:calc(100% - 95px);margin-left:82px;padding-top:32px}.hero{grid-template-columns:1fr}.ascii-wrap{min-height:150px}.heatmap{gap:2px}.cell{border-radius:1px}.content-page{padding:28px}}
+@media(max-width:560px){.workspace{width:calc(100% - 78px);margin-left:70px}.stack-shell{left:7px}.stack{width:54px;padding:7px}.nav-item{height:52px}.nav-btn{width:40px;height:40px}.identity h1{font-size:27px}.terminal-body{padding:15px;font-size:11px}.line{grid-template-columns:26px 1fr}.site-footer{font-size:9px}.code{font-size:9px}.content-page{padding:22px 18px;min-height:520px}.content-page h2{margin-bottom:22px}.card-grid{grid-template-columns:1fr}.timeline p{grid-template-columns:1fr;gap:8px}.section-head{flex-direction:column;align-items:flex-start}.github-sync{align-items:flex-start;width:100%}.sync-form{width:100%}.sync-form input{width:100%;max-width:none;flex:1}.tool-groups{gap:18px}}
+@media(max-width:380px){.workspace{width:calc(100% - 62px);margin-left:56px}.stack-shell{left:4px}.stack{width:46px;padding:5px}.nav-btn{width:34px;height:34px}.nav-item{height:44px}.topbar{padding:12px 10px}.online{font-size:11px}.identity h1{font-size:22px;letter-spacing:-1px}.eyebrow,.ascii-title,.label{font-size:10px}.terminal-body{padding:12px;font-size:10px}.content-page{padding:18px 14px}.content-page h2{font-size:26px}.chip-list span{padding:9px 11px;font-size:11px}.tags span{font-size:10px;padding:4px 7px}.palette-menu{right:8px;top:60px}}
+/* ============================================================
+   ACCESSIBILITY
+   ============================================================ */
+
+/* Reduced motion: for anyone whose OS says "minimise animation" — a real
+   accessibility need, not a preference (drifting code, floating silhouette
+   and sliding carousels can trigger motion sickness and vestibular
+   symptoms). Kills every animation and transition, and also the carousel's
+   smooth scrolling, which the animation rule alone doesn't cover. */
+@media(prefers-reduced-motion:reduce){
+  *,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  html{scroll-behavior:auto!important}
+  .carousel-track{scroll-behavior:auto!important}
+}
+
+/* Skip link: visually hidden until focused, then drops into view at the top
+   left so a keyboard user can jump past the nav straight into content. */
+.skip-link{position:absolute;left:-9999px;top:0;z-index:200;padding:12px 18px;border-radius:0 0 10px 0;
+  background:var(--accent);color:#04120b;font:13px ui-monospace,monospace;text-decoration:none}
+.skip-link:focus{left:0}
+#mainContent:focus{outline:none}
+
+/* Visible keyboard focus everywhere. :focus-visible means this shows for
+   keyboard/AT users without putting a ring around every mouse click. */
+a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
+select:focus-visible,[tabindex]:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+  border-radius:6px;
+}
+.carousel-track:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+
+/* Resume / CV download — stays hidden until script.js confirms the file
+   exists (see the [hidden] attribute in index.html). */
+.resume-btn{display:inline-flex;align-items:center;gap:9px;margin-top:18px;padding:11px 17px;
+  border:1px solid var(--accent);border-radius:10px;background:transparent;color:var(--accent);
+  font:13px ui-monospace,monospace;text-decoration:none;transition:.2s}
+.resume-btn:hover{background:var(--accent);color:var(--bg)}
+.resume-btn[hidden]{display:none}
+
+/* COLOR MATRIX — dynamic ambient theme control */
+.palette-menu{width:min(340px,calc(100vw - 28px));display:none;flex-direction:column;gap:0;padding:12px;right:28px;top:72px;border-radius:16px;overflow:hidden;transform-origin:top right;animation:matrix-in .18s ease both}
+.palette-menu.open{display:flex}
+.palette-head{display:flex;align-items:center;justify-content:space-between;padding:4px 4px 11px;border-bottom:1px solid var(--line)}
+.palette-head>div{display:flex;flex-direction:column;gap:2px}.matrix-kicker{font:9px ui-monospace,monospace;letter-spacing:.16em;color:var(--muted)}
+.palette-head strong{font:15px ui-monospace,monospace;letter-spacing:.12em;color:var(--accent)}
+.matrix-status{font:9px ui-monospace,monospace;color:var(--muted);display:flex;gap:6px;align-items:center}.matrix-status i{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--glow);animation:blink 1.8s infinite}
+.theme-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:6px;
+  padding:11px 0;
+}
+.theme-card{min-height:48px;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid transparent;border-radius:11px;background:var(--tile-bg);color:var(--text);padding:9px;transition:.2s;position:relative;overflow:hidden}
+.theme-card:hover{transform:translateY(-1px);border-color:var(--line);background:var(--tile-hover)}
+.theme-card.selected{border-color:var(--accent);box-shadow:0 0 20px var(--glow),inset 0 0 20px var(--glow)}
+.theme-card>span:last-child{display:flex;flex-direction:column;gap:2px}.theme-card b{font:12px ui-monospace,monospace}.theme-card small{font:8px ui-monospace,monospace;color:var(--muted);letter-spacing:.1em}
+.theme-orb{width:25px;height:25px;flex:0 0 25px;border-radius:50%;border:1px solid rgba(255,255,255,.15);box-shadow:0 0 16px currentColor;position:relative}
+.theme-card[data-theme="dark"] .theme-orb{color:#4dff91;background:radial-gradient(circle at 35% 30%,#fff,#4dff91 25%,#0b4b2d 65%,transparent 70%)}
+.theme-card[data-theme="cyber"] .theme-orb{color:#38f4ff;background:radial-gradient(circle at 35% 30%,#fff,#38f4ff 25%,#15506c 65%,transparent 70%)}
+.theme-card[data-theme="ocean"] .theme-orb{color:#58ddff;background:radial-gradient(circle at 35% 30%,#fff,#58ddff 25%,#154b63 65%,transparent 70%)}
+.theme-card[data-theme="violet"] .theme-orb{color:#c4a8ff;background:radial-gradient(circle at 35% 30%,#fff,#c4a8ff 25%,#543c79 65%,transparent 70%)}
+.theme-card[data-theme="amber"] .theme-orb{color:#ffbf4a;background:radial-gradient(circle at 35% 30%,#fff,#ffbf4a 25%,#70470f 65%,transparent 70%)}
+.theme-card[data-theme="light"] .theme-orb{color:#078a52;background:radial-gradient(circle at 35% 30%,#fff,#8ce8bc 35%,#078a52 70%,transparent 72%)}
+.palette-foot{border-top:1px solid var(--line);padding:9px 4px 2px;display:flex;justify-content:flex-start;font:9px ui-monospace,monospace;color:var(--muted)}.mode-readout{display:inline-block;margin-left:8px;color:var(--accent2);font:9px ui-monospace,monospace;letter-spacing:.08em;vertical-align:middle;opacity:.75}
+.mode-pulse{position:absolute;left:78px;color:var(--accent2);font:8px ui-monospace,monospace;letter-spacing:.12em;opacity:.65}
+.app,.app .panel,.app .stack,.app .topbar,.site-footer,.palette-menu,.nav-btn,.socials a{transition:background .45s ease,border-color .45s ease,color .35s ease,box-shadow .45s ease}
+.app:after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at var(--ambient-x,70%) var(--ambient-y,30%),var(--glow),transparent 22%);mix-blend-mode:screen;opacity:.55;animation:ambient-shift 16s ease-in-out infinite alternate}
+@keyframes matrix-in{from{opacity:0;transform:scale(.97) translateY(-5px)}to{opacity:1;transform:none}}
+@keyframes ambient-shift{from{--ambient-x:70%;--ambient-y:30%}to{--ambient-x:25%;--ambient-y:72%}}
+@media(max-width:560px){.palette-menu{right:14px;top:64px}.theme-grid{grid-template-columns:1fr}.mode-pulse{display:none}.mode-readout{display:none}}
+
+/* HUMAN BEHIND THE CODE — intentionally static for reliable local/live preview */
+.hero{position:relative;display:grid;grid-template-columns:1fr;min-height:310px;align-items:center;overflow:visible;margin-bottom:0}
+.hero .identity{position:relative;z-index:3;max-width:700px}
+.human-backdrop{
+  position:absolute;
+  z-index:1;
+  right:-8px;
+  top:auto;
+  bottom:0;
+  width:455px;
+  height:345px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  pointer-events:none;
+  overflow:visible;
+  opacity:.48;
+
+
+  transform-origin:center bottom;
+  transform:translate(var(--human-shift-x),var(--human-shift-y)) scale(var(--human-scale));
+  will-change:transform;
+}
+.human-backdrop pre{margin:0;color:var(--accent);font:7px/.82 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;letter-spacing:0;white-space:pre;text-align:left;opacity:.82;text-shadow:0 0 8px var(--glow),0 0 20px var(--glow);filter:drop-shadow(0 0 5px var(--glow));animation:human-float 7s ease-in-out infinite}
+@keyframes human-float{0%,100%{transform:translateY(0) scaleX(.88)}50%{transform:translateY(-5px) scaleX(.88)}}
+@media(max-width:850px){:root{--human-shift-y:62px}.hero{min-height:285px}.human-backdrop{right:-45px;top:auto;bottom:0;width:405px;height:310px;opacity:.34}}
+@media(max-width:560px){:root{--human-shift-y:52px}.hero{min-height:235px}.human-backdrop{right:-92px;top:auto;bottom:0;width:335px;height:260px;opacity:.24}.human-backdrop pre{font-size:5.3px}}
+
+/* Human is the background layer; the terminal stays in front. */
+.terminal{
+  position:relative;
+  z-index:4;
+}
+
+
+
+
+
+
+
+
+
+
+/* ============================================================
+   WHOAMI — TRUE HUMAN CONTOUR, NOT BOUNDING BOX
+   ============================================================ */
+:root{
+}
+
+.human-backdrop{
+  isolation:isolate;
+  transform-origin:top left;
+  transform:translate(var(--human-shift-x),var(--human-shift-y)) scale(var(--human-scale));
+}
+
+.human-backdrop .real-portrait{
+  position:absolute!important;
+  z-index:3!important;
+  display:block!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  pointer-events:none!important;
+  object-fit:contain!important;
+  object-position:center bottom!important;
+  mix-blend-mode:screen;
+  filter:drop-shadow(0 0 8px var(--glow)) saturate(.8) contrast(1.05) brightness(.76);
+  transition:opacity .95s cubic-bezier(.22,.61,.36,1),filter .95s cubic-bezier(.22,.61,.36,1);
+}
+
+.human-backdrop.revealed #asciiArt{
+  opacity:0!important;
+  filter:none;
+}
+
+.human-backdrop.revealed .real-portrait{
+  visibility:visible!important;
+  opacity:.92!important;
+  filter:drop-shadow(0 0 11px var(--glow))
+         drop-shadow(0 0 23px var(--glow))
+         saturate(.86) contrast(1.07) brightness(.82);
+}
+
+.whoami-field{
+  display:inline-block;
+  width:345px;
+  max-width:calc(100% - 120px);
+  min-width:180px;
+  height:1.25em;
+  margin:0;
+  padding:0;
+  border:0!important;
+  outline:0!important;
+  border-radius:0;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:var(--accent);
+  font:inherit;
+  line-height:inherit;
+  vertical-align:baseline;
+  cursor:text;
+  caret-color:var(--accent);
+  appearance:none;
+  -webkit-appearance:none;
+}
+.whoami-field::placeholder{color:inherit;opacity:1}
+.whoami-field:focus{border:0!important;outline:0!important;background:transparent!important;box-shadow:none!important}
+
+.terminal{position:relative;z-index:4}
+
+@media(max-width:850px){
+  }
+@media(max-width:560px){
+  }
+
+/* EXACT PHOTO-CONTOUR CODE LAYER
+   The PNG is the same 883x883 coordinate canvas as the original photo.
+   Its alpha is the actual traced human silhouette. */
+.human-backdrop #asciiArt{
+  position:absolute!important;
+  z-index:2!important;
+  width:389px!important;
+  height:389px!important;
+  left:50%!important;
+  bottom:0!important;
+  top:auto!important;
+  margin:0!important;
+  padding:0!important;
+  display:block!important;
+  transform:translateX(-50%)!important;
+  transform-origin:center bottom!important;
+  object-fit:fill!important;
+  object-position:center bottom!important;
+  pointer-events:none!important;
+  user-select:none!important;
+  opacity:.82;
+  filter:drop-shadow(0 0 5px var(--glow));
+  transition:opacity .95s cubic-bezier(.22,.61,.36,1),filter .95s cubic-bezier(.22,.61,.36,1);
+}
+.human-backdrop .real-portrait{
+  width:389px!important;
+  height:389px!important;
+  left:50%!important;
+  bottom:0!important;
+  top:auto!important;
+  transform:translateX(-50%)!important;
+}
+.human-backdrop.revealed #asciiArt{
+  opacity:0!important;
+  filter:blur(.45px);
+}
+
+@media(max-width:850px){
+  .human-backdrop #asciiArt{
+    width:350px!important;
+    height:350px!important;
+  }
+  .human-backdrop .real-portrait{
+    width:350px!important;
+    height:350px!important;
+  }
+}
+@media(max-width:560px){
+  .human-backdrop #asciiArt{
+    width:294px!important;
+    height:294px!important;
+  }
+  .human-backdrop .real-portrait{
+    width:294px!important;
+    height:294px!important;
+  }
+}
+
+
+/* Coded human — visible in every portfolio theme */
+.human-backdrop #asciiArt{
+  color:#35ffb2!important;
+  opacity:1!important;
+  text-shadow:
+    0 0 3px rgba(53,255,178,.95),
+    0 0 8px rgba(53,255,178,.80),
+    0 0 16px rgba(53,255,178,.55)!important;
+  filter:drop-shadow(0 0 4px rgba(53,255,178,.65))!important;
+}
+
+/* Keep the real-photo reveal visually independent of theme text colors. */
+.human-backdrop .real-portrait{
+  opacity:var(--portrait-opacity, .92);
+}
+
+
+/* ============================================================
+   CODED HUMAN — LIGHT/DARK THEME VISIBILITY
+   The coded human is a transparent raster asset, so `color:` cannot
+   recolor it. This rule keeps the existing asset and makes it readable
+   on every theme, including the light theme.
+   ============================================================ */
+.human-backdrop #asciiArt{
+  opacity:1!important;
+  mix-blend-mode:normal!important;
+  filter:
+    drop-shadow(0 0 1px rgba(53,255,178,.70))
+    drop-shadow(0 0 3px rgba(53,255,178,.45))!important;
+}
+
+/* Light themes: darken the raster code enough to retain contrast against
+   white/light backgrounds while preserving its green character. */
+html[data-theme="light"] .human-backdrop #asciiArt,
+body[data-theme="light"] .human-backdrop #asciiArt,
+.light .human-backdrop #asciiArt,
+.theme-light .human-backdrop #asciiArt{
+  filter:
+    brightness(.62)
+    contrast(1.9)
+    saturate(1.35)
+    drop-shadow(0 0 1px rgba(0,0,0,1))
+    drop-shadow(0 0 3px rgba(0,0,0,.95))
+    drop-shadow(0 0 7px rgba(25,160,105,.75))!important;
+}
+
+/* Explicit OS light mode fallback if the site follows system preference. */
+@media (prefers-color-scheme: light){
+  .human-backdrop #asciiArt{
+    filter:
+      brightness(.62)
+      contrast(1.9)
+      saturate(1.35)
+      drop-shadow(0 0 1px rgba(0,0,0,1))
+      drop-shadow(0 0 3px rgba(0,0,0,.95))
+      drop-shadow(0 0 7px rgba(25,160,105,.75))!important;
+  }
+}
+
+
+/* ============================================================
+   CODED HUMAN — ALL COLOR THEMES
+   The coded human is a transparent raster asset. Keep its geometry
+   unchanged and adapt contrast only so the green code remains visible
+   against every theme, especially STUDIO/LIGHT.
+   ============================================================ */
+
+/* Dark/system/cyber/ocean/violet/amber: preserve the luminous green look.
+   Scoped to :not(.revealed) — this is a resting-state contrast tweak, not
+   a say over whether the layer is showing, so it must not out-specificity
+   the whoami/code crossfade's own opacity control (see EXCLUSIVE CROSSFADE
+   below) while a reveal is in progress or settled. */
+.app:not(.light-mode) .human-backdrop:not(.revealed) #asciiArt{
+  opacity:1!important;
+  filter:
+    drop-shadow(0 0 1px rgba(38,255,166,.72))
+    drop-shadow(0 0 4px rgba(38,255,166,.42))!important;
+}
+
+/* Light/STUDIO: use the same coded human, but increase its raster contrast
+   and give it a dark green edge so it cannot disappear into the pale page. */
+.app.light-mode .human-backdrop{
+  opacity:.72!important;
+}
+.app.light-mode .human-backdrop:not(.revealed) #asciiArt{
+  opacity:1!important;
+  filter:
+    brightness(.48)
+    contrast(1.85)
+    saturate(1.45)
+    drop-shadow(0 0 1px rgba(0,70,45,.98))
+    drop-shadow(0 0 3px rgba(0,95,62,.78))
+    drop-shadow(0 0 8px rgba(7,138,82,.42))!important;
+}
+
+/* If the page follows the system light preference, use the same treatment. */
+@media (prefers-color-scheme:light){
+  .app:not(.dark-mode) .human-backdrop #asciiArt{
+    filter:
+      brightness(.48)
+      contrast(1.85)
+      saturate(1.45)
+      drop-shadow(0 0 1px rgba(0,70,45,.98))
+      drop-shadow(0 0 3px rgba(0,95,62,.78))
+      drop-shadow(0 0 8px rgba(7,138,82,.42))!important;
+  }
+}
+
+
+
+/* ============================================================
+   WHOAMI / CODE — EXCLUSIVE CROSSFADE
+   During the 720ms transition the layers crossfade. Once the
+   transition finishes, the outgoing layer is forced to zero
+   visibility and remains hidden until the reverse command.
+   ============================================================ */
+.human-backdrop.crossfade #asciiArt,
+.human-backdrop.crossfade .real-portrait{
+  transition:opacity .72s cubic-bezier(.45,0,.55,1)!important;
+  will-change:opacity;
+}
+
+/* Keep the photo layer visible for the full crossfade duration in BOTH
+   directions. Without this, typing "code" removes .revealed and the base
+   .real-portrait rule's visibility:hidden applies instantly, snapping the
+   photo away while the ascii layer is still fading in — not a crossfade.
+   Visibility only actually flips (via the final-state rules below) once
+   JS removes .crossfade after the transition completes. */
+.human-backdrop.crossfade .real-portrait{
+  visibility:visible!important;
+}
+
+/* Final coded state: photo is completely gone. */
+.human-backdrop:not(.revealed):not(.crossfade) .real-portrait{
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+
+/* Final revealed state: coded human is completely gone. */
+.human-backdrop.revealed:not(.crossfade) #asciiArt{
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+
+.human-backdrop.revealed:not(.crossfade) .real-portrait{
+  opacity:1!important;
+  visibility:visible!important;
+  pointer-events:none!important;
+}
+
+/* Respect reduced-motion without changing the final exclusive states. */
+@media (prefers-reduced-motion:reduce){
+  .human-backdrop.crossfade #asciiArt,
+  .human-backdrop.crossfade .real-portrait{
+    transition:none!important;
+  }
+}
+
+/* ============================================================
+   WORLD CHAT
+   ============================================================ */
+.chat-shell{display:flex;flex-direction:column;gap:16px;margin-top:10px}
+.chat-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.chat-head h2{margin:6px 0 0;font-size:clamp(26px,3.4vw,40px)}
+.chat-sub{margin:0;color:var(--muted);font-size:13.5px;line-height:1.6}
+.chat-who{font:11.5px ui-monospace,monospace;color:var(--muted);display:inline-flex;align-items:center;gap:7px;
+  padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:var(--tile-bg);white-space:nowrap}
+.chat-who b{color:var(--accent);font-weight:500}
+
+/* ------------------------------------------------------------
+   THE CHAT PANEL
+   One card holding the log and the composer, so the conversation reads
+   as a single surface instead of a list of controls stacked under a box.
+   ------------------------------------------------------------ */
+.chat-panel{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:16px;
+  background:var(--card-bg);overflow:hidden;
+  /* A definite height, so a hundred messages and three look identical from
+     the outside. Everything above and below the log is a fixed strip, so the
+     log absorbs the difference. */
+  height:clamp(420px, 58vh, 620px)}
+.chat-name-form,.chat-send-form,.chat-locked{flex:none}
+
+
+/* The log scrolls inside itself so the composer stays put while reading. */
+/* The log is a FIXED window that scrolls internally — `flex:1` plus
+   `min-height:0` is what forces that. Without the min-height a flex child
+   refuses to shrink below its content, so every new message pushed the panel
+   taller and the whole page grew with it; `max-height` alone doesn't help
+   once the panel itself is the thing stretching. */
+.chat-log{display:flex;flex-direction:column;gap:3px;flex:1 1 0;min-height:0;
+  overflow-y:auto;overscroll-behavior:contain;padding:16px;scrollbar-width:thin}
+/* Push a short log down to sit against the composer, the way a real chat
+   does. `margin-top:auto` on the first child rather than justify-content,
+   which clips the top of an overflowing flex column in some engines. */
+.chat-log > :first-child{margin-top:auto}
+
+.chat-empty{margin:auto;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;padding:20px 10px}
+.chat-empty-mark{width:44px;height:44px;display:grid;place-items:center;border-radius:50%;
+  background:var(--tile-bg);border:1px solid var(--line);color:var(--muted);font-size:17px}
+.chat-empty b{font:13px Inter,ui-sans-serif,sans-serif;font-weight:600;color:var(--text)}
+.chat-empty em{font:11.5px ui-monospace,monospace;font-style:normal;color:var(--muted);max-width:34ch;line-height:1.6}
+
+/* Date separator between days. */
+.chat-day{display:flex;align-items:center;gap:10px;margin:12px 0 8px;color:var(--muted);
+  font:10.5px ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase}
+.chat-day::before,.chat-day::after{content:"";flex:1;height:1px;background:var(--line)}
+.chat-log > .chat-day:first-child{margin-top:auto}
+
+/* ---- a message: avatar + bubble ---- */
+.chat-msg{display:flex;align-items:flex-end;gap:9px;margin-top:9px;max-width:88%;align-self:flex-start}
+.chat-msg.grouped{margin-top:2px}
+.chat-msg.mine{align-self:flex-end;flex-direction:row-reverse}
+
+.chat-avatar{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+  font:10.5px ui-monospace,monospace;font-weight:600;letter-spacing:.02em;
+  color:hsl(var(--who-hue,150) 72% 88%);
+  background:hsl(var(--who-hue,150) 42% 30%);
+  border:1px solid hsl(var(--who-hue,150) 50% 44%);user-select:none}
+.app.light-mode .chat-avatar{color:hsl(var(--who-hue,150) 60% 24%);
+  background:hsl(var(--who-hue,150) 70% 90%);border-color:hsl(var(--who-hue,150) 45% 72%)}
+/* Inside a run of messages the disc is hidden but still holds its space,
+   so every bubble in the run stays on the same left edge. */
+.chat-msg.grouped .chat-avatar{visibility:hidden}
+
+.chat-bubble-wrap{display:flex;flex-direction:column;gap:3px;min-width:0}
+.chat-msg.mine .chat-bubble-wrap{align-items:flex-end}
+
+.chat-msg-name{font:10.5px ui-monospace,monospace;padding:0 4px;
+  color:hsl(var(--who-hue,150) 70% 66%)}
+.app.light-mode .chat-msg-name{color:hsl(var(--who-hue,150) 55% 34%)}
+
+.chat-bubble{position:relative;display:flex;align-items:flex-end;gap:9px;
+  padding:9px 13px;border-radius:15px 15px 15px 5px;
+  background:var(--tile-bg);border:1px solid var(--line);min-width:0}
+.chat-msg.grouped .chat-bubble{border-radius:15px 15px 15px 5px}
+.chat-msg.mine .chat-bubble{border-radius:15px 15px 5px 15px;
+  background:color-mix(in srgb,var(--accent) 15%,var(--tile-bg));
+  border-color:color-mix(in srgb,var(--accent) 38%,var(--line))}
+
+.chat-msg-body{color:var(--text);font-size:13.5px;line-height:1.55;overflow-wrap:anywhere;min-width:0}
+.chat-msg-time{flex:none;align-self:flex-end;font:9.5px ui-monospace,monospace;color:var(--muted);
+  white-space:nowrap;padding-bottom:1px;opacity:.75}
+
+/* ---- composer ---- */
+.chat-name-form,.chat-send-form{padding:12px 14px 14px;border-top:1px solid var(--line);background:var(--tile-bg)}
+/* The name row IS the message composer — same markup, same classes, same
+   button. Nothing is special-cased; the only difference between joining and
+   posting is which of the two forms is visible, and the glyph in the leading
+   disc before an avatar exists. */
+.chat-composer{display:flex;align-items:center;gap:8px;padding:5px 5px 5px 7px;
+  border:1px solid var(--line);border-radius:999px;background:var(--card-bg);transition:border-color .18s}
+.chat-composer:focus-within{border-color:var(--accent)}
+.chat-composer input{flex:1;min-width:0;border:0;border-radius:6px;background:transparent;color:var(--text);
+  padding:9px 6px;font:14px Inter,ui-sans-serif,sans-serif}
+.chat-composer input:focus{outline:none}
+.chat-composer input::placeholder{color:var(--muted);opacity:.75}
+
+.chat-composer-avatar{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;
+  font:10px ui-monospace,monospace;font-weight:600;
+  color:hsl(var(--who-hue,150) 72% 88%);background:hsl(var(--who-hue,150) 42% 30%)}
+.app.light-mode .chat-composer-avatar{color:hsl(var(--who-hue,150) 60% 24%);background:hsl(var(--who-hue,150) 70% 90%)}
+/* Before a name exists there's no avatar to show, so the same disc carries a
+   glyph — the field keeps its position and nothing shifts when you join. */
+.chat-composer-avatar.placeholder{background:var(--code);color:var(--accent);font-size:12px}
+
+/* Circular send key — the arrow, not a word. */
+.chat-composer button[type=submit]{flex:none;width:36px;height:36px;border:0;border-radius:50%;
+  display:grid;place-items:center;background:var(--accent);color:var(--btn-on-accent,#06131a);
+  font-size:13px;cursor:pointer;transition:transform .16s,opacity .16s}
+.chat-composer button[type=submit]:hover{transform:scale(1.07)}
+.chat-composer button[type=submit]:active{transform:scale(.94)}
+.chat-composer button[type=submit]:disabled{opacity:.45;pointer-events:none}
+.chat-error{margin:9px 0 0 4px;font:12px ui-monospace,monospace;color:#ff8b8b}
+
+.social-img{width:17px;height:17px;object-fit:contain;display:block}
+
+/* ============================================================
+   MOBILE NAVIGATION
+   On a phone the floating left rail stacked down the top-left corner and
+   squeezed the content into a narrow column beside it. Below 850px it
+   becomes a normal bottom bar instead: the content gets the full width,
+   and the nav sits where a thumb actually reaches.
+   ============================================================ */
+@media(max-width:850px){
+  .stack-shell{
+    left:0;right:0;top:auto;
+    bottom:calc(var(--footer-h) + 8px);
+    display:flex;justify-content:center;
+    padding:0 12px;
+    pointer-events:none;              /* only the bar itself is clickable */
+  }
+  .stack{
+    pointer-events:auto;
+    width:auto;max-width:100%;
+    display:flex;flex-direction:row;align-items:center;gap:4px;
+    padding:7px 10px;border-radius:999px;
+    /* It floats over the page, so it needs to read as a bar rather than
+       dissolve into whatever happens to be scrolling underneath it. */
+    background:var(--menu-bg);
+    box-shadow:0 10px 34px var(--nav-shadow);
+  }
+  .nav-item{height:auto;flex:0 0 auto}
+  .nav-btn{width:44px;height:44px;font-size:18px}
+  .nav-label{display:none}           /* no room, and the icons are labelled */
+
+  /* Content gets the whole width back, with room for the bar underneath. */
+  .workspace{
+    width:calc(100% - 32px);
+    margin-left:auto;margin-right:auto;
+    padding-bottom:calc(var(--footer-h) + 82px);
+  }
+  .content-page{min-height:auto}
+}
+
+@media(max-width:560px){
+  .workspace{width:calc(100% - 24px)}
+  .stack{padding:6px 8px;gap:2px}
+  .nav-btn{width:40px;height:40px;font-size:16px}
+  .chat-log{padding:13px}
+  .chat-panel{height:clamp(380px,64vh,560px)}
+  .chat-msg{max-width:94%}
+  .chat-panel-note{display:none}
+  .chat-head{flex-direction:column;gap:10px}
+}
+
+@media(max-width:380px){
+  .workspace{width:calc(100% - 18px)}
+  .nav-btn{width:36px;height:36px;font-size:15px}
+}
+
+/* ============================================================
+   CHAT PAGE LAYOUT
+   Wide screens get two columns — the robot on the left, the conversation on
+   the right — so the page doesn't become one very tall stack. Below 900px
+   they stack, robot first.
+   ============================================================ */
+.chat-main{display:grid;grid-template-columns:minmax(0,368px) minmax(0,1fr);gap:22px;align-items:stretch}
+.chat-column{display:flex;flex-direction:column;gap:14px;min-width:0}
+.chat-column .chat-panel{margin:0}
+
+@media(max-width:900px){
+  .chat-main{grid-template-columns:1fr}
+}
+
+/* The log fills the column height alongside the robot rather than being a
+   fixed slab, so the two sides line up. */
+@media(min-width:901px){
+  /* Side by side with the robot: the conversation is as tall as the phone
+     column, minus the window chrome and the monitor's stand, so the two
+     devices sit on the same line top AND bottom. */
+  .chat-panel{height:100%;min-height:420px}
+}
+
+/* ============================================================
+   THE ROBOT — captcha framing, 3D stage, live hit feedback
+   ============================================================ */
+/* The arena is the phone's screen content, so it carries no frame of its own —
+   its border and card background were a third box inside the phone inside the
+   page, which is the same nesting the outer panel was removed to fix. */
+.robot-arena{position:relative;padding:2px 2px 0;user-select:none}
+
+/* The joke: a captcha checkbox you complete by destroying the robot. */
+.robot-captcha{display:flex;align-items:center;gap:12px;padding:11px 13px;margin-bottom:13px;
+  border:1px solid var(--line);border-radius:11px;background:var(--panel2)}
+.robot-check{width:26px;height:26px;flex:0 0 auto;border:2px solid var(--line);border-radius:6px;
+  display:grid;place-items:center;color:transparent;font-size:12px;transition:.25s}
+.robot-check.checked{background:var(--accent);border-color:var(--accent);color:var(--bg);
+  animation:robot-check-pop .4s cubic-bezier(.2,1.5,.4,1)}
+@keyframes robot-check-pop{0%{transform:scale(.5)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+.robot-captcha-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.robot-captcha-text b{font:13px/1.3 Inter,ui-sans-serif,sans-serif;font-weight:600;color:var(--text)}
+.robot-captcha-text em{font:11.5px/1.5 ui-monospace,monospace;font-style:normal;color:var(--muted)}
+
+.robot-hud{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:8px}
+.robot-hud-left,.robot-hud-right{display:flex;flex-direction:column;gap:2px}
+.robot-hud-right{align-items:flex-end;text-align:right}
+.robot-label{font:10.5px ui-monospace,monospace;letter-spacing:.14em;color:var(--accent)}
+.robot-status{font:11px ui-monospace,monospace;color:var(--muted)}
+.robot-hp-value{font:17px ui-monospace,monospace;font-weight:600;line-height:1;transition:color .2s}
+.robot-kills{font:10.5px ui-monospace,monospace;color:var(--muted)}
+
+.robot-hp-track{height:7px;border-radius:99px;background:var(--panel2);
+  border:1px solid var(--line);overflow:hidden}
+.robot-hp-fill{height:100%;width:100%;border-radius:99px;transition:background .25s}
+
+/* The stage holds the WebGL canvas plus the effects layer on top. */
+.robot-stage{position:relative;display:block;width:100%;height:270px;margin:4px 0 0;
+  border:0;background:transparent;cursor:crosshair;padding:0;overflow:visible}
+.robot-3d{position:absolute;inset:0}
+.robot-3d canvas{width:100%!important;height:100%!important}
+.robot-arena.dead .robot-stage{cursor:not-allowed}
+
+/* Flat fallback, only shown when WebGL isn't available. */
+.robot-fallback{position:absolute;left:50%;top:50%;width:150px;height:165px;
+  transform:translate(-50%,-50%);animation:robot-float 3.1s ease-in-out infinite}
+.robot-svg{width:100%;height:100%;overflow:visible}
+.r-shell{fill:var(--panel2);stroke:var(--accent);stroke-width:2.2}
+.r-visor,.r-core{fill:var(--card-bg);stroke:var(--accent);stroke-width:1.6}
+.r-core-light{fill:var(--accent);animation:robot-pulse 1.7s ease-in-out infinite}
+.r-eye{fill:var(--accent)}
+.r-antenna{fill:var(--accent2);animation:robot-pulse 2.3s ease-in-out infinite}
+.r-line{stroke:var(--accent);stroke-width:2.2}
+@keyframes robot-float{0%,100%{transform:translate(-50%,-50%)}50%{transform:translate(-50%,calc(-50% - 9px))}}
+@keyframes robot-pulse{0%,100%{opacity:1}50%{opacity:.42}}
+.robot-fallback.hit{animation:robot-hit .26s cubic-bezier(.36,.07,.19,.97)}
+@keyframes robot-hit{
+  0%{transform:translate(-50%,-50%) rotate(0)}
+  25%{transform:translate(calc(-50% - 7px),-50%) rotate(-5deg)}
+  55%{transform:translate(calc(-50% + 6px),-50%) rotate(4deg)}
+  100%{transform:translate(-50%,-50%) rotate(0)}
+}
+.robot-fallback.hit .r-shell{stroke:#ff7b6b}
+.robot-fallback.exploding{animation:robot-explode .55s cubic-bezier(.2,.8,.3,1) forwards}
+@keyframes robot-explode{
+  0%{transform:translate(-50%,-50%) scale(1);opacity:1}
+  18%{transform:translate(-50%,-50%) scale(1.35);filter:brightness(3)}
+  100%{transform:translate(-50%,-50%) scale(.2) rotate(28deg);opacity:0}
+}
+.robot-fallback.reviving{animation:robot-revive .9s cubic-bezier(.2,.9,.3,1)}
+@keyframes robot-revive{
+  0%{transform:translate(-50%,-50%) scale(.2);opacity:0}
+  100%{transform:translate(-50%,-50%) scale(1);opacity:1}
+}
+
+.robot-respawn{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:4px;pointer-events:none;z-index:3}
+.robot-respawn-label{font:10.5px ui-monospace,monospace;letter-spacing:.16em;color:var(--muted)}
+.robot-respawn-count{font:40px ui-monospace,monospace;font-weight:600;color:var(--accent);
+  line-height:1;animation:robot-pulse 1s ease-in-out infinite}
+
+/* ---- live hit feedback ---- */
+.robot-fx{position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:2}
+
+/* Whose tap it was + how much it took off, at the spot they hit. */
+.robot-hit-tag{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;
+  transform:translate(-50%,-50%);white-space:nowrap;pointer-events:none;
+  animation:robot-hit-tag 1.25s cubic-bezier(.2,.7,.3,1) forwards}
+.robot-hit-tag b{font:11px ui-monospace,monospace;font-weight:600;
+  color:hsl(var(--who-hue,150) 75% 62%);
+  background:rgba(0,0,0,.45);padding:2px 7px;border-radius:99px;backdrop-filter:blur(3px)}
+.app.light-mode .robot-hit-tag b{background:rgba(255,255,255,.82);color:hsl(var(--who-hue,150) 60% 34%)}
+.robot-hit-tag em{font:12.5px ui-monospace,monospace;font-style:normal;font-weight:700;color:#ff8b7a;
+  text-shadow:0 1px 6px rgba(0,0,0,.5)}
+.robot-hit-tag.mine b{background:var(--accent);color:var(--bg)}
+@keyframes robot-hit-tag{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}
+  18%{opacity:1;transform:translate(-50%,-64%) scale(1.06)}
+  100%{opacity:0;transform:translate(calc(-50% + var(--drift,0px)),-150%) scale(.95)}
+}
+
+/* An impact ring at the tap point, so a hit reads even before the number. */
+.robot-ring{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;
+  border:2px solid var(--accent);animation:robot-ring .55s ease-out forwards}
+@keyframes robot-ring{
+  0%{transform:scale(.4);opacity:.9}
+  100%{transform:scale(4.2);opacity:0}
+}
+
+.robot-spark{position:absolute;width:5px;height:5px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 8px var(--accent);animation:robot-spark .62s ease-out forwards}
+@keyframes robot-spark{
+  0%{transform:translate(0,0) scale(1);opacity:1}
+  100%{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0}
+}
+
+/* Who's attacking right now */
+.robot-attackers{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:24px;margin-top:6px}
+.robot-attacker{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;
+  border:1px solid var(--line);background:var(--panel2);font:10.5px ui-monospace,monospace;
+  color:var(--text);animation:robot-attacker-in .28s ease-out}
+.robot-attacker-dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto;
+  background:hsl(var(--who-hue,150) 75% 58%);box-shadow:0 0 7px hsl(var(--who-hue,150) 75% 58%);
+  animation:robot-pulse 1.1s ease-in-out infinite}
+.robot-attacker b{font-weight:600;color:var(--muted)}
+.robot-attacker em{font-style:normal;color:#ff8b7a}
+@keyframes robot-attacker-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.robot-foot{margin:4px 0 0;font:10.5px ui-monospace,monospace;color:var(--muted);text-align:center;min-height:14px}
+
+@media(max-width:560px){
+  .robot-arena{padding:12px 12px 10px}
+  .robot-stage{height:230px}
+  .robot-respawn-count{font-size:34px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .robot-fallback,.r-core-light,.r-antenna{animation:none!important}
+}
+
+/* The send disc paints its glyph on top of --accent, so it needs a contrast
+   colour that flips with the theme: every dark theme has a bright accent
+   (dark glyph reads), light mode has a deep green one (white glyph reads). */
+:root,.app,body{--btn-on-accent:#06131a}
+.app.light-mode,body.light-mode{--btn-on-accent:#ffffff}
+
+/* "Under attack — <name>" pulses so a second viewer notices someone else
+   is already swinging at the robot. */
+.robot-status.live{color:var(--accent);animation:robotLive 1s ease-in-out infinite}
+@keyframes robotLive{0%,100%{opacity:1}50%{opacity:.5}}
+@media(prefers-reduced-motion:reduce){.robot-status.live{animation:none}}
+
+/* Give the robot more room on a wide screen so it reads as a character
+   rather than a thumbnail, and so the two columns end level. */
+@media(min-width:901px){
+  /* Shorter inside the phone than it was in the old flat panel — the frame
+     adds its own height, and a taller stage pushed the board off screen. */
+  .robot-stage{height:272px}
+}
+
+/* ============================================================
+   v19 ADDITIONS
+   ============================================================ */
+
+/* ---- the chat name chip ---- */
+.chat-who-face{width:24px;height:24px;border-radius:50%;overflow:hidden;flex:none;display:block}
+.chat-who-face svg{width:100%;height:100%;display:block}
+.chat-who-label{color:var(--muted)}
+
+/* ---- generated character avatars ----
+   The disc is now a drawing, so it must not keep the flat tint the initials
+   version painted behind it — the SVG brings its own background. */
+.chat-avatar{background:none;border:0;padding:0;overflow:hidden;color:inherit}
+.chat-avatar svg{width:100%;height:100%;display:block;border-radius:50%}
+.chat-composer-avatar{background:none;overflow:hidden;padding:0}
+.chat-composer-avatar svg{width:100%;height:100%;display:block;border-radius:50%}
+
+/* ---- the chat gate ---- */
+.chat-locked{display:flex;align-items:center;gap:12px;padding:14px 16px;
+  border-top:1px solid var(--line);background:var(--tile-bg)}
+.chat-locked-mark{width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:50%;
+  background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);font-size:14px}
+.chat-locked-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.chat-locked-text b{font:12.5px Inter,ui-sans-serif,sans-serif;font-weight:600;color:var(--text)}
+.chat-locked-text em{font:11px ui-monospace,monospace;font-style:normal;color:var(--muted);line-height:1.5}
+.chat-locked-hp{margin-left:auto;flex:none;font:13px ui-monospace,monospace;font-weight:600;color:var(--accent)}
+
+/* ---- robot sound toggle ---- */
+.robot-sound{width:26px;height:26px;border:1px solid var(--line);border-radius:8px;background:var(--tile-bg);
+  color:var(--muted);font-size:11px;display:grid;place-items:center;cursor:pointer;transition:.18s;margin-right:2px}
+.robot-sound:hover{color:var(--accent);border-color:var(--accent)}
+.robot-sound.off{opacity:.55}
+/* The sound toggle sits inline with the unit label; forcing it into the
+   right-hand stat stack turned that column into a wrapping row. */
+.robot-hud-left{flex-direction:row!important;align-items:center;gap:9px}
+/* The label and status still stack; only the button sits beside them. A
+   blanket `display:block` on the children collapsed that stack into one line. */
+.robot-label-wrap{display:flex!important;flex-direction:column;gap:2px;min-width:0}
+
+/* ---- media: enlarge in place, never navigate ---- */
+.cms-card-media{position:relative}
+.cms-card-media > img{cursor:zoom-in}
+.media-zoom{position:absolute;top:8px;right:8px;width:30px;height:30px;border:0;border-radius:8px;
+  display:grid;place-items:center;background:rgba(8,14,20,.6);color:#fff;font-size:12px;
+  cursor:pointer;opacity:0;transition:opacity .18s,transform .18s;backdrop-filter:blur(4px)}
+.cms-card-media:hover .media-zoom,.media-zoom:focus-visible{opacity:1}
+.media-zoom:hover{transform:scale(1.08)}
+@media(hover:none){.media-zoom{opacity:.85}}
+
+/* A video URL that can't be embedded. Inert on purpose — it names the source
+   without becoming a way off the site. */
+.media-inert{display:flex;align-items:center;gap:10px;padding:14px;border:1px dashed var(--line);
+  border-radius:10px;background:var(--tile-bg);color:var(--muted)}
+.media-inert-mark{width:32px;height:32px;display:grid;place-items:center;border-radius:8px;
+  background:var(--code);color:var(--accent);font-size:13px;flex:none}
+.media-inert-text{font:12px ui-monospace,monospace}
+
+/* ---- lightbox ---- */
+body.lightbox-open{overflow:hidden}
+.lightbox{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;
+  padding:clamp(16px,4vw,48px);background:rgba(4,9,14,.88);backdrop-filter:blur(6px);
+  animation:lightboxIn .18s ease}
+@keyframes lightboxIn{from{opacity:0}to{opacity:1}}
+.lightbox-close{position:absolute;top:16px;right:16px;width:40px;height:40px;border:0;border-radius:50%;
+  display:grid;place-items:center;background:rgba(255,255,255,.12);color:#fff;font-size:16px;cursor:pointer;transition:.18s}
+.lightbox-close:hover{background:rgba(255,255,255,.24)}
+.lightbox-figure{margin:0;display:flex;flex-direction:column;gap:12px;align-items:center;max-width:100%;max-height:100%}
+.lightbox-slot{display:flex;align-items:center;justify-content:center;max-width:100%;min-width:0}
+.lightbox-slot img,.lightbox-slot video{max-width:min(1200px,92vw);max-height:80vh;
+  border-radius:10px;display:block;object-fit:contain}
+.lightbox-slot iframe{width:min(1100px,92vw);height:min(62vw,72vh);border:0;border-radius:10px;background:#000}
+.lightbox-cap{color:#e8eef2;font:12.5px ui-monospace,monospace;text-align:center;max-width:60ch}
+@media(prefers-reduced-motion:reduce){.lightbox{animation:none}}
+
+/* ---- link preview thumbnails ----
+   A site with no Open Graph image falls back to its favicon or touch icon.
+   Those are small squares; stretched to fill they look broken, so they sit
+   centred as a badge on a ground tinted from the domain instead. */
+.link-preview{--site-hue:200}
+.link-preview-shot{position:relative;background:hsl(var(--site-hue) 40% 22%)}
+.app.light-mode .link-preview-shot{background:hsl(var(--site-hue) 45% 92%)}
+.link-preview-shot > b{position:absolute;inset:0;display:grid;place-items:center;
+  font:600 22px Inter,ui-sans-serif,sans-serif;color:hsl(var(--site-hue) 60% 80%);opacity:.55;pointer-events:none}
+.app.light-mode .link-preview-shot > b{color:hsl(var(--site-hue) 45% 32%)}
+.link-preview-shot > i{position:relative;z-index:1}
+.link-preview-shot.has-image > i,.link-preview-shot.has-image > b,
+.link-preview-shot.has-icon > i,.link-preview-shot.has-icon > b{display:none}
+.link-preview-shot.has-image img{width:100%;height:100%;object-fit:cover;display:block}
+.link-preview-shot.has-icon img{width:52%;height:52%;margin:auto;object-fit:contain;display:block;
+  position:absolute;inset:0;filter:drop-shadow(0 2px 6px rgba(0,0,0,.25))}
+
+/* ============================================================
+   MUSIC PLAYER (Tools page)
+   ============================================================ */
+.music{margin-top:42px;padding-top:32px;border-top:1px solid var(--line)}
+.music-head{margin-bottom:18px}
+.music-eyebrow{display:block;font:10.5px ui-monospace,monospace;color:var(--accent);letter-spacing:.14em;margin-bottom:8px}
+.music-head h3{margin:0 0 6px;font-size:clamp(19px,2.2vw,26px)}
+.music-note{margin:0;color:var(--muted);font-size:13px;line-height:1.6;max-width:60ch}
+
+.music-deck{border:1px solid var(--line);border-radius:14px;background:var(--card-bg);overflow:hidden}
+
+.music-screen{position:relative;aspect-ratio:16/9;background:#05080b}
+.music-frame{position:absolute;inset:0}
+.music-frame iframe{width:100%;height:100%;border:0;display:block}
+.music-idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  color:#93a4b0;background:linear-gradient(145deg,#0a1017,#111c26)}
+.music-idle b{font:13px Inter,ui-sans-serif,sans-serif;font-weight:600}
+.music-idle-mark{width:54px;height:54px;display:grid;place-items:center;border-radius:50%;
+  background:rgba(255,255,255,.07);font-size:21px;color:var(--accent)}
+/* The disc turns slowly, which is the only hint that this is a player and
+   not a still image before anything is picked. */
+.music-idle-mark i{animation:musicSpin 6s linear infinite}
+@keyframes musicSpin{to{transform:rotate(360deg)}}
+
+.music-bar{display:flex;align-items:center;gap:9px;padding:11px 14px;border-top:1px solid var(--line);background:var(--tile-bg)}
+.music-btn{width:34px;height:34px;flex:none;border:1px solid var(--line);border-radius:9px;background:var(--card-bg);
+  color:var(--text);font-size:12px;display:grid;place-items:center;cursor:pointer;transition:.16s}
+.music-btn:hover{border-color:var(--accent);color:var(--accent)}
+.music-btn.primary{width:40px;height:40px;border-color:transparent;background:var(--accent);
+  color:var(--btn-on-accent);font-size:14px}
+.music-btn.primary:hover{transform:scale(1.06);color:var(--btn-on-accent)}
+.music-btn.on{border-color:var(--accent);color:var(--accent);background:var(--code)}
+.music-btn:disabled{opacity:.4;pointer-events:none}
+.music-now{flex:1;min-width:0;padding:0 6px;font:12px ui-monospace,monospace;color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.music-list{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:2px}
+.music-track button{width:100%;display:flex;align-items:center;gap:12px;padding:10px 12px;border:0;
+  border-radius:9px;background:transparent;color:var(--text);text-align:left;cursor:pointer;
+  font:13px Inter,ui-sans-serif,sans-serif;transition:background .15s}
+.music-track button:hover{background:var(--tile-hover)}
+.music-track-num{flex:none;width:22px;font:10.5px ui-monospace,monospace;color:var(--muted);text-align:right}
+.music-track-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.music-track.active button{background:var(--code)}
+.music-track.active .music-track-num{color:var(--accent)}
+.music-track.active .music-track-title{color:var(--accent);font-weight:600}
+
+@media(max-width:560px){
+  .music{margin-top:32px;padding-top:24px}
+  .music-now{display:none}
+  .music-bar{gap:7px}
+}
+@media(prefers-reduced-motion:reduce){.music-idle-mark i{animation:none}}
+
+/* The editor's track rows reuse the social-row shell; these are the bits
+   that differ — a thumbnail instead of an icon, and a bad-link state. */
+.social-row-preview img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
+.social-row.invalid{border-color:#ff8b8b66}
+
+/* Player and queue sit side by side on a wide screen. Left to itself the
+   16:9 screen stretched the full column width and swallowed the page, and
+   the queue fell so far below it you couldn't see what was coming next. */
+.music-body{display:grid;gap:18px;align-items:start}
+.music-list{margin:0;max-height:330px;overflow-y:auto;overscroll-behavior:contain;
+  padding-right:4px;scrollbar-width:thin}
+@media(min-width:820px){
+  .music-body{grid-template-columns:minmax(0,1.35fr) minmax(240px,1fr)}
+  .music-list{max-height:none;height:100%}
+}
+@media(max-width:819px){
+  .music-deck{max-width:620px;margin:0 auto}
+}
+
+/* The queue needs its own surface, or it reads as loose text floating on the
+   page's background texture next to the solid player. */
+.music-list{border:1px solid var(--line);border-radius:14px;background:var(--card-bg);padding:8px}
+@media(min-width:820px){.music-list{padding:10px}}
+/* The thumbnail overlays the fallback note icon inside the preview square. */
+.social-row-preview{position:relative;overflow:hidden}
+.social-row-preview img{position:absolute;inset:0}
+
+/* ============================================================
+   MASTER DISCOVERIES (Tools page)
+   ============================================================ */
+.discoveries{margin-top:42px;padding-top:32px;border-top:1px solid var(--line)}
+.disc-head{margin-bottom:20px}
+.disc-eyebrow{display:block;font:10.5px ui-monospace,monospace;color:var(--accent);letter-spacing:.14em;margin-bottom:8px}
+.disc-head h3{margin:0 0 6px;font-size:clamp(19px,2.2vw,26px)}
+.disc-note{margin:0;color:var(--muted);font-size:13px;line-height:1.65;max-width:62ch}
+
+.disc-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.disc-card{border:1px solid var(--line);border-radius:13px;background:var(--card-bg);padding:18px;
+  display:flex;flex-direction:column;gap:8px;transition:border-color .18s}
+.disc-card:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.disc-card-top{display:flex;align-items:center;gap:9px}
+.disc-num{font:10.5px ui-monospace,monospace;color:var(--muted);letter-spacing:.08em}
+.disc-tag{font:10px ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;
+  padding:3px 8px;border-radius:999px;background:var(--code);color:var(--accent)}
+.disc-card h4{margin:0;font-size:15px;line-height:1.4;color:var(--text)}
+.disc-context{margin:0;font:11px ui-monospace,monospace;color:var(--muted);line-height:1.5}
+.disc-body{margin:0;font-size:13px;line-height:1.65;color:var(--text);opacity:.86}
+
+@media(max-width:560px){
+  .discoveries{margin-top:32px;padding-top:24px}
+  .disc-grid{grid-template-columns:1fr}
+}
+
+/* The editor's discovery rows show a number instead of an icon. */
+.social-row-preview b{font:600 13px ui-monospace,monospace;color:var(--muted)}
+.disc-row .social-row-fields textarea{min-height:84px}
+
+/* ============================================================
+   SPEECH CONTROLS
+   ============================================================ */
+.chat-voice{width:24px;height:24px;flex:none;margin-left:auto;border:1px solid var(--line);border-radius:7px;
+  background:var(--card-bg);color:var(--muted);font-size:10.5px;display:grid;place-items:center;
+  cursor:pointer;transition:.18s}
+.chat-voice:hover{color:var(--accent);border-color:var(--accent)}
+.chat-voice.off{opacity:.55}
+
+/* The terminal's read-aloud button sits in the footer's bottom-right corner,
+   inside the prompt row rather than floating over the text. */
+.terminal-footer{display:flex;align-items:center;gap:8px}
+.whoami-field{flex:1;min-width:0}
+.term-speak{flex:none;width:30px;height:30px;border:1px solid var(--line);border-radius:8px;
+  background:var(--tile-bg);color:var(--muted);font-size:12px;display:grid;place-items:center;
+  cursor:pointer;transition:.18s}
+.term-speak:hover{color:var(--accent);border-color:var(--accent)}
+.term-speak.speaking{color:var(--accent);border-color:var(--accent);background:var(--code)}
+
+/* ---- the robot's "name first" gate ---- */
+.robot-name-gate{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:7px;text-align:center;padding:18px;
+  /* Dimmed, not hidden — the robot has to stay visible or there's nothing
+     drawing you through step one. No backdrop-filter: blurring the robot to
+     dim it is indistinguishable from a low-resolution robot, and this is the
+     first thing a visitor sees. A plain scrim dims without lying about the
+     picture quality. */
+  background:color-mix(in srgb,var(--card-bg) 62%,transparent);
+  border-radius:12px;cursor:not-allowed}
+.robot-gate-mark{width:44px;height:44px;display:grid;place-items:center;border-radius:50%;
+  background:var(--code);color:var(--accent);font-size:17px;margin-bottom:2px}
+.robot-name-gate b{font:13px Inter,ui-sans-serif,sans-serif;font-weight:600;color:var(--text);
+  text-shadow:0 1px 6px var(--card-bg)}
+.robot-name-gate em{font:11px ui-monospace,monospace;font-style:normal;color:var(--muted);
+  max-width:30ch;line-height:1.55;text-shadow:0 1px 6px var(--card-bg)}
+.robot-name-gate.shake{animation:gateShake .4s ease}
+@keyframes gateShake{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-6px)}
+  45%{transform:translateX(5px)}
+  70%{transform:translateX(-3px)}
+}
+/* No hover affordance on a robot you can't hit yet. */
+.robot-arena.needs-name .robot-stage{cursor:not-allowed}
+@media(prefers-reduced-motion:reduce){.robot-name-gate.shake{animation:none}}
+
+/* ============================================================
+   ALGORITHM GRAPHS (background layer)
+   Trees, meshes, shortest-path networks and rings, with a breadth-first
+   traversal lighting the edges in visit order. Decoration only — behind
+   everything, never interactive.
+   ============================================================ */
+/* ---- the backdrop layers ----
+   Both fields are pinned behind the page and must NEVER paint over anything.
+   `z-index:0` alone wasn't enough: any later sibling that creates its own
+   stacking context (a transform, an opacity, a backdrop-filter — the panels
+   have all three) can end up painting above a z-index:0 element. The layers
+   are explicitly `z-index:0` AND every content region is explicitly lifted
+   above them, so the order is stated rather than left to paint order. */
+.graph-field{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;
+  /* Isolation keeps the whole backdrop as one flat layer that content sits on
+     top of, instead of each graph competing individually. */
+  isolation:isolate}
+.bg-graph{position:absolute;opacity:.55;animation:graphDrift ease-in-out infinite;
+  will-change:transform}
+.bg-graph svg{width:100%;height:100%;display:block;overflow:visible}
+@keyframes graphDrift{
+  0%,100%{transform:translate3d(0,0,0)}
+  50%{transform:translate3d(24px,-18px,0)}
+}
+
+/* Its own colour rather than --code: that token is tuned for text at 12px,
+   and a hairline stroke at the same alpha simply disappears.
+   `--depth` is set per frame by the renderer — nearer edges and nodes are
+   brighter and thicker, which is what makes a rotating lattice read as a
+   solid object rather than a flat tangle. */
+.bg-edge{stroke:color-mix(in srgb,var(--accent) 34%,transparent);
+  fill:none;stroke-linecap:round;opacity:var(--depth,.6)}
+.bg-edge.lit{stroke-dasharray:1;stroke-dashoffset:1;
+  animation:edgeSweep 9s ease-in-out infinite}
+@keyframes edgeSweep{
+  0%{stroke-dashoffset:1}
+  18%{stroke-dashoffset:0}
+  100%{stroke-dashoffset:0}
+}
+.bg-node{fill:var(--accent);opacity:var(--depth,.6)}
+.bg-node.root{fill:var(--accent2)}
+
+/* Everything the visitor reads or clicks is lifted above the two backdrop
+   layers here, in one place, so a new section can't end up underneath them —
+   or, worse, let a graph paint over it.
+
+   `position:relative` goes ONLY on blocks that are statically positioned.
+   Blanket-setting it earlier knocked the topbar and footer out of
+   `position:fixed` and dropped them into the document flow — the header slid
+   down the page and the footer vanished. Anything already positioned keeps
+   the position it has and is only given a layer. */
+.portrait-stage,.terminal,.activity,.page-view{position:relative}
+.workspace,.portrait-stage,.terminal,.activity,.page-view{z-index:2}
+
+@media(max-width:560px){.bg-graph{opacity:.5}}
+@media(prefers-reduced-motion:reduce){
+  .bg-graph{animation:none}
+  .bg-edge.lit{animation:none;stroke-dashoffset:0}
+}
+
+/* Slim scrollbars inside the app's own panes. The default Windows/Chrome bar
+   is a wide grey slab that sits oddly against a rounded dark card — this is
+   the same bar, just sized and coloured to belong. Firefox uses the
+   scrollbar-width/color pair already set on the elements themselves. */
+.chat-log::-webkit-scrollbar,
+.music-list::-webkit-scrollbar,
+.editor-main::-webkit-scrollbar{width:8px;height:8px}
+.chat-log::-webkit-scrollbar-track,
+.music-list::-webkit-scrollbar-track,
+.editor-main::-webkit-scrollbar-track{background:transparent}
+.chat-log::-webkit-scrollbar-thumb,
+.music-list::-webkit-scrollbar-thumb,
+.editor-main::-webkit-scrollbar-thumb{
+  background:color-mix(in srgb,var(--text) 22%,transparent);
+  border-radius:999px;border:2px solid transparent;background-clip:padding-box}
+.chat-log::-webkit-scrollbar-thumb:hover,
+.music-list::-webkit-scrollbar-thumb:hover,
+.editor-main::-webkit-scrollbar-thumb:hover{
+  background:color-mix(in srgb,var(--accent) 55%,transparent);background-clip:padding-box}
+.chat-log,.music-list{scrollbar-color:color-mix(in srgb,var(--text) 24%,transparent) transparent}
+
+/* ============================================================
+   DEVICE FRAMES (Chat page)
+   The chat page used to be a panel wrapping two more panels — a container
+   inside a container, with no job beyond drawing a second border. The two
+   halves now carry their own identity instead: the robot sits in a phone,
+   because poking it with a finger is the whole interaction, and the
+   conversation sits on a desktop, because that's where you sit down to type.
+   ============================================================ */
+.chat-page{padding:0;min-height:0;border:0;background:none;box-shadow:none;backdrop-filter:none}
+.chat-page .chat-shell{margin-top:0}
+.chat-left{display:flex;flex-direction:column;min-width:0}
+
+.device{position:relative}
+
+/* ---- the devices ----
+   Depth WITHOUT transforms, and that is the whole design constraint.
+
+   The first version rotated the chassis inside a `perspective` with
+   `preserve-3d`. It looked dimensional and cost two things that matter more:
+   the tilt was distracting on a target you have to click accurately, and
+   every transformed layer is rasterised at one size and then scaled, so the
+   text on both screens came out soft. Nothing containing live text is
+   transformed any more — the solidity comes from light instead.
+
+   What sells it: a lit top edge, a dark underside, a body gradient that runs
+   corner to corner rather than straight down, a side wall drawn as an offset
+   plate behind the chassis, and a ground shadow cast to one side so the light
+   has a direction. All of that is paint, so the pixels stay sharp. */
+
+/* ---- the phone ---- */
+.phone{display:flex;justify-content:center}
+.phone-bezel{position:relative;width:100%;max-width:344px;padding:15px 13px 21px;
+  border-radius:38px;
+  background:linear-gradient(150deg,#3c444c 0%,#232930 34%,#141920 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.2),
+    inset 0 -2px 3px rgba(0,0,0,.6),
+    inset 0 0 0 1px rgba(0,0,0,.55),
+    -13px 20px 40px rgba(0,0,0,.4),
+    -4px 7px 13px rgba(0,0,0,.28)}
+/* No side-wall plate. It was meant to read as the body seen slightly
+   off-axis, and without the rotation that justified it, it is just a black
+   bar stuck to one edge. The chassis gradient and the edge highlights carry
+   the form on their own. The side buttons stay — those are real details a
+   phone has, and they sit ON the edge rather than beside it. */
+.phone-bezel::after{content:"";position:absolute;left:-3px;top:104px;width:3px;height:76px;
+  border-radius:2px 0 0 2px;background:linear-gradient(180deg,#39414a,#20262d);
+  box-shadow:inset 1px 0 0 rgba(255,255,255,.1)}
+
+.app.light-mode .phone-bezel{background:linear-gradient(150deg,#f4f7f9 0%,#dee5e9 36%,#c0cad1 100%);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.95),inset 0 -2px 3px rgba(24,52,62,.2),
+             inset 0 0 0 1px rgba(20,42,52,.15),-13px 20px 36px rgba(24,52,62,.2),
+             -4px 7px 13px rgba(24,52,62,.13)}
+.app.light-mode .phone-bezel::after{background:linear-gradient(180deg,#c2cbd2,#9ba6ae)}
+
+.phone-speaker{display:block;width:52px;height:5px;margin:0 auto 12px;border-radius:999px;
+  background:#05070a;box-shadow:inset 0 1px 1px rgba(0,0,0,.9),0 1px 0 rgba(255,255,255,.1)}
+.app.light-mode .phone-speaker{background:#818d95;box-shadow:inset 0 1px 1px rgba(0,0,0,.3)}
+
+.phone-screen{position:relative;border-radius:26px;background:var(--card-bg);padding:14px;
+  display:flex;flex-direction:column;gap:12px;overflow:hidden;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.65)}
+.app.light-mode .phone-screen{box-shadow:inset 0 0 0 1px rgba(20,42,52,.2)}
+
+.phone-bar{display:block;width:104px;height:4px;margin:14px auto 0;border-radius:999px;
+  background:rgba(255,255,255,.3)}
+.app.light-mode .phone-bar{background:rgba(20,42,52,.28)}
+
+/* ---- the desktop ---- */
+.desktop{display:flex;flex-direction:column;min-height:0}
+.desktop-body{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
+/* The monitor's own thickness, drawn as a plate behind the panel. */
+/* Even on all four sides. It was -6px left against -10px right, which is
+   why one edge of the bezel looked thinner than the other. */
+.desktop-body::before{content:"";position:absolute;inset:-8px;border-radius:18px;
+  z-index:-1;background:linear-gradient(160deg,#2e353d,#161b21);
+  box-shadow:0 24px 46px rgba(0,0,0,.42)}
+.app.light-mode .desktop-body::before{background:linear-gradient(160deg,#e0e7ec,#b4bfc7);
+  box-shadow:0 20px 40px rgba(24,52,62,.2)}
+
+.desktop-head{position:relative;display:flex;align-items:center;gap:10px;padding:10px 14px;
+  border-radius:13px 13px 0 0;
+  background:linear-gradient(180deg,#3c444c,#262c33);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16),inset 0 0 0 1px rgba(0,0,0,.45)}
+.app.light-mode .desktop-head{background:linear-gradient(180deg,#eff3f6,#d6dee3);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.95),inset 0 0 0 1px rgba(20,42,52,.15)}
+.desktop-dots{display:inline-flex;gap:6px}
+.desktop-dots b{width:11px;height:11px;border-radius:50%;background:#ff5f57;
+  box-shadow:inset 0 -1px 1px rgba(0,0,0,.22)}
+.desktop-dots b:nth-child(2){background:#febc2e}
+.desktop-dots b:nth-child(3){background:#28c840}
+.desktop-title{font:10.5px ui-monospace,monospace;color:var(--muted);letter-spacing:.06em}
+
+.desktop-screen{position:relative;flex:1 1 auto;min-height:0;overflow:hidden;
+  border-radius:0 0 5px 5px;background:var(--card-bg);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.5)}
+.app.light-mode .desktop-screen{box-shadow:inset 0 0 0 1px rgba(20,42,52,.16)}
+
+/* The chat panel is the screen's content, so it drops its own frame — that
+   doubled border was half the "container in a container" problem. */
+.desktop-screen .chat-panel{border:0;border-radius:0;height:100%;background:transparent}
+
+/* Neck and base, in normal flow BELOW the panel. They used to be pushed back
+   on the Z axis inside the perspective, which projected them forward and made
+   the foot overlap the front of the bezel. Stacked underneath, they simply
+   can't. */
+.desktop-neck{display:block;flex:none;width:76px;height:24px;margin:0 auto;
+  background:linear-gradient(90deg,#1b2027,#39414a 45%,#1b2027);
+  box-shadow:0 3px 6px rgba(0,0,0,.35)}
+.desktop-base{display:block;flex:none;width:196px;height:12px;margin:2px auto 0;
+  border-radius:4px/50%;
+  background:linear-gradient(180deg,#3a424a,#1a1f25);
+  box-shadow:0 12px 22px rgba(0,0,0,.4)}
+.app.light-mode .desktop-neck{background:linear-gradient(90deg,#aeb9c1,#dde3e8 45%,#aeb9c1)}
+.app.light-mode .desktop-base{background:linear-gradient(180deg,#e2e8ed,#b2bcc4);
+  box-shadow:0 10px 18px rgba(24,52,62,.18)}
+
+@media(max-width:900px){
+  .phone-bezel{max-width:332px}
+  .desktop-neck,.desktop-base{display:none}
+  .desktop-body::before{inset:-6px}
+}
+
+/* ============================================================
+   TOP DAMAGE BOARD
+   ============================================================ */
+.board{border:1px solid var(--line);border-radius:13px;background:var(--card-bg);padding:13px 14px}
+.board-head{display:flex;align-items:baseline;gap:9px;margin-bottom:10px}
+.board-title{font:10.5px ui-monospace,monospace;letter-spacing:.12em;color:var(--accent)}
+.board-note{margin-left:auto;font:10px ui-monospace,monospace;color:var(--muted);opacity:.8}
+.board-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.board-row{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:10px;
+  background:var(--tile-bg);border:1px solid transparent}
+/* Only the leader gets colour. Three medals in a row is a lot of noise for a
+   board this small, and it stops the top spot meaning anything. */
+.board-row.rank-1{border-color:color-mix(in srgb,var(--accent) 45%,transparent);
+  background:color-mix(in srgb,var(--accent) 10%,var(--tile-bg))}
+.board-rank{flex:none;width:17px;text-align:center;font:11px ui-monospace,monospace;color:var(--muted)}
+.board-row.rank-1 .board-rank{color:var(--accent);font-weight:700}
+.board-face{flex:none;width:28px;height:28px;border-radius:50%;overflow:hidden}
+.board-face svg{width:100%;height:100%;display:block}
+.board-who{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
+.board-who b{font:12.5px Inter,ui-sans-serif,sans-serif;font-weight:600;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board-who em{font:10px ui-monospace,monospace;font-style:normal;color:var(--muted)}
+.board-damage{flex:none;font:12.5px ui-monospace,monospace;font-weight:600;color:var(--accent)}
+
+/* ---- the crown: winner of the LAST completed round ---- */
+.board-champ{display:flex;align-items:center;gap:10px;padding:10px 11px;margin:-2px 0 12px;
+  border-radius:11px;border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
+  background:color-mix(in srgb,var(--accent) 12%,var(--tile-bg))}
+.board-crown{flex:none;width:24px;height:24px;display:grid;place-items:center;border-radius:50%;
+  background:var(--accent);color:var(--btn-on-accent);font-size:10px}
+.board-champ-face{flex:none;width:30px;height:30px;border-radius:50%;overflow:hidden}
+.board-champ-face svg{width:100%;height:100%;display:block}
+.board-champ-who{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
+.board-champ-who em{font:9px ui-monospace,monospace;font-style:normal;letter-spacing:.09em;
+  color:var(--muted)}
+.board-champ-who > b{font:13px Inter,ui-sans-serif,sans-serif;font-weight:700;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board-champ-dmg{flex:none;font:13px ui-monospace,monospace;font-weight:700;color:var(--accent)}
+.board-empty{margin:0;padding:8px 2px 2px;font:10.5px ui-monospace,monospace;color:var(--muted);
+  opacity:.8;text-align:center}
+
+/* ---- the board, now living inside the phone ----
+   It belongs on the phone's screen: the race is part of the game, and having
+   it float underneath the device as a separate card was the same
+   "two things pretending to be one" problem the outer panel had. */
+.phone-screen{display:flex;flex-direction:column;gap:12px}
+.phone-screen .board{border:0;border-radius:11px;background:var(--tile-bg);padding:11px 12px;
+  position:static;z-index:auto}
+.phone-screen .board-champ{margin:0 0 10px}
+.phone-screen .board-row{padding:6px 8px}
+.chat-left{gap:0}
+
+/* ---- the name, inside the window's title bar ----
+   It used to float above the devices as a loose pill, which put the person's
+   identity outside the machine they're typing on. A window's title bar is
+   exactly where a "signed in as" belongs. */
+.desktop-head .chat-who{margin-left:auto;padding:3px 9px 3px 3px;gap:6px;
+  border-radius:999px;border:1px solid var(--line);background:var(--card-bg);
+  font:10.5px ui-monospace,monospace;color:var(--muted);max-width:46%}
+.desktop-head .chat-who b{color:var(--accent);font-weight:500;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.desktop-head .chat-who-face{width:20px;height:20px}
+.desktop-head .chat-voice{margin-left:8px}
+/* Without a name yet, the toggle takes the right-hand slot on its own. */
+.desktop-head .chat-who[hidden] + .chat-voice{margin-left:auto}
+
+/* ---- vertical alignment of the two devices ----
+   The monitor was sitting lower than the phone and its base ran off the
+   bottom: the neck and base add height BELOW the screen, and with the column
+   stretched to the row they pushed the whole panel down. The device column is
+   a flex box now, the screen takes the free space, and the stand is whatever
+   is left — so both devices start at the same line and the base always lands
+   inside the page. */
+/* `stretch` so the monitor grows to the phone's height, and a flex column
+   inside it so the neck and base take what they need from the BOTTOM while
+   the screen absorbs the rest. Sizing the panel from the viewport instead
+   was what left the monitor short and its base hanging past the page. */
+.chat-main{align-items:stretch}
+.chat-column{display:flex;flex-direction:column;min-width:0}
+.desktop{flex:1;min-height:0}
+.desktop-body{flex:1 1 auto;min-height:0}
+.desktop-screen{min-height:0}
+.desktop-neck,.desktop-base{flex:none}
+/* The label sits in a narrow phone column, so it must never wrap — a
+   two-line caption above a one-line name reads as a mistake. */
+.board-champ-who em{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ============================================================
+   WORLD CHAT — RESPONSIVE
+   Wide screens put the phone and the monitor side by side and let the
+   monitor stretch to the phone's height. Stacked, there is no second column
+   to match, so that same chain of `flex:1 → height:100%` has nothing to
+   resolve against and collapses: measured at 900px and below, the chat log
+   came out **26–32px tall** — a sliver with the composer under it, which is
+   the squashed window this fixes.
+
+   Below the breakpoint the panel takes a definite height again. `vh` so it
+   scales with the device, `clamp` so it can neither shrink to a sliver on a
+   short screen nor run past the fold on a tall one.
+   ============================================================ */
+@media(max-width:900px){
+  .chat-main{grid-template-columns:minmax(0,1fr);gap:18px}
+  .chat-left,.chat-column{width:100%}
+  /* Stop inheriting the stretch that only makes sense in two columns. */
+  .desktop{flex:none}
+  .desktop-body{flex:none}
+  .desktop-screen{flex:none}
+  .desktop-screen .chat-panel{height:clamp(380px,58vh,560px)}
+  .chat-log{min-height:180px}
+  /* The phone is a fixed-width object, so centre it rather than letting it
+     sit against one edge of a full-width column. */
+  .phone{width:100%}
+}
+
+/* Between the two-column breakpoint and a phone, the monitor is full width
+   but the window chrome shouldn't grow with it. */
+@media(max-width:900px) and (min-width:601px){
+  .desktop-screen .chat-panel{height:clamp(420px,52vh,540px)}
+}
+
+/* Very narrow: reclaim every pixel the frames are spending on decoration. */
+@media(max-width:420px){
+  .phone-bezel{padding:12px 10px 16px}
+  .phone-screen{padding:11px;border-radius:22px}
+  .desktop-head{padding:8px 11px}
+  .desktop-title{display:none}          /* the traffic lights already say "window" */
+  .desktop-body::before{inset:-5px}
+  .chat-log{padding:12px}
+  .board-champ-who em{font-size:8.5px}
+}
+
+/* A short window (a laptop with a browser toolbar, or landscape on a phone)
+   must not push the composer below the fold. */
+@media(max-height:620px) and (min-width:901px){
+  .robot-stage{height:210px}
+  .chat-panel{min-height:0}
+}
+
+/* The read-aloud button while it is actually reading: a small equaliser.
+   Three bars on staggered loops — the offsets are deliberately not multiples
+   of each other, so the pattern doesn't visibly repeat and it reads as sound
+   rather than as a rotating animation. */
+.term-eq{display:flex;align-items:flex-end;justify-content:center;gap:2px;height:13px}
+.term-eq i{width:2.5px;border-radius:1px;background:currentColor;
+  animation:termEq .9s ease-in-out infinite}
+.term-eq i:nth-child(1){height:6px;animation-delay:-.55s}
+.term-eq i:nth-child(2){height:12px;animation-delay:-.15s}
+.term-eq i:nth-child(3){height:8px;animation-delay:-.78s}
+@keyframes termEq{
+  0%,100%{transform:scaleY(.35)}
+  50%{transform:scaleY(1)}
+}
+.term-eq i{transform-origin:bottom}
+/* Still says "playing", without motion. */
+@media(prefers-reduced-motion:reduce){
+  .term-eq i{animation:none}
+  .term-eq i:nth-child(1){height:5px}
+  .term-eq i:nth-child(2){height:12px}
+  .term-eq i:nth-child(3){height:8px}
+}
+
+/* A miss: the same impact ring, but neutral and quieter — it says "that
+   landed off the robot", not "that hurt". */
+.robot-ring.miss{border-color:color-mix(in srgb,var(--muted) 55%,transparent);
+  animation-duration:.5s}
+
+/* The engine took the text and never spoke. Brief, and it explains itself on
+   hover — this is the one speech failure the page can't fix from here. */
+.term-speak.failed{border-color:#ff8b8b;color:#ff8b8b;animation:termFail .45s ease}
+@keyframes termFail{
+  0%,100%{transform:translateX(0)}
+  25%{transform:translateX(-3px)}
+  75%{transform:translateX(3px)}
+}
+@media(prefers-reduced-motion:reduce){.term-speak.failed{animation:none}}

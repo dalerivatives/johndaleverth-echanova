@@ -1,0 +1,9 @@
+# Search engines: index the portfolio, stay out of the editor and the API.
+User-agent: *
+Allow: /
+Disallow: /editor.html
+Disallow: /api/
+
+# Replace example.com with your real deployed address so search engines can
+# find the sitemap (it must be an absolute URL).
+Sitemap: https://example.com/sitemap.xml
