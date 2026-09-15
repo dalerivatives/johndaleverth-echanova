@@ -1,0 +1,79 @@
+# ============================================================
+#  Keep the Render free instance awake
+# ------------------------------------------------------------
+#  TWO things in this stack go to sleep, not one:
+#
+#    * Render spins a free web service down after 15 MINUTES
+#      without inbound traffic (cold start: 30-60s).
+#    * Supabase PAUSES a Free-plan project after roughly 7 DAYS
+#      of low activity, and a paused project must be restored by
+#      hand from the dashboard.
+#
+#  So this pings /api/health/db, not /api/health. The plain health
+#  endpoint returns a constant and never opens a database
+#  connection - it would keep Render awake for months while
+#  Supabase quietly paused underneath it, and the site would break
+#  on the next real visit with the web host reporting perfect
+#  uptime the whole time. /api/health/db runs one SELECT, which
+#  counts as activity on BOTH halves.
+#
+#  READ THIS BEFORE ENABLING:
+#  A free workspace gets 750 instance-hours per month, shared
+#  across every free web service in it. A calendar month is ~730
+#  hours. Keeping ONE service awake around the clock therefore
+#  uses almost the entire allowance and leaves ~20 hours spare.
+#  If you add a second free web service while this is running,
+#  you will exhaust the allowance and Render will suspend the
+#  services for the rest of the month.
+#
+#  Honest limitation: GitHub's scheduled runners are queued, not
+#  guaranteed. Under load a */10 schedule can drift past 15
+#  minutes and the service will nap anyway. If you want this to
+#  be reliable, use an uptime monitor instead (see KEEP_AWAKE.md)
+#  and treat this workflow as the backup.
+# ============================================================
+name: keep-awake
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every 10 minutes, UTC
+  workflow_dispatch:          # and a manual "Run workflow" button
+
+# If a run is still going when the next one fires, drop the new one
+# rather than stacking pings on top of each other.
+concurrency:
+  group: keep-awake
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping the app AND the database
+        env:
+          # Override in the repo under Settings > Secrets and variables >
+          # Actions > Variables, if the service URL ever changes.
+          TARGET: ${{ vars.KEEP_AWAKE_URL || 'https://portfolio-ap9x.onrender.com/api/health/db' }}
+        run: |
+          echo "Pinging $TARGET"
+          # --max-time 90 because a COLD start legitimately takes 30-60s.
+          # Retry a few times so one blip doesn't fail the run.
+          code=$(curl -sS -o /tmp/body.txt -w '%{http_code}' \
+                      --max-time 90 --retry 3 --retry-delay 10 --retry-all-errors \
+                      "$TARGET" || echo "000")
+          echo "HTTP $code"
+          head -c 200 /tmp/body.txt || true
+          echo
+          # 503 is this endpoint's deliberate "web process is up, database
+          # is not" answer - worth failing loudly, because that is Supabase
+          # having paused and it needs a human in the dashboard.
+          if [ "$code" = "503" ]; then
+            echo "::error::App is up but the database is unreachable - check whether the Supabase project has been paused"
+            exit 1
+          fi
+          if [ "$code" != "200" ]; then
+            echo "::error::Health check returned $code"
+            exit 1
+          fi
+          echo "App and database are both awake."

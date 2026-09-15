@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+portfolio.db
+uploads/*
+!uploads/.gitkeep
+.env

@@ -16,7 +16,7 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
@@ -248,7 +248,37 @@ def dev_version():
 
 @app.get("/api/health")
 def health():
+    """Liveness only. Returns a constant and opens no database connection, so
+    it stays cheap enough to poll every few minutes. See /api/health/db for the
+    one a keep-alive monitor should actually use."""
     return {"status": "ok"}
+
+
+@app.get("/api/health/db")
+def health_db(db: Session = Depends(get_db)):
+    """Liveness AND a deliberate touch of the database.
+
+    This exists because of a trap in the free-tier stack. Supabase pauses a
+    Free-plan project after roughly 7 days of low activity, and a monitor
+    pinging /api/health would never prevent it: that endpoint returns a
+    constant and never opens a connection. So an uptime pinger could keep the
+    web service awake for months while the database quietly paused underneath
+    it — and the site would break on the next real visit, with the web host
+    reporting perfect uptime the whole time.
+
+    Point keep-alive monitors HERE. One trivial SELECT is enough to count as
+    activity on both halves of the stack.
+    """
+    from sqlalchemy import text
+
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001 - a monitor wants the reason, not a 500
+        return JSONResponse(
+            status_code=503,
+            content={"status": "degraded", "db": "unreachable", "detail": str(exc)[:200]},
+        )
+    return {"status": "ok", "db": "ok"}
 
 
 @app.get("/api/admin/check", dependencies=[Depends(require_admin)])

@@ -1630,3 +1630,363 @@ body.lightbox-open{overflow:hidden}
   75%{transform:translateX(3px)}
 }
 @media(prefers-reduced-motion:reduce){.term-speak.failed{animation:none}}
+
+/* ============================================================
+   PHASE 29 — ONE MOBILE GRID
+   ------------------------------------------------------------
+   Desktop reads as a single system because every panel uses the
+   same 42px inner padding, so every heading, card and paragraph
+   starts on one vertical line. Mobile lost that: each component's
+   padding had been shrunk on its own to a different value, so a
+   390px screen had SIX different content edges —
+
+     .terminal-body 15px -> 27   .content-page 18px -> 30
+     .activity      22px -> 34   .cms-card     16px -> 48
+     .desktop-screen  0px -> 12  .phone-screen 13px -> 39
+
+   Nothing lined up with anything, which is what reads as "not
+   properly aligned" even when no single element is wrong.
+
+   The fix is one token, --m-gut, used as the inner padding of
+   every top-level mobile panel, so the whole page shares one
+   left and right edge the way desktop does.
+   ============================================================ */
+@media(max-width:900px){
+  :root{ --m-gut:18px; }
+
+  /* Every top-level panel now opens on the same vertical line. */
+  .content-page{ padding:24px var(--m-gut) }
+  .activity{ padding:var(--m-gut) }
+  .terminal-body{ padding:var(--m-gut) }
+  .chat-log,.chat-composer,.chat-head{ padding-inline:var(--m-gut) }
+
+  /* The carousel used to sit on a -2px horizontal margin so its
+     6px focus-ring gutter wouldn't narrow the track. That shifted
+     every card 2px left of its own section heading — just enough
+     to look like a mistake. The gutter is only needed vertically. */
+  .carousel-track{ padding:6px 0; margin:-6px 0 }
+
+  /* A card is the one place an extra inset is correct: it's a
+     bordered object, so its text is inset from its own border.
+     Matching the panel gutter keeps the two rhythms related
+     instead of arbitrary. */
+  .cms-card{ padding:var(--m-gut) }
+}
+
+/* ------------------------------------------------------------
+   The two device frames, reconciled.
+
+   Stacked on mobile the phone kept its 13px bezel while the
+   monitor lost its chassis entirely — the screen ran flush to
+   the frame's own edge. Two devices in one column, one inset
+   27px and one inset 0, read as two unrelated widths.
+
+   The monitor gets a real bezel of the same weight, so both
+   screens open on the same line and the pair reads as one family.
+   ------------------------------------------------------------ */
+@media(max-width:900px){
+  :root{ --device-bezel:10px }
+  .device.phone,.device.desktop{ width:100%; margin-inline:auto }
+  /* One token drives both bezels, so the phone's screen and the
+     monitor's screen can never drift to different widths again. */
+  .phone-bezel{ max-width:none; padding-inline:var(--device-bezel) }
+  .desktop-body{ padding:0 var(--device-bezel) var(--device-bezel) }
+  .desktop-screen{ border-radius:0 0 12px 12px }
+}
+
+/* Narrow phones: the gutter tightens, but every panel tightens
+   together so the shared edge survives. */
+@media(max-width:380px){
+  :root{ --m-gut:14px; --device-bezel:8px }
+}
+
+/* The whoami prompt's placeholder is a full sentence. On a phone the
+   field is ~180px, so it was being cut mid-word ("...to see th|") right
+   against the read-aloud button, which reads as a broken input rather
+   than a truncated hint. An ellipsis makes the truncation deliberate. */
+@media(max-width:900px){
+  .whoami-field{ text-overflow:ellipsis; min-width:0 }
+}
+
+/* ============================================================
+   PHASE 30 — THE NAV, THE SOCIALS, AND A FRAME THAT ATE SCROLL
+   ------------------------------------------------------------
+   Three complaints, three unrelated causes.
+
+   1. The nav looked nothing like desktop's. Desktop collapses the
+      rail to a single circle in the lower-left and expands it on
+      hover — but that whole behaviour lives inside
+      @media(hover:hover) and (pointer:fine), which never matches
+      on a phone. Mobile therefore fell all the way back to a
+      full-width bar pinned to the bottom centre. The behaviour
+      wasn't disabled for touch on purpose; it was simply
+      unreachable, because hover is the only thing that opened it.
+      Touch needs a tap to do what hover did, so the same collapsed
+      geometry is restated here and keyed on a .open class that
+      script.js toggles.
+
+   2. Dragging inside the monitor never scrolled the page. .chat-log
+      carries overscroll-behavior:contain — correct for a mouse
+      wheel, where you want the log to scroll and the page to stay
+      put, but on a phone the monitor fills most of the screen, so
+      "the log absorbs the gesture and refuses to pass it on" means
+      you must physically reach outside the frame to scroll. On
+      touch the scroll chains again.
+
+   3. The social icons vanished below 850px because .socials was set
+      to display:none for space. They're back, sized down, and the
+      row scrolls rather than pushing the top bar wider.
+   ============================================================ */
+@media(max-width:850px){
+
+  /* ---- 1. the nav: one circle, lower-left, tap to open ---- */
+  .stack-shell{
+    left:12px; right:auto; top:auto;
+    bottom:calc(var(--footer-h) + 14px);
+    display:block;
+    padding:0;
+    pointer-events:none;
+  }
+  .stack{
+    pointer-events:auto;
+    width:auto; max-width:none;
+    display:flex; flex-direction:column-reverse; align-items:center;
+    gap:4px;
+    padding:7px;
+    border-radius:999px;
+    background:var(--menu-bg);
+    box-shadow:0 10px 34px var(--nav-shadow);
+    transition:padding .3s ease, border-radius .3s ease;
+  }
+  /* Collapsed: every item folded away except the one you're on, so
+     the control reads as a single circle showing where you are. */
+  .stack .nav-item{
+    flex:0 0 auto;
+    height:0; opacity:0; overflow:hidden;
+    transform:translateY(8px);
+    pointer-events:none;
+    transition:height .3s cubic-bezier(.2,.9,.2,1), opacity .2s, transform .3s;
+  }
+  .stack .nav-item.active{
+    height:48px; opacity:1; overflow:visible;
+    transform:none; pointer-events:auto;
+  }
+  /* Open: the whole rail, same as desktop's hover state. */
+  .stack.open .nav-item{
+    height:52px; opacity:1; overflow:visible;
+    transform:none; pointer-events:auto;
+  }
+  .nav-btn{width:44px;height:44px;font-size:18px}
+  .nav-label{display:none}
+
+  /* Desktop's rail opens into the left gutter, where the workspace never
+     reaches, so it covers nothing. On a phone the content runs nearly edge
+     to edge, so an open rail sits on top of it. A scrim makes that read as
+     a menu deliberately over the page rather than a panel stuck in the
+     middle of the text. The shell stays pointer-events:none, so a tap on
+     the scrim reaches the document and closes the rail. */
+  .stack-shell:has(.stack.open)::before{
+    content:"";
+    position:fixed; inset:0; z-index:-1;
+    background:var(--scrim, rgba(8,20,16,.34));
+    animation:scrim-in .22s ease both;
+  }
+  @keyframes scrim-in{ from{opacity:0} to{opacity:1} }
+  @media(prefers-reduced-motion:reduce){
+    .stack-shell:has(.stack.open)::before{animation:none}
+    .stack .nav-item{transition:none}
+  }
+
+  /* The bar used to need 82px of clearance across the full width.
+     A 44px circle in the corner needs far less. */
+  .workspace{
+    width:calc(100% - 32px);
+    margin-left:auto; margin-right:auto;
+    padding-bottom:calc(var(--footer-h) + 30px);
+  }
+
+  /* ---- 2. give the gesture somewhere to go ---- */
+  /* This one line is the whole fix. The panel's own height is set by
+     `.desktop-screen .chat-panel{height:100%}`, which outranks anything
+     set here, so don't bother shrinking it — with chaining restored the
+     gesture passes through to the page once the log has nothing left to
+     give, which for an empty or fully-scrolled log is immediately. */
+  .chat-log{ overscroll-behavior:auto }
+
+  /* ---- 3. the socials, back ---- */
+  .socials{
+    display:flex;
+    gap:5px;
+    padding:4px;
+    max-width:min(46vw,190px);
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .socials::-webkit-scrollbar{ display:none }
+  .socials a{ width:28px; height:28px; font-size:14px; flex:0 0 auto }
+  .top-actions{ min-width:0; gap:8px }
+  /* The viewer count yields first — it's the least important thing
+     in the bar and the only part that can afford to truncate. */
+  .brand{ min-width:0; overflow:hidden }
+  .online{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+}
+
+@media(max-width:380px){
+  .socials a{ width:26px; height:26px; font-size:13px }
+  .socials{ max-width:40vw }
+  .stack-shell{ left:10px }
+}
+
+/* ============================================================
+   PHASE 31 — ONE BUTTON SHAPE, AND THE MONITOR GETS ITS STAND BACK
+   ------------------------------------------------------------
+   Measuring every icon control on a phone turned up three
+   competing shape languages and one outright bug:
+
+     nav stack (collapsed)  60x80  r:999px   <- should be a circle
+     nav button             46x46  r:50%     circle
+     palette button         52x29  r:999px   pill
+     top social icon        28x28  r:7px     rounded square
+     chat social icon       38x38  r:9px     rounded square
+     composer send          36x36  r:50%     circle
+
+   THE BUG: the collapsed rail measured 60 wide and 80 tall. Four
+   of the five items are height:0 when collapsed, but a flex `gap`
+   is applied BETWEEN items regardless of whether those items have
+   any height — so four invisible gaps added 16px of phantom
+   height. A border-radius of 999px on a 60x80 box is a pill, not
+   a circle, which is exactly why it read as a squircle.
+
+   THE SYSTEM: this site is already circular everywhere that
+   matters — nav buttons, the send key, the robot, the window's
+   traffic lights. The rounded-square socials were the outliers,
+   so everything round-ish becomes properly round.
+   ============================================================ */
+
+/* The gap only exists once the rail is actually open. */
+@media(max-width:850px){
+  .stack{ gap:0 }
+  .stack.open{ gap:4px }
+  /* Padding arithmetic alone left it at 60x62 — the 1px border on
+     .stack isn't in the sum, and chasing that by hand would break
+     again the next time a padding changes. aspect-ratio makes the
+     collapsed state square by definition, whatever is inside it. */
+  .stack .nav-item.active{ height:46px }
+  /* aspect-ratio yields to content size, so it left the box at 60x62.
+     Stating both dimensions is the only thing that actually squares it,
+     and box-sizing keeps the 1px border inside the 60. */
+}
+/* Locking the collapsed rail to a fixed 60x60 is correct ONLY where nothing
+   can hover it open. A desktop browser dragged narrow matches (max-width:850px)
+   AND (hover:hover), so the desktop rule expanded all five items to 60px each
+   inside this 60px box — 286px of content spilling out of the circle. The rest
+   of the mobile nav geometry is fine for both pointer types; it is only the
+   fixed size that has to be touch-only. */
+@media (max-width:850px) and (hover:none), (max-width:850px) and (pointer:coarse){
+  .stack:not(.open){
+    width:60px; height:60px;
+    box-sizing:border-box;
+    justify-content:center;
+    padding:0;
+  }
+}
+
+/* One shape for every icon button, at every width. */
+.socials{ border-radius:999px }
+.socials a,
+.chat-socials a{ border-radius:50% }
+.palette-btn{ border-radius:999px }
+
+/* ------------------------------------------------------------
+   The monitor's stand, restored on mobile.
+
+   It was `display:none` below 900px to save vertical space, but
+   that left the monitor as a floating rectangle while the phone
+   beside it kept its full body — so the two devices stopped
+   reading as the same kind of object. The stand comes back,
+   scaled to a narrow column: the neck and base are proportioned
+   down rather than simply un-hidden, so they don't look like
+   desktop furniture dropped onto a phone.
+   ------------------------------------------------------------ */
+@media(max-width:900px){
+  .desktop-neck{
+    display:block;
+    width:58px; height:18px;
+    box-shadow:0 2px 5px rgba(0,0,0,.32);
+  }
+  .desktop-base{
+    display:block;
+    width:144px; height:10px;
+    margin:2px auto 0;
+    box-shadow:0 9px 16px rgba(0,0,0,.34);
+  }
+  .app.light-mode .desktop-base{ box-shadow:0 8px 14px rgba(24,52,62,.16) }
+}
+@media(max-width:380px){
+  .desktop-neck{ width:48px; height:15px }
+  .desktop-base{ width:118px; height:9px }
+}
+
+/* ============================================================
+   PHASE 31b — TAP TARGETS
+   ------------------------------------------------------------
+   A sweep of every control at seven widths found the layout
+   clean — no overflow, no clipped text, no console errors — but
+   a row of controls far below the ~44px a fingertip needs:
+
+     carousel dot        6x6    <- effectively untappable
+     carousel dot active 16x6
+     chat voice toggle   24x24
+     robot sound toggle  26x26
+     social icon         28x28
+     palette button      52x29
+
+   Keyed on pointer type, not width: a narrow desktop window
+   driven by a mouse doesn't need fat controls, a phone does.
+
+   Where a control has a tooltip on ::after (.palette-btn and
+   .socials a both do) the pseudo-element is already taken, so
+   those grow for real instead of getting an invisible hit area.
+   ============================================================ */
+@media(hover:none),(pointer:coarse){
+
+  /* --- controls that can simply be bigger --- */
+  /* NOT a plain button — a toggle switch. The track is the pill, and
+     `.palette-btn i` is an absolutely-positioned knob that slides across
+     it (translateX in light mode). Phase 31 resized the track to a 40x40
+     circle for tap-target reasons without touching the knob, which left
+     the knob hanging 7px off the right edge and 15px above centre.
+
+     Scale the whole switch instead, keeping its proportions:
+       track 64x36, knob 30x30 inset 3px  ->  3px of clearance all round,
+       and the slid position is 64 - 3 - 30 - 3 = 28px across. */
+  .palette-btn{ width:64px; height:36px; padding:0 }
+  .palette-btn i{ width:30px; height:30px; top:3px; left:3px; font-size:16px }
+  .app.light-mode .palette-btn i{ transform:translateX(28px) }
+  .socials a{ width:36px; height:36px; font-size:15px }
+  .chat-socials a{ width:42px; height:42px }
+
+  /* --- controls that keep their drawn size and gain a hit area --- */
+  .robot-sound, .chat-voice{ position:relative }
+  .robot-sound::after, .chat-voice::after{
+    content:""; position:absolute; left:50%; top:50%;
+    width:44px; height:44px; transform:translate(-50%,-50%);
+  }
+
+  /* --- the dots --- */
+  /* 44x44 is the target to aim for, but adjacent dots sit ~13px
+     apart: a 44px area centred on each would overlap its
+     neighbours, and in the overlap the later element in the DOM
+     takes the tap — so every dot would be a coin flip. Widening
+     the spacing and sizing the hit area TO that spacing is the
+     honest trade: ~21x40 per dot, no overlap, and a dot that is
+     still visually a dot. */
+  .carousel-dots{ gap:12px; margin-top:14px }
+  .carousel-dots button{ width:9px; height:9px; position:relative }
+  .carousel-dots button.active{ width:20px; height:9px }
+  .carousel-dots button::after{
+    content:""; position:absolute; left:50%; top:50%;
+    width:calc(100% + 12px); height:40px;
+    transform:translate(-50%,-50%);
+  }
+}

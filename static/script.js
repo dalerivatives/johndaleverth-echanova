@@ -205,7 +205,31 @@ function activate(id){
  views.forEach(view=>view.classList.toggle("active",view.dataset.view===id));
  window.scrollTo({top:0,behavior:"smooth"});
 }
-stack.addEventListener("click",e=>{const item=e.target.closest(".nav-item"); if(item) activate(item.dataset.id);});
+/* On a pointer device the rail opens on hover, so a click is always a
+   navigation. Touch has no hover: the collapsed circle would otherwise be
+   a dead control showing only the page you're already on. So the first tap
+   opens the rail and the second one navigates — which is what hovering then
+   clicking does on desktop, just split into two taps. */
+const navIsTouch = () => window.matchMedia("(hover:none), (pointer:coarse)").matches;
+stack.addEventListener("click",e=>{
+  const item=e.target.closest(".nav-item");
+  if(!item) return;
+  if(navIsTouch() && !stack.classList.contains("open")){
+    stack.classList.add("open");
+    return;                       // reveal first; don't navigate on the opening tap
+  }
+  activate(item.dataset.id);
+  stack.classList.remove("open");
+});
+/* Tapping anywhere else folds it back up, the way moving the cursor away
+   does on desktop. The opening tap can't trigger this: its target is inside
+   the stack, so the check below is false for that event. */
+document.addEventListener("click",e=>{
+  if(!stack.contains(e.target)) stack.classList.remove("open");
+});
+/* Reordering re-renders the items, and a stale .open on a rail that has
+   just navigated would leave it hanging open behind the new page. */
+window.addEventListener("resize",()=>{ if(!navIsTouch()) stack.classList.remove("open"); });
 renderStack();
 
 const themeClasses=["light-mode","cyber-mode","ocean-mode","violet-mode","amber-mode"];
