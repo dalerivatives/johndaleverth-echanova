@@ -1251,13 +1251,8 @@ if(!themeMeta[savedTheme] && window.matchMedia){
           setName("");
           nameInput.value = "";
         }
-        // This connection already holds a name on another browser (or on this
-        // one before its storage was cleared). Offer that name rather than
-        // letting them type a new one only to be refused.
-        if(data.network_name){
-          nameInput.value = data.network_name;
-          showError(`This network is already chatting as “${data.network_name}” — that name is the one to use here.`);
-        }
+        // Nothing else to say. Devices are independent: what another phone on
+        // the same Wi-Fi is called has nothing to do with this one.
       }
     }catch(e){/* offline: keep what we have rather than locking them out */}
   }

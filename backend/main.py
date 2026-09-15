@@ -420,28 +420,53 @@ def upload_setting_file(
 # ---------------------------------------------------------------------------
 CHAT_MAX_NAME = 40
 CHAT_MAX_BODY = 500
-CHAT_MIN_SECONDS_BETWEEN = 3        # per IP, stops hammering
-CHAT_MAX_PER_HOUR = 30              # per IP
+# Per DEVICE, not per IP. An IP is not a person: a house, a school and every
+# phone on the same carrier share one, so a per-IP budget is really a budget
+# split between strangers. These numbers describe how fast one human types,
+# so they belong to one browser.
+CHAT_MIN_SECONDS_BETWEEN = 3        # per device, stops hammering
+CHAT_MAX_PER_HOUR = 30              # per device
+
+# The IP ceiling stays, but only as a backstop against one machine clearing
+# its storage over and over to mint fresh device ids. It is set high enough
+# that a full household chatting normally will never reach it.
+CHAT_MAX_PER_HOUR_PER_IP = 300
 CHAT_KEEP_ROWS = 500                # oldest trimmed beyond this
 
 _chat_history: dict[str, list[float]] = {}
+_chat_ip_history: dict[str, list[float]] = {}
 _chat_lock = threading.Lock()
 
 
-def _chat_rate_limit(client_ip: str):
+def _prune(store: dict, now: float):
+    if len(store) > 5000:
+        for k in [k for k, v in store.items() if not v or now - v[-1] > 3600]:
+            store.pop(k, None)
+
+
+def _chat_rate_limit(client_ip: str, device_id: str):
     now = time.time()
+    # Fall back to the IP only when there is no device id to key on, so a
+    # request that skips it can't slip past the limiter entirely.
+    key = device_id or f"ip:{client_ip}"
     with _chat_lock:
-        hits = [t for t in _chat_history.get(client_ip, []) if now - t < 3600]
+        hits = [t for t in _chat_history.get(key, []) if now - t < 3600]
         if hits and now - hits[-1] < CHAT_MIN_SECONDS_BETWEEN:
             raise HTTPException(status_code=429, detail="Slow down a moment before sending again.")
         if len(hits) >= CHAT_MAX_PER_HOUR:
             raise HTTPException(status_code=429, detail="That's a lot of messages — try again later.")
+
+        ip_hits = [t for t in _chat_ip_history.get(client_ip, []) if now - t < 3600]
+        if client_ip != "unknown" and len(ip_hits) >= CHAT_MAX_PER_HOUR_PER_IP:
+            raise HTTPException(status_code=429, detail="That's a lot of messages — try again later.")
+
         hits.append(now)
-        _chat_history[client_ip] = hits
-        # keep the tracking dict from growing forever on a long-lived process
-        if len(_chat_history) > 5000:
-            for ip in [k for k, v in _chat_history.items() if not v or now - v[-1] > 3600]:
-                _chat_history.pop(ip, None)
+        _chat_history[key] = hits
+        ip_hits.append(now)
+        _chat_ip_history[client_ip] = ip_hits
+        # keep the tracking dicts from growing forever on a long-lived process
+        _prune(_chat_history, now)
+        _prune(_chat_ip_history, now)
 
 
 CHAT_RETENTION_HOURS = 24
@@ -473,23 +498,63 @@ def _expire_old_chat(db: Session):
 
 
 # ---------------------------------------------------------------------------
-# Name claims — one name per device, and one per IP.
+# Who is this request actually from?
+#
+# `request.client.host` is the address of whatever opened the TCP connection.
+# In front of this app that is Render's load balancer, not the visitor, so on
+# the deployed site EVERY request reports the same address. uvicorn can undo
+# that from X-Forwarded-For, but only for proxies listed in
+# `--forwarded-allow-ips`, which defaults to 127.0.0.1 — and Render's proxy is
+# not 127.0.0.1. So the header was being discarded and the whole world shared
+# one apparent IP.
+#
+# Reading the headers here rather than fiddling with uvicorn flags keeps the
+# behaviour with the code that depends on it, and works the same whether the
+# start command is Render's, the Procfile's, or someone's local `uvicorn`.
+#
+# Cloudflare sets CF-Connecting-IP itself and strips any copy the client sent,
+# so it is the trustworthy one when present. X-Forwarded-For is a fallback and
+# its leftmost entry IS client-settable — which is fine, because after this
+# change the value is only ever used for rate limiting. Nothing about identity
+# or authorship depends on it, so a forged header buys an attacker nothing
+# they could not get by clearing their browser storage.
+# ---------------------------------------------------------------------------
+def _client_ip(request: Request) -> str:
+    cf = (request.headers.get("cf-connecting-ip") or "").strip()
+    if cf:
+        return cf[:64]
+    xff = (request.headers.get("x-forwarded-for") or "").strip()
+    if xff:
+        first = xff.split(",")[0].strip()
+        if first:
+            return first[:64]
+    return ((request.client.host if request.client else "") or "unknown")[:64]
+
+
+# ---------------------------------------------------------------------------
+# Name claims — ONE NAME PER DEVICE. Deliberately not per IP.
 #
 # There are no accounts, so a name is held by whoever claimed it, keyed on a
 # random `device_id` the browser stores. Enforcing it on the SERVER rather
 # than in the browser is the whole point: a client-side lock is one devtools
 # command away, and the name is what every other viewer reads a message by.
+#
+# There used to be a second rule: one name per IP as well, so that someone who
+# cleared their storage could retype their name and carry on. It had to go.
+# An IP is not a person — a household, a school, an office and every phone
+# behind a carrier NAT all share one — so that rule told a second device on the
+# same Wi-Fi it was already chatting as someone else. Combined with the proxy
+# problem above it was worse still: with every visitor reporting the same
+# address, the first person in the world to claim a name locked out everyone
+# who came after.
+#
+# Devices are independent now. `ip` is still recorded, for rate limiting and
+# for looking at abuse after the fact, but it decides nothing about identity.
 # ---------------------------------------------------------------------------
 def _device_claim(db: Session, device_id: str):
     if not device_id:
         return None
     return db.query(models.ChatName).filter(models.ChatName.device_id == device_id).first()
-
-
-def _ip_claim(db: Session, client_ip: str):
-    if not client_ip or client_ip == "unknown":
-        return None
-    return db.query(models.ChatName).filter(models.ChatName.ip == client_ip).first()
 
 
 def _claim_payload(row, mine: bool = True):
@@ -517,22 +582,16 @@ def get_chat_name(request: Request, device_id: str = "", db: Session = Depends(g
     """What name, if any, this device already holds. The browser calls this on
     load so an expired claim clears the stale name it had stored."""
     _expire_old_chat(db)
-    client_ip = (request.client.host if request.client else "") or "unknown"
+    client_ip = _client_ip(request)
     device_id = (device_id or "").strip()[:64]
 
     mine = _device_claim(db, device_id)
     if mine:
         return _claim_payload(mine)
 
-    # No claim on this device, but this connection already has one. Say so,
-    # so the page can prompt for that name instead of a fresh one — this is
-    # how someone who cleared their storage gets their name back.
-    other = _ip_claim(db, client_ip)
-    if other:
-        payload = _claim_payload(other, mine=False)
-        payload["claimed"] = False
-        payload["network_name"] = other.name
-        return payload
+    # Nothing held by THIS device means nothing to report, whatever other
+    # devices on the same connection are doing. Each browser answers for
+    # itself and nobody else.
     return {"name": "", "claimed": False}
 
 
@@ -546,7 +605,7 @@ def claim_chat_name(payload: schemas.ChatNameIn, request: Request, db: Session =
         raise HTTPException(status_code=400, detail="Missing device id.")
 
     _expire_old_chat(db)
-    client_ip = (request.client.host if request.client else "") or "unknown"
+    client_ip = _client_ip(request)
     key = name.lower()
 
     # Already holding one? Hand back the same name rather than erroring — a
@@ -561,27 +620,17 @@ def claim_chat_name(payload: schemas.ChatNameIn, request: Request, db: Session =
                    f"Names reset when the chat clears.",
         )
 
-    # One name per connection as well as per device. Asking for the name this
-    # network already holds ADOPTS it — that is what lets someone who cleared
-    # their browser storage type their name again and carry on, instead of
-    # being locked out of their own name for the rest of the day. Asking for a
-    # different one is refused.
-    network = _ip_claim(db, client_ip)
-    if network:
-        if network.name_key == key:
-            network.device_id = device_id
-            db.commit()
-            db.refresh(network)
-            return _claim_payload(network)
-        raise HTTPException(
-            status_code=409,
-            detail=f"This network is already chatting as “{network.name}” — "
-                   f"enter that name to carry on, or wait for the chat to clear.",
-        )
-
+    # The only thing left that can refuse a name is the name itself already
+    # being in use — which is not about networks or devices at all. Two people
+    # called "Dale" in one room would make every message ambiguous, and the
+    # name is the only thing readers have to tell them apart.
     taken = db.get(models.ChatName, key)
     if taken:
-        raise HTTPException(status_code=409, detail="Someone is already using that name — pick another.")
+        raise HTTPException(
+            status_code=409,
+            detail=f"“{taken.name}” is taken right now — try another name, "
+                   f"or add something to it.",
+        )
 
     row = models.ChatName(name_key=key, name=name, device_id=device_id, ip=client_ip)
     db.add(row)
@@ -620,7 +669,7 @@ def post_chat(payload: schemas.ChatMessageIn, request: Request, db: Session = De
     if not body:
         raise HTTPException(status_code=400, detail="Type a message.")
 
-    client_ip = (request.client.host if request.client else "") or "unknown"
+    client_ip = _client_ip(request)
     _expire_old_chat(db)
 
     # The name on the message must be one this device actually claimed —
@@ -636,7 +685,7 @@ def post_chat(payload: schemas.ChatMessageIn, request: Request, db: Session = De
         raise HTTPException(status_code=403, detail="Destroy UNIT-01 first — that's how you prove you're not a robot.")
     name = claim.name          # post under the name exactly as it was claimed
 
-    _chat_rate_limit(client_ip)
+    _chat_rate_limit(client_ip, device_id)
 
     message = models.ChatMessage(name=name, body=body)
     db.add(message)
@@ -696,6 +745,11 @@ def clear_chat(db: Session = Depends(get_db)):
 ROBOT_RESPAWN_SECONDS = 10
 ROBOT_MIN_DAMAGE = 2.0
 ROBOT_MAX_DAMAGE = 5.0
+# Per device. This is a tap cadence for one player's finger, not an abuse
+# control, so keying it on an IP meant two people on the same Wi-Fi silently
+# ate each other's taps. The endpoint already refuses a hit whose claimed name
+# does not belong to the device id sent with it, and names are unique, so a
+# device id cannot be rotated to tap faster without also claiming a new name.
 ROBOT_MIN_SECONDS_BETWEEN_HITS = 0.12   # ~8 taps/sec, fast but not a script
 _robot_hits: dict[str, float] = {}
 _robot_lock = threading.Lock()
@@ -776,7 +830,7 @@ def robot_state(db: Session = Depends(get_db)):
 
 @app.post("/api/robot/hit")
 def robot_hit(payload: schemas.RobotHitIn, request: Request, db: Session = Depends(get_db)):
-    client_ip = (request.client.host if request.client else "") or "unknown"
+    client_ip = _client_ip(request)
 
     # You have to say who you are before you can take a swing. The robot IS
     # the captcha, and a hit that arrives with no claimed name has nothing to
@@ -793,16 +847,17 @@ def robot_hit(payload: schemas.RobotHitIn, request: Request, db: Session = Depen
 
     now = time.time()
     with _robot_lock:
-        last = _robot_hits.get(client_ip, 0.0)
+        tap_key = (payload.device_id or "").strip()[:64] or f"ip:{client_ip}"
+        last = _robot_hits.get(tap_key, 0.0)
         if now - last < ROBOT_MIN_SECONDS_BETWEEN_HITS:
             # Not an error worth interrupting the game for — just report the
             # current state so the tap is quietly ignored.
             robot = _resolve_respawn(db, _get_robot(db))
             return {**_robot_payload(robot), "damage": 0.0, "throttled": True}
-        _robot_hits[client_ip] = now
+        _robot_hits[tap_key] = now
         if len(_robot_hits) > 5000:
-            for ip in [k for k, t in _robot_hits.items() if now - t > 300]:
-                _robot_hits.pop(ip, None)
+            for k in [k for k, t in _robot_hits.items() if now - t > 300]:
+                _robot_hits.pop(k, None)
 
     robot = _resolve_respawn(db, _get_robot(db))
     if robot.dead_until > now:
