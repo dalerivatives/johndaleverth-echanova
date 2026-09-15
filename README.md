@@ -178,10 +178,18 @@ signed with the admin key, so it can't be forged or extended, and a stolen
 one stops working on its own. The older `X-Admin-Key` header is still
 accepted, so nothing breaks if you have an old editor copy open.
 
-**Before you deploy this anywhere public, set a real `ADMIN_KEY`.** The
-default is `changeme123`; the server prints a warning on startup if you
-haven't changed it. Anyone who has the key (or guesses the default) can add,
-edit, or delete your content.
+**`ADMIN_KEY` has no default — set it before you deploy.** If the variable
+is missing (or is still the old `changeme123` placeholder), the server
+generates a random key for that process and prints a warning. That means the
+editor is locked and **nobody can sign in, including you**, until you set
+the variable yourself. This is deliberate: `/editor.html` is a public URL,
+so the key is the only thing guarding it, and a well-known default would
+leave every deployment that skipped this step wide open.
+
+On Render: **Dashboard -> your service -> Environment -> Add Environment
+Variable -> `ADMIN_KEY` -> a long random secret -> Save.** Saving redeploys.
+Anyone who has the key can add, edit, or delete your content, so treat it
+like a password and don't commit it.
 
 ## GitHub contribution sync
 

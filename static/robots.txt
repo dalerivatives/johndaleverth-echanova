@@ -1,6 +1,16 @@
 # Search engines: index the portfolio, stay out of the editor and the API.
 User-agent: *
 Allow: /
+
+# The health endpoints are carved out BEFORE the /api/ block below, and the
+# order matters. Plenty of uptime monitors fetch robots.txt and honour it, so
+# a blanket "Disallow: /api/" quietly stops them pinging — the keep-alive
+# never fires, the service sleeps, and the monitor reports nothing wrong
+# because it never made a request in the first place. These two paths expose
+# nothing but {"status":"ok"}.
+Allow: /api/health
+Allow: /api/health/db
+
 Disallow: /editor.html
 Disallow: /api/
 

@@ -18,16 +18,26 @@
 .editor-body:before{content:none}
 
 /* ---- Login gate ---- */
-.login-gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
 .login-card{max-width:440px;width:100%;padding:32px 30px;text-align:left}
 .login-card h1{font-size:26px;margin:8px 0 12px;letter-spacing:-.5px}
 .login-card p{color:var(--muted);line-height:1.6;font-size:14px;margin:0 0 18px}
 .login-card code{background:var(--code);color:var(--accent2);padding:2px 6px;border-radius:5px;font:12px ui-monospace,monospace}
 #loginForm{display:flex;gap:8px}
-#loginForm input{flex:1;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:9px;padding:11px 13px;font:14px ui-monospace,monospace}
+/* min-width:0 is the whole fix. A flex item defaults to min-width:auto, which
+   refuses to shrink below the input's intrinsic width, so at 320px the Unlock
+   button was pushed 35px past the right edge. Identical to the add-category
+   form bug in Phase 32 - same default, same symptom. */
+#loginForm input{flex:1 1 auto;min-width:0;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:9px;padding:11px 13px;font:14px ui-monospace,monospace}
 #loginForm input:focus{outline:none;border-color:var(--accent)}
 #loginForm button{border:1px solid var(--accent);background:var(--code);color:var(--accent);border-radius:9px;padding:11px 16px;font:14px ui-monospace,monospace;white-space:nowrap}
 #loginForm button:hover{background:var(--tile-hover)}
+@media(max-width:360px){
+  /* Below this the two controls genuinely do not fit side by side, so they
+     stack rather than squeezing the input down to nothing. */
+  #loginForm{flex-wrap:wrap}
+  #loginForm input,#loginForm button{flex:1 1 100%}
+}
 .login-error{color:#ff6b6b;font:13px ui-monospace,monospace;margin-top:14px}
 .login-hint{margin-top:18px!important;font-size:12px!important;color:var(--muted)}
 

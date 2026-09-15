@@ -1658,7 +1658,13 @@ body.lightbox-open{overflow:hidden}
   .content-page{ padding:24px var(--m-gut) }
   .activity{ padding:var(--m-gut) }
   .terminal-body{ padding:var(--m-gut) }
-  .chat-log,.chat-composer,.chat-head{ padding-inline:var(--m-gut) }
+  /* NOT .chat-composer. Its base padding is `5px 5px 5px 7px` — deliberately
+     asymmetric so the 28px avatar on the left and the 36px round send key on
+     the right each sit the same visual distance from the pill's edge. Forcing
+     the panel gutter onto it pushed the send key 19px in from the edge and
+     broke that balance. The gutter is right for text, wrong for a pill whose
+     contents are meant to sit flush. */
+  .chat-log,.chat-head{ padding-inline:var(--m-gut) }
 
   /* The carousel used to sit on a -2px horizontal margin so its
      6px focus-ring gutter wouldn't narrow the track. That shifted

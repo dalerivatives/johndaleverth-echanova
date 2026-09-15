@@ -5,6 +5,7 @@ import hmac
 import json
 import mimetypes
 import os
+import secrets
 import random
 import re
 import threading
@@ -31,15 +32,29 @@ STATIC_DIR = ROOT_DIR / "static"
 UPLOAD_DIR = ROOT_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-ADMIN_KEY = os.environ.get("ADMIN_KEY", "changeme123")
+# The old default was the literal string "changeme123", printed in this repo's
+# own README. A public deployment that never set ADMIN_KEY was therefore open to
+# anyone who read the README: /editor.html is a public URL and the key was the
+# only thing guarding it. There is no safe well-known default, so when the
+# variable is missing the server invents a random one instead. That fails
+# CLOSED - nobody can sign in, including you, until ADMIN_KEY is set for real -
+# which is the correct way round for a secret.
+_ADMIN_KEY_ENV = os.environ.get("ADMIN_KEY", "").strip()
+ADMIN_KEY_IS_SET = bool(_ADMIN_KEY_ENV) and _ADMIN_KEY_ENV != "changeme123"
+ADMIN_KEY = _ADMIN_KEY_ENV if ADMIN_KEY_IS_SET else secrets.token_urlsafe(32)
+
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024  # 25 MB
 ALLOWED_MEDIA_PREFIXES = ("image/", "video/")
 
-if ADMIN_KEY == "changeme123":
+if not ADMIN_KEY_IS_SET:
     print(
-        "\n[portfolio-backend] WARNING: using the default ADMIN_KEY ('changeme123').\n"
-        "Set the ADMIN_KEY environment variable before deploying anywhere public,\n"
-        "or anyone who finds your /editor.html page can edit your content.\n"
+        "\n[portfolio-backend] ADMIN_KEY is not set"
+        + (" (it is still the published default 'changeme123')." if _ADMIN_KEY_ENV else ".")
+        + "\n"
+        "A random one-off key was generated for this process, so the editor is\n"
+        "locked and cannot be signed into until you set the variable yourself.\n"
+        "On Render: Dashboard -> your service -> Environment -> Add Environment\n"
+        "Variable -> ADMIN_KEY -> a long random secret -> Save, which redeploys.\n"
     )
 
 # ---------------------------------------------------------------------------
@@ -1336,19 +1351,57 @@ class NoCacheStaticFiles(StaticFiles):
 # ---------------------------------------------------------------------------
 PLACEHOLDER_ORIGIN = "https://example.com"
 
+# Local/dev hosts are not worth advertising to a crawler or a link unfurler.
+_LOCAL_HOST_PREFIXES = ("localhost", "127.0.0.1", "0.0.0.0", "[::1]", "::1")
+
+
+def _request_origin(request: Request) -> str:
+    """The address this request actually arrived on, as a scheme://host origin.
+
+    Used only as a FALLBACK when the editor's Site URL is blank. Without it a
+    deployment that skipped that one setting serves `https://example.com` in
+    its og:url and og:image, so every shared link renders a preview card with
+    no image - which is exactly what happened to this site in production. The
+    host the visitor used is very nearly always the right answer, so guessing
+    it beats shipping a placeholder.
+
+    The Host header is client-controlled, so a forged value could appear in the
+    tags of that one response. That is the attacker's own preview card and
+    nothing else: the value is never stored, never trusted for auth, and is
+    HTML-escaped on the way out.
+    """
+    host = (request.headers.get("x-forwarded-host") or request.headers.get("host") or "").strip()
+    host = host.split(",")[0].strip()
+    if not host or any(host.lower().startswith(p) for p in _LOCAL_HOST_PREFIXES):
+        return ""
+    # Render and Cloudflare both terminate TLS in front of the app, so the
+    # request reaching uvicorn is plain http. Trust the forwarded scheme.
+    proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "https").split(",")[0].strip()
+    if proto not in ("http", "https"):
+        proto = "https"
+    return f"{proto}://{host}"
+
+
+def _effective_site_url(db: Session, request: Request) -> str:
+    """Editor setting wins; the request's own origin is the fallback."""
+    configured = (_settings_map(db).get("site_url") or "").strip().rstrip("/")
+    if configured and configured != PLACEHOLDER_ORIGIN:
+        return configured
+    return _request_origin(request)
+
 
 def _settings_map(db: Session) -> dict:
     stored = {s.key: (s.value or "") for s in db.query(models.Setting).all()}
     return {**seed.DEFAULT_SETTINGS, **stored}
 
 
-def _render_index(db: Session) -> HTMLResponse:
+def _render_index(db: Session, request: Request) -> HTMLResponse:
     html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
     settings = _settings_map(db)
 
-    site_url = (settings.get("site_url") or "").strip().rstrip("/")
+    site_url = _effective_site_url(db, request)
     if site_url:
-        html = html.replace(PLACEHOLDER_ORIGIN, site_url)
+        html = html.replace(PLACEHOLDER_ORIGIN, _escape_attr(site_url))
 
     def set_meta(source: str, pattern: str, value: str) -> str:
         # re.sub treats backslashes in the replacement as escapes, so the
@@ -1391,8 +1444,8 @@ def _escape_attr(value: str) -> str:
 
 @app.get("/", include_in_schema=False)
 @app.get("/index.html", include_in_schema=False)
-def serve_index(db: Session = Depends(get_db)):
-    return _render_index(db)
+def serve_index(request: Request, db: Session = Depends(get_db)):
+    return _render_index(db, request)
 
 
 @app.get("/editor.html", include_in_schema=False)
@@ -1406,18 +1459,18 @@ def serve_editor():
 
 
 @app.get("/robots.txt", include_in_schema=False)
-def serve_robots(db: Session = Depends(get_db)):
+def serve_robots(request: Request, db: Session = Depends(get_db)):
     text = (STATIC_DIR / "robots.txt").read_text(encoding="utf-8")
-    site_url = (_settings_map(db).get("site_url") or "").strip().rstrip("/")
+    site_url = _effective_site_url(db, request)
     if site_url:
         text = text.replace(PLACEHOLDER_ORIGIN, site_url)
     return PlainTextResponse(text, headers={"Cache-Control": "no-cache, must-revalidate"})
 
 
 @app.get("/sitemap.xml", include_in_schema=False)
-def serve_sitemap(db: Session = Depends(get_db)):
+def serve_sitemap(request: Request, db: Session = Depends(get_db)):
     text = (STATIC_DIR / "sitemap.xml").read_text(encoding="utf-8")
-    site_url = (_settings_map(db).get("site_url") or "").strip().rstrip("/")
+    site_url = _effective_site_url(db, request)
     if site_url:
         text = text.replace(PLACEHOLDER_ORIGIN, site_url)
     return Response(text, media_type="application/xml", headers={"Cache-Control": "no-cache, must-revalidate"})
