@@ -2927,3 +2927,125 @@ body.lightbox-open{overflow:hidden}
 .online i.beacon::after{ /* the ring is positioned from the dot, so it follows */ }
 
 
+
+/* ---- Phase 57: the last tinted pixels in monochrome light -------------
+   A pixel scan of all five views found colour in exactly one place the DOM
+   walk could not see: the phone chassis. Its light-mode gradient is a set of
+   cool blue-greys (#c0cad1 and friends) — they READ as grey, which is why
+   they survived four earlier audits, but they measure as colour and the brief
+   for this mode is black and white. Neutral greys of the same lightness, so
+   the chassis looks identical in shape and shading, only without the tint.
+   A grayscale() filter would have been shorter and wrong: it would create a
+   containing block around the whole phone and grey out its live screen too. */
+.app.light-mode.mono-mode .phone-bezel{
+  background:linear-gradient(150deg,#f6f6f6 0%,#e3e3e3 36%,#c7c7c7 100%);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.95),inset 0 -2px 3px rgba(0,0,0,.2),
+             inset 0 0 0 1px rgba(0,0,0,.15),-13px 20px 36px rgba(0,0,0,.2),
+             -4px 7px 13px rgba(0,0,0,.13)}
+.app.light-mode.mono-mode .phone-bezel::after{
+  background:linear-gradient(180deg,#c8c8c8,#a3a3a3)}
+.app.light-mode.mono-mode .phone-speaker{background:#8b8b8b}
+.app.light-mode.mono-mode .desktop-body::before{
+  background:linear-gradient(160deg,#e5e5e5,#bcbcbc);
+  box-shadow:0 20px 40px rgba(0,0,0,.2)}
+
+/* ============================================================
+   PHASE 58 — THE CONTROL DOCK
+   ------------------------------------------------------------
+   The theme dial and the sound switch used to live in the header's
+   top-right corner. That is the worst corner on a phone: it is the
+   far diagonal from a thumb on either hand, and the dial is not a
+   tap but a small AIMED gesture — the one kind of interaction that
+   most needs a comfortable reach.
+
+   They now sit in the bottom-right instead. Same side of the screen,
+   mirrored across the horizontal axis, opposite the navigation
+   circle that has been proving that position works since phase 29.
+   Two docks in opposite bottom corners, so neither is ever under the
+   thumb reaching for the other.
+
+   Fixed, not sticky: these are controls for the whole site, not part
+   of any one page, and they should not scroll away mid-gesture.
+   ============================================================ */
+.control-dock{
+  position:fixed;
+  z-index:10;
+  right:28px;
+  bottom:calc(var(--footer-h) + 28px);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+  padding:9px 8px;
+  border:1px solid var(--nav-border);
+  border-radius:34px;
+  background:var(--nav-bg);
+  backdrop-filter:blur(16px);
+  box-shadow:0 18px 60px var(--nav-shadow);
+}
+
+/* The readout sat BELOW the dial when the dial was in the header. Down
+   here there is nothing below but the footer and the edge of the screen,
+   so it flips above — and anchors to the dock's right edge so a long
+   label like "MONOCHROME DARK" grows inward across the page rather than
+   off the side of it. */
+.control-dock .kb-readout{
+  top:auto;
+  bottom:calc(100% + 7px);
+  right:0;
+  transform:translateY(4px);
+}
+.control-dock .kb-readout.show{ transform:translateY(0) }
+
+/* The master sound switch. Deliberately the same diameter as the dial's
+   bezel so the two read as one instrument stacked in a housing, rather
+   than two unrelated widgets that happen to be near each other. */
+.sound-toggle{
+  width:38px; height:38px;
+  display:grid; place-items:center;
+  border:1px solid var(--line);
+  border-radius:50%;
+  background:var(--tile-bg);
+  color:var(--control-text);
+  font-size:14px;
+  cursor:pointer;
+  transition:color .2s, border-color .2s, box-shadow .2s, opacity .2s;
+}
+.sound-toggle:hover,
+.sound-toggle:focus-visible{
+  color:var(--accent);
+  border-color:var(--accent);
+  box-shadow:0 0 18px var(--glow);
+}
+/* Muted is shown by the icon, which is unambiguous. The dimming is a
+   second, redundant signal for anyone who cannot tell a crossed-out
+   speaker from a plain one at 14px — it is not the only one. */
+.sound-toggle.off{ opacity:.5 }
+.sound-toggle.off:hover{ opacity:.8 }
+
+/* On touch the drawn size stays 38px but the hit area grows to the 44px
+   the platform guidelines ask for, the same trick the header controls
+   have used since phase 42. */
+@media(hover:none),(pointer:coarse){
+  .control-dock .knob, .sound-toggle{ position:relative }
+  .control-dock .knob::before, .sound-toggle::before{
+    content:""; position:absolute; left:50%; top:50%;
+    width:46px; height:46px; transform:translate(-50%,-50%);
+  }
+}
+
+/* Track the navigation rail's own inset at each breakpoint, so the two
+   docks stay symmetrical instead of drifting apart as the screen
+   narrows. */
+@media(max-width:850px){ .control-dock{ right:12px; bottom:calc(var(--footer-h) + 14px) } }
+@media(max-width:560px){ .control-dock{ right:7px } }
+@media(max-width:380px){
+  .control-dock{ right:4px; padding:7px 6px; gap:6px }
+  .control-dock .knob{ --kb-size:34px }
+  .sound-toggle{ width:34px; height:34px; font-size:13px }
+}
+
+/* The header lost both controls, so on a narrow screen the social links
+   are all that is left on the right. Without this the row keeps the gap
+   that used to separate them from the dial. */
+.top-actions:empty{ display:none }

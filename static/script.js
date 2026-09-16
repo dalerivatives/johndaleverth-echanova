@@ -292,6 +292,32 @@ const MODE_LABEL = {
 const lever = document.getElementById("themeLever");
 const osLight = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
 
+/* ---- the readout ----------------------------------------------------
+   `MODE_LABEL[mode].word` printed beside the dial for a moment after it
+   turns, then faded out.
+
+   This is not decoration. AUTO paints exactly the same page as DARK on a
+   device that is already dark, and exactly the same page as LIGHT on one
+   that is not — that is what "auto" MEANS. Without something that names
+   the position out loud, two of the five detents look broken.
+
+   It was missing entirely. setMode() has been calling announce() since
+   the dial grew detents and nothing ever defined it, so every theme
+   change threw a ReferenceError — after the repaint, so the theme still
+   changed and the fault was invisible unless the console was open. The
+   readout element has been sitting in the markup the whole time with
+   nothing to show it. */
+const readout = document.getElementById("leverReadout");
+let readoutTimer = null;
+function announce(mode){
+  if(!readout) return;
+  const label = MODE_LABEL[mode];
+  readout.textContent = label ? label.word : String(mode).toUpperCase();
+  readout.classList.add("show");
+  clearTimeout(readoutTimer);
+  readoutTimer = setTimeout(()=>readout.classList.remove("show"), 1400);
+}
+
 /* Six positions, four palette classes and one that follows the device.
 
      mono-light    .light-mode .mono-mode   black on white
@@ -339,7 +365,20 @@ function setMode(mode, persist = true){
   paintMode(mode);
   if(persist){
     try{ localStorage.setItem("portfolio-mode", mode); }catch(e){}
-    if(changed) announce(mode);
+    if(changed){
+      /* Sound BEFORE the label. That ordering is the whole lesson of the
+         bug above: announce() threw for months and everything downstream
+         of it in this block silently stopped happening. The click is the
+         feedback that matters most, so it goes first. */
+      /* The detent click. Only when the dial actually LANDS somewhere new:
+         a drag across the bezel calls setMode on every pointermove, and
+         without this guard one turn of the knob would fire a click per
+         frame instead of one per notch. `persist` is false on the restore
+         at load, which is what keeps the page from clicking at you before
+         you have touched anything. */
+      if(window.SFX) window.SFX.detent();
+      announce(mode);
+    }
   }
 }
 
@@ -1551,96 +1590,25 @@ if(osLight){
   const captchaSub = document.getElementById("robotCaptchaSub");
 
   /* ---- sound ----------------------------------------------------------
-     Synthesised with the Web Audio API rather than shipped as audio files:
-     three effects would be a few hundred KB of MP3 to download for a toy,
-     and an oscillator plus a gain envelope gets a convincing clank, boom
-     and power-up in a few lines that theme themselves by pitch.
+     UNIT-01's clank, boom and power-up used to be synthesised right here,
+     in a module that owned its own AudioContext, its own mute flag and its
+     own speaker button. Then every other control on the site wanted a
+     sound too, and one page's private audio engine is the wrong place to
+     put the whole site's — two contexts fighting over one set of
+     autoplay rules, and two mute switches that disagree.
 
-     Two rules browsers enforce, both handled here: audio may not start
-     before a user gesture (the context is created on the first tap and
-     resumed if suspended), and nothing should make noise at a muted user —
-     hence the speaker toggle, whose choice is remembered. */
-  const SFX_KEY = "portfolio-robot-sound";
-  const sfx = (() => {
-    let ctx = null;
-    let muted = false;
-    try{ muted = localStorage.getItem(SFX_KEY) === "off"; }catch(e){}
+     So the engine moved to sfx.js and this is now a thin alias. The three
+     robot voices live there alongside the interface ones, behind the same
+     master switch, and the first-gesture primer that makes the very first
+     punch land on time is set up once for the whole page rather than once
+     per module.
 
-    const AC = window.AudioContext || window.webkitAudioContext;
-
-    function ready(){
-      if(muted || !AC) return null;
-      if(!ctx){
-        try{ ctx = new AC(); }catch(e){ return null; }
-      }
-      if(ctx.state === "suspended") ctx.resume().catch(()=>{});
-      return ctx;
-    }
-
-    /* One voice: an oscillator through its own gain envelope. Everything
-       below is built from these. */
-    function tone(type, from, to, dur, peak, delay){
-      const c = ready(); if(!c) return;
-      const t0 = c.currentTime + (delay || 0);
-      const osc = c.createOscillator();
-      const gain = c.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(from, t0);
-      if(to !== from) osc.frequency.exponentialRampToValueAtTime(Math.max(1, to), t0 + dur);
-      gain.gain.setValueAtTime(0.0001, t0);
-      gain.gain.exponentialRampToValueAtTime(peak, t0 + 0.008);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      osc.connect(gain).connect(c.destination);
-      osc.start(t0); osc.stop(t0 + dur + 0.02);
-    }
-
-    /* Filtered white noise — this is what makes an impact read as a physical
-       clank rather than a beep. */
-    function noise(dur, peak, freq, q){
-      const c = ready(); if(!c) return;
-      const t0 = c.currentTime;
-      const frames = Math.floor(c.sampleRate * dur);
-      const buffer = c.createBuffer(1, frames, c.sampleRate);
-      const data = buffer.getChannelData(0);
-      for(let i=0;i<frames;i++) data[i] = (Math.random()*2-1) * (1 - i/frames);
-      const src = c.createBufferSource(); src.buffer = buffer;
-      const filter = c.createBiquadFilter();
-      filter.type = "bandpass"; filter.frequency.value = freq; filter.Q.value = q || 1;
-      const gain = c.createGain();
-      gain.gain.setValueAtTime(peak, t0);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      src.connect(filter).connect(gain).connect(c.destination);
-      src.start(t0);
-    }
-
-    let lastHit = 0;
-    return {
-      /* Metallic clank. The pitch wanders a little per tap so a fast
-         sequence doesn't turn into a machine-gun of one identical sample. */
-      hit(){
-        const now = Date.now();
-        if(now - lastHit < 45) return;      // don't stack on a rapid tap
-        lastHit = now;
-        const p = 420 + Math.random()*260;
-        tone("square", p, p*0.55, 0.09, 0.055);
-        noise(0.07, 0.09, 1800 + Math.random()*900, 1.2);
-      },
-      boom(){
-        noise(0.55, 0.32, 260, 0.6);
-        tone("sawtooth", 180, 32, 0.6, 0.13);
-        tone("triangle", 90, 24, 0.75, 0.1, 0.03);
-      },
-      revive(){
-        tone("triangle", 220, 880, 0.34, 0.075);
-        tone("sine", 440, 1320, 0.3, 0.05, 0.08);
-      },
-      get muted(){ return muted; },
-      set muted(value){
-        muted = !!value;
-        try{ localStorage.setItem(SFX_KEY, muted ? "off" : "on"); }catch(e){}
-      }
-    };
-  })();
+     The fallback object is not defensive padding: if sfx.js ever fails to
+     load, the robot must still take hits silently rather than throwing on
+     every tap. */
+  const sfx = window.SFX || { hit(){}, boom(){}, revive(){},
+                              prime(){}, toggle(){ return true; },
+                              get muted(){ return true; }, set muted(v){} };
 
   /* ---- the damage board ----------------------------------------------
      Refreshed after a hit rather than on a timer, and coalesced: a burst of
@@ -1704,20 +1672,9 @@ if(osLight){
     boardTimer = setTimeout(loadBoard, delay === undefined ? 1800 : delay);
   }
 
-  const soundBtn = document.getElementById("robotSound");
-  function paintSound(){
-    if(!soundBtn) return;
-    soundBtn.classList.toggle("off", sfx.muted);
-    soundBtn.setAttribute("aria-pressed", String(!sfx.muted));
-    soundBtn.innerHTML = sfx.muted
-      ? '<i class="fa-solid fa-volume-xmark" aria-hidden="true"></i>'
-      : '<i class="fa-solid fa-volume-high" aria-hidden="true"></i>';
-    soundBtn.setAttribute("aria-label", sfx.muted ? "Turn robot sound on" : "Turn robot sound off");
-  }
-  if(soundBtn){
-    soundBtn.addEventListener("click", ()=>{ sfx.muted = !sfx.muted; paintSound(); });
-    paintSound();
-  }
+  /* The speaker button that used to sit in this HUD now governs every
+     sound on the site and lives in the control dock, wired up in
+     uisound.js. Nothing to paint here any more. */
 
   const STATE_POLL_MS = 6000;      // safety net; the stream does the real work
   let serverHp = 100, shownHp = 100;
@@ -2509,6 +2466,14 @@ if(osLight){
       const fresh = messages.filter(m => !spoken.has(m.id));
       fresh.forEach(m => spoken.add(m.id));
       if(!on || !fresh.length) return;
+      /* The master switch outranks this one. Reading arriving messages
+         aloud is something the page does at you, unasked, once per
+         message — which is exactly what "mute" is for. The chat's own
+         voice button stays as the finer control for someone who wants
+         interface sounds but not narration; muting everything silences
+         both. Messages are still marked as spoken above, so un-muting
+         does not trigger a backlog of everything missed. */
+      if(window.SFX && window.SFX.muted) return;
 
       // Read at most the last few, so a burst doesn't become a monologue.
       fresh.slice(-3).forEach(m=>{

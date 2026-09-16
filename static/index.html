@@ -89,22 +89,6 @@
       </span>
     </div>
     <div class="top-actions">
-      <!-- Three-position ROTARY selector: LIGHT / SYSTEM / DARK, seen from
-           directly above. The dial turns in the plane of the screen and its
-           pointer aims at one of three detents on the bezel. Discrete stops,
-           so this is a button that steps between them rather than a slider.
-           aria-label is rewritten on every change so a screen reader
-           announces the position, not just "button". -->
-      <button class="knob" id="themeLever" type="button" data-mode="auto"
-              aria-label="Theme: auto, following your device"
-              data-tooltip="Theme: Auto">
-        <span class="kb-ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-        <span class="kb-dial" aria-hidden="true"></span>
-      </button>
-      <!-- Says out loud which detent was just chosen. SYSTEM and DARK paint
-           the same page on a device that is already dark, so without this the
-           third position looks like it does nothing. -->
-      <span class="kb-readout" id="leverReadout" aria-hidden="true"></span>
       <!-- Filled from the social links list in Site settings — add as many
            as you like there and they all appear here. -->
       <div class="socials" id="topSocials"></div>
@@ -114,6 +98,45 @@
   <aside class="stack-shell" aria-label="Portfolio navigation">
     <nav class="stack" id="stack"></nav>
   </aside>
+
+  <!-- ============================================================
+       CONTROL DOCK — bottom corner, opposite the navigation circle
+       ------------------------------------------------------------
+       These two lived in the top-right of the header. On a phone that
+       corner is the single hardest place on the screen to reach: it is
+       the far diagonal from a thumb on either hand, and the dial in
+       particular is not a tap but a small aimed gesture, which is the
+       worst possible thing to ask for up there.
+
+       So they sit at the bottom instead — the same side of the screen,
+       mirrored across the horizontal axis — where the navigation circle
+       already proves the position works. The two dock in opposite
+       corners so neither is ever under the thumb that is reaching for
+       the other.
+       ============================================================ -->
+  <div class="control-dock" id="controlDock">
+    <!-- Says out loud which detent was just chosen. AUTO and the dark
+         positions paint the same page on a device that is already dark, so
+         without this those positions look like they do nothing. -->
+    <span class="kb-readout" id="leverReadout" aria-hidden="true"></span>
+    <!-- Five-position ROTARY selector seen from directly above. The dial
+         turns in the plane of the screen and its pointer aims at one of
+         five detents on the bezel. Discrete stops, so this is a button
+         that steps between them rather than a slider. aria-label is
+         rewritten on every change so a screen reader announces the
+         position, not just "button". -->
+    <button class="knob" id="themeLever" type="button" data-mode="auto"
+            aria-label="Theme: auto, following your device"
+            data-tooltip="Theme: Auto">
+      <span class="kb-ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="kb-dial" aria-hidden="true"></span>
+    </button>
+    <!-- The master switch for every sound the site makes. -->
+    <button class="sound-toggle" id="soundToggle" type="button" aria-pressed="true"
+            aria-label="Turn sound off" data-tooltip="Sound: on">
+      <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
+    </button>
+  </div>
 
   <main class="workspace" id="mainContent" tabindex="-1">
     <div class="page-view active" id="profileView" data-view="profile">
@@ -269,7 +292,10 @@
 
           <div class="robot-hud">
             <div class="robot-hud-left">
-              <button type="button" class="robot-sound" id="robotSound" aria-pressed="true" aria-label="Turn robot sound off"><i class="fa-solid fa-volume-high" aria-hidden="true"></i></button>
+              <!-- The speaker that used to live here now governs EVERY sound on
+                   the site, not just this robot, so it moved to the control dock
+                   in the bottom corner where it is reachable from every page
+                   instead of only from the one page that happens to be loudest. -->
               <span class="robot-label-wrap">
                 <span class="robot-label">UNIT-01</span>
                 <span class="robot-status" id="robotStatus">Awaiting attack</span>
@@ -437,11 +463,13 @@
     <span id="footerZone">LOADING ZONE</span>
 </time>
 </footer>
+<script src="sfx.js?v=50"></script>
 <script src="background.js?v=50"></script>
 <script src="avatar.js?v=50"></script>
 <script src="speech.js?v=50"></script>
 <script src="vendor/three.min.js?v=50"></script>
 <script src="robot3d.js?v=50"></script>
 <script src="script.js?v=50"></script>
+<script src="uisound.js?v=50"></script>
 </body>
 </html>
