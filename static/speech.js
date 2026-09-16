@@ -151,7 +151,29 @@
     const clean = String(text || "").replace(/\s+/g, " ").trim();
     if(!clean) return false;
     const o = opts || {};
-    if(o.interrupt){
+
+    /* THE FIRST-CLICK SILENCE.
+
+       This used to cancel() and defer on EVERY interrupting call, including
+       the very first one, when there was nothing to interrupt. Both halves
+       of that were harmful on a cold engine:
+
+         * cancel() before anything has ever been spoken leaves Chrome's
+           queue in a state where the next speak() is accepted and dropped;
+         * and the 60ms setTimeout moved speak() out of the click's task.
+           Chrome will only start speech from a user-activated task the
+           first time, so the deferred call was refused — silently, as
+           always. The click still primed the page's sticky activation, so
+           the SECOND click worked. That is exactly the reported symptom:
+           "the first click activates it and the second one talks".
+
+       So an interrupt is only performed when there is genuinely something
+       in flight. With nothing to cancel there is nothing to wait for, and
+       the utterance is queued synchronously — still inside the click. */
+    const mustInterrupt = !!o.interrupt &&
+      (outstanding > 0 || synth.speaking || synth.pending);
+
+    if(mustInterrupt){
       // cancel() fires no end event for what it drops, so the count has to
       // be reset by hand or the queue would never look drained again.
       outstanding = 0;
@@ -185,12 +207,19 @@
       synth.speak(u);
     });
 
-    setTimeout(()=>{
+    const fire = () => {
       enqueue();
       // Chrome can leave the queue paused from an earlier session.
       try{ synth.resume(); }catch(e){}
       startWatchdog();
-    }, o.interrupt ? 60 : 0);
+    };
+
+    /* Only a real cancel needs the tick of separation (speak() in the same
+       tick as cancel() is a Chrome dead-end). Everything else goes out now,
+       synchronously, so it is still inside the user gesture that asked for
+       it. */
+    if(mustInterrupt) setTimeout(fire, 60);
+    else fire();
     return true;
   }
 

@@ -79,28 +79,37 @@
 
   <header class="topbar">
     <div class="brand">
-      <span class="online"><i></i> <span id="viewerCount" aria-live="polite">Connecting …</span></span>
+      <!-- Presence. The beacon says the feed is live — something the number
+           alone cannot say. The four-bar meter that briefly lived here was
+           removed: it encoded the same count printed 8px to its right, so it
+           carried no information, only decoration. -->
+      <span class="online" id="presence">
+        <i class="beacon" aria-hidden="true"></i>
+        <span id="viewerCount" aria-live="polite">LINKING…</span>
+      </span>
     </div>
     <div class="top-actions">
-      <button class="palette-btn" id="paletteBtn" type="button" aria-label="Choose a color theme" aria-expanded="false" data-tooltip="Choose a color theme"><i class="fa-solid fa-palette"></i></button>
+      <!-- Three-position ROTARY selector: LIGHT / SYSTEM / DARK, seen from
+           directly above. The dial turns in the plane of the screen and its
+           pointer aims at one of three detents on the bezel. Discrete stops,
+           so this is a button that steps between them rather than a slider.
+           aria-label is rewritten on every change so a screen reader
+           announces the position, not just "button". -->
+      <button class="knob" id="themeLever" type="button" data-mode="auto"
+              aria-label="Theme: auto, following your device"
+              data-tooltip="Theme: Auto">
+        <span class="kb-ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="kb-dial" aria-hidden="true"></span>
+      </button>
+      <!-- Says out loud which detent was just chosen. SYSTEM and DARK paint
+           the same page on a device that is already dark, so without this the
+           third position looks like it does nothing. -->
+      <span class="kb-readout" id="leverReadout" aria-hidden="true"></span>
       <!-- Filled from the social links list in Site settings — add as many
            as you like there and they all appear here. -->
       <div class="socials" id="topSocials"></div>
     </div>
   </header>
-  <div class="palette-menu" id="paletteMenu" role="menu" aria-label="Color matrix">
-    <div class="palette-head">
-      <div><span class="matrix-kicker">COLOR MATRIX</span><strong id="themeName">SYSTEM</strong></div>
-    </div>
-    <div class="theme-grid">
-      <button type="button" class="theme-card" data-theme="dark" role="menuitem" title="Emerald system mode"><span class="theme-orb"></span><span><b>System</b><small>EMERALD</small></span></button>
-      <button type="button" class="theme-card" data-theme="cyber" role="menuitem" title="Cyan cyber mode"><span class="theme-orb"></span><span><b>Cyber</b><small>CYAN</small></span></button>
-      <button type="button" class="theme-card" data-theme="ocean" role="menuitem" title="Ocean engineering mode"><span class="theme-orb"></span><span><b>Ocean</b><small>BLUE</small></span></button>
-      <button type="button" class="theme-card" data-theme="violet" role="menuitem" title="Violet creative mode"><span class="theme-orb"></span><span><b>Violet</b><small>MAGENTA</small></span></button>
-      <button type="button" class="theme-card" data-theme="amber" role="menuitem" title="Amber hardware mode"><span class="theme-orb"></span><span><b>Hardware</b><small>AMBER</small></span></button>
-      <button type="button" class="theme-card" data-theme="light" role="menuitem" title="Clean light mode"><span class="theme-orb"></span><span><b>Light</b><small>STUDIO</small></span></button>
-    </div>
-  </div>
 
   <aside class="stack-shell" aria-label="Portfolio navigation">
     <nav class="stack" id="stack"></nav>

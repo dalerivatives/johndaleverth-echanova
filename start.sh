@@ -13,12 +13,21 @@ source .venv/bin/activate
 echo "Installing/checking dependencies ..."
 pip install -q -r requirements.txt
 
+# ADMIN_KEY has no shared default any more - the server rejects the old
+# "changeme123" outright, because it was printed in this repo's README and
+# /editor.html is a public URL. For LOCAL runs a key is still needed to open
+# the editor at all, so one is generated once and kept in .admin_key next to
+# this script (gitignored). Deployed copies set the variable properly instead.
 if [ -z "$ADMIN_KEY" ]; then
+  if [ ! -f ".admin_key" ]; then
+    python3 -c "import secrets;print(secrets.token_urlsafe(24))" > .admin_key
+    chmod 600 .admin_key 2>/dev/null || true
+  fi
+  export ADMIN_KEY="$(cat .admin_key)"
   echo ""
-  echo "[!] ADMIN_KEY is not set - using the default 'changeme123'."
-  echo "    Set it before deploying anywhere public: export ADMIN_KEY=your-secret-key"
+  echo "[i] Local editor key (from .admin_key):  $ADMIN_KEY"
+  echo "    Sign in at http://127.0.0.1:8000/editor.html with that."
   echo ""
-  export ADMIN_KEY=changeme123
 fi
 
 # If a previous run was closed with the terminal window instead of Ctrl+C,

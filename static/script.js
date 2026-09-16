@@ -124,9 +124,6 @@ const settingsReady = applySiteSettings();
 const app=document.getElementById("app");
 const stack=document.getElementById("stack");
 const views=document.querySelectorAll(".page-view");
-const paletteBtn=document.getElementById("paletteBtn");
-const paletteMenu=document.getElementById("paletteMenu");
-const themeButtons=document.querySelectorAll("[data-theme]");
 
 function updateFooterClock() {
     const dateElement = document.getElementById("footerDate");
@@ -171,7 +168,6 @@ function updateFooterClock() {
 
 updateFooterClock();
 setInterval(updateFooterClock, 1000);
-const themeName=document.getElementById("themeName");
 
 const items=[
  {id:"profile",label:"Profile",icon:'<i class="fa-solid fa-circle-user"></i>'},
@@ -232,7 +228,19 @@ stack.addEventListener("click",e=>{
     return;                       // reveal first; don't navigate on the opening tap
   }
   activate(item.dataset.id);
-  stack.classList.remove("open");
+  /* On touch the rail STAYS open after navigating. Collapsing it here fired
+     three motions off a single tap: the container snapped 286px -> 60px in
+     one frame, the five items then animated their heights down over ~240ms
+     behind it, and the page smooth-scrolled to the top at the same time.
+     That is the "going down and up" — it is the rail folding itself away
+     while you are still looking at it.
+
+     Desktop never had this because the rail is held open by .stack:hover as
+     long as the cursor is on it, so there is nothing to fold. Leaving it open
+     on touch is the same behaviour: it stays in stack form, and tapping
+     anywhere off the rail folds it back up, exactly as moving the cursor away
+     does with a mouse. */
+  if(!navIsTouch()) stack.classList.remove("open");
 });
 /* Tapping anywhere else folds it back up, the way moving the cursor away
    does on desktop. The opening tap can't trigger this: its target is inside
@@ -245,54 +253,223 @@ document.addEventListener("click",e=>{
 window.addEventListener("resize",()=>{ if(!navIsTouch()) stack.classList.remove("open"); });
 renderStack();
 
-const themeClasses=["light-mode","cyber-mode","ocean-mode","violet-mode","amber-mode"];
-const themeMeta={
- dark:{name:"SYSTEM"},
- cyber:{name:"CYBER"},
- ocean:{name:"OCEAN"},
- violet:{name:"VIOLET"},
- amber:{name:"HARDWARE"},
- light:{name:"STUDIO"}
+/* ============================================================
+   COLOUR MODE — a three-position lever
+   ------------------------------------------------------------
+   LIGHT  -  always the light (STUDIO) palette
+   SYSTEM -  follows the operating system, and KEEPS following it
+   DARK   -  always the dark (EMERALD) palette
+
+   This replaced a six-theme palette menu. The four accent themes
+   (CYBER, OCEAN, VIOLET, HARDWARE) were dropped on request; their CSS
+   blocks are deliberately left in style.css rather than deleted,
+   because one of them has two `.app.light-mode` selectors merged into
+   its selector list and cutting it blind would take those with it.
+   Nothing adds those classes any more, so the rules never match.
+
+   SYSTEM is the real point of the three-position switch. The previous
+   build had no such mode: it followed the OS only until you touched the
+   control, then pinned whatever you picked forever. Here SYSTEM is a
+   choice you can return to, and it re-follows the OS live.
+   ============================================================ */
+/* Five detents, ordered as a brightness ramp so turning the dial one way
+   always gets lighter and the other way always gets darker. With an odd
+   count AUTO lands on the exact centre of the arc, which is where the
+   default belongs.
+
+   The GREEN phosphor position was cut here. It sat between DARK and MONO
+   DARK and was the second dark-with-green-accents stop on the dial; one
+   is enough. */
+const MODES = ["mono-light","colour-light","auto","colour-dark","mono-dark"];
+const MODE_LABEL = {
+  "mono-light" : {word:"MONO LIGHT",  tip:"Theme: Mono light",  aria:"Theme: monochrome light, black on white"},
+  "colour-light":{word:"LIGHT",       tip:"Theme: Light",       aria:"Theme: light with matching colours"},
+  "auto"       : {word:"AUTO",        tip:"Theme: Auto",        aria:"Theme: auto, following your device"},
+  "colour-dark": {word:"DARK",        tip:"Theme: Dark",        aria:"Theme: dark with matching colours"},
+  "mono-dark"  : {word:"MONO DARK",   tip:"Theme: Mono dark",   aria:"Theme: monochrome dark, white on black"}
 };
 
-function setTheme(theme, persist=true){
- app.classList.remove(...themeClasses); document.body.classList.remove(...themeClasses);
- if(theme!=="dark"){const cls=`${theme}-mode`; app.classList.add(cls); document.body.classList.add(cls);}
- const meta=themeMeta[theme]||themeMeta.dark;
- themeButtons.forEach(button=>button.classList.toggle("selected",button.dataset.theme===theme));
- if(themeName) themeName.textContent=meta.name;
- app.dataset.theme=theme;
- if(persist) localStorage.setItem("portfolio-theme",theme);
- makeCode(theme);
- paletteMenu.classList.remove("open"); paletteBtn.setAttribute("aria-expanded","false");
-}
-paletteBtn.addEventListener("click",()=>{const isOpen=paletteMenu.classList.toggle("open"); paletteBtn.setAttribute("aria-expanded",String(isOpen));});
-themeButtons.forEach(button=>button.addEventListener("click",()=>setTheme(button.dataset.theme)));
-document.addEventListener("click",e=>{if(!paletteMenu.contains(e.target)&&!paletteBtn.contains(e.target)){paletteMenu.classList.remove("open");paletteBtn.setAttribute("aria-expanded","false");}});
+const lever = document.getElementById("themeLever");
+const osLight = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
 
-/* The drifting code + the algorithm graphs both live in background.js now,
-   driven from Site settings instead of a hardcoded per-theme array — see
-   `bg_*` in seed.DEFAULT_SETTINGS. This shim keeps the theme switcher's call
-   site unchanged; the background redraws itself with the new colour tokens. */
-function makeCode(){
- if(window.Background) window.Background.draw();
+/* Six positions, four palette classes and one that follows the device.
+
+     mono-light    .light-mode .mono-mode   black on white
+     colour-light  .light-mode              matching colours, light ground
+     auto          .light-mode | (none)     whichever the device asks for
+     colour-dark   .dark-mode               matching colours, TRUE BLACK ground
+     mono-dark     .dark-mode  .mono-mode   white on black
+
+   `.dark-mode` is the pure-black ground; `.mono-mode` strips the colour off
+   it. That mirrors the light side exactly, and it is what separates DARK
+   from AUTO: AUTO on a dark device paints the default #05080b with its two
+   green pools, while DARK is flat #000 with a cooler accent. Same family,
+   visibly not the same page.
+
+   AUTO and COLOUR-DARK paint the same page on a dark device, and AUTO and
+   COLOUR-LIGHT the same on a light one. That is what "auto" means, not a
+   fault — the readout names the position so the two are never ambiguous. */
+function paintMode(mode){
+  const osIsLight = !!(osLight && osLight.matches);
+  const light = mode === "mono-light" || mode === "colour-light" ||
+                (mode === "auto" && osIsLight);
+  const deep  = mode === "colour-dark" || mode === "mono-dark";
+  const mono  = mode === "mono-light" || mode === "mono-dark";
+  app.classList.toggle("light-mode", light);
+  document.body.classList.toggle("light-mode", light);
+  app.classList.toggle("dark-mode", deep);
+  document.body.classList.toggle("dark-mode", deep);
+  app.classList.toggle("mono-mode", mono);
+  document.body.classList.toggle("mono-mode", mono);
+  app.dataset.theme = mono ? (light ? "mono-light" : "mono-dark")
+                    : light ? "light"
+                    : deep  ? "black"
+                            : "dark";
+  if(window.Background) window.Background.draw();
 }
 
-/* Theme on load: an explicit choice this visitor made before always wins.
-   With no saved choice, follow the operating system's light/dark setting on
-   the first visit instead of always forcing dark — someone browsing in a
-   light-mode OS gets the light studio theme straight away. Not persisted, so
-   it keeps tracking their system setting until they pick a theme themselves. */
-const savedTheme=localStorage.getItem("portfolio-theme");
-const prefersLight=window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
-const initialTheme=themeMeta[savedTheme] ? savedTheme : (prefersLight ? "light" : "dark");
-setTheme(initialTheme,false);
-if(!themeMeta[savedTheme] && window.matchMedia){
-  window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", e=>{
-    if(!localStorage.getItem("portfolio-theme")) setTheme(e.matches?"light":"dark",false);
+function setMode(mode, persist = true){
+  if(MODES.indexOf(mode) === -1) mode = "auto";
+  const changed = !lever || lever.dataset.mode !== mode;
+  if(lever){
+    lever.dataset.mode = mode;
+    lever.setAttribute("aria-label", MODE_LABEL[mode].aria);
+    lever.setAttribute("data-tooltip", MODE_LABEL[mode].tip);
+  }
+  paintMode(mode);
+  if(persist){
+    try{ localStorage.setItem("portfolio-mode", mode); }catch(e){}
+    if(changed) announce(mode);
+  }
+}
+
+/* Anyone who used the site before this change has a theme name saved, not
+   a mode. Map the old values rather than ignoring them, so a returning
+   visitor keeps the brightness they chose instead of being reset. */
+function readSavedMode(){
+  let saved = null;
+  try{ saved = localStorage.getItem("portfolio-mode"); }catch(e){}
+  if(MODES.indexOf(saved) !== -1) return saved;
+
+  /* Two generations of saved value to carry forward, not one. The
+     three-position dial wrote light/system/dark; before that the six-theme
+     menu wrote a theme name. Both map onto the new ids rather than being
+     thrown away, so nobody gets silently reset. */
+  if(saved === "green")  return "colour-dark";   /* the position GREEN sat beside */
+  if(saved === "light")  return "mono-light";
+  if(saved === "system") return "auto";
+  if(saved === "dark")   return "mono-dark";
+
+  let legacy = null;
+  try{ legacy = localStorage.getItem("portfolio-theme"); }catch(e){}
+  if(legacy === "light") return "colour-light";
+  if(legacy) return "colour-dark";   // dark, cyber, ocean, violet, amber
+  return "auto";                     // never chose anything -> follow the device
+}
+
+setMode(readSavedMode(), false);
+
+/* WHERE YOU AIM IS WHERE IT GOES.
+
+   The first version stepped one detent per click and worked out the
+   direction itself, bouncing back off the ends. Pressing the dial then did
+   something you had not asked for: you could not say "left" or "right", the
+   code decided, and clicking the body of the knob moved it just the same.
+
+   This is a rotary control, so it is now driven by ANGLE. Wherever you press
+   or drag — anywhere on the dial — the pointer is taken from the knob's
+   centre to your cursor and snapped to the nearest of the three detents.
+   Press on the left of the dial and you get LIGHT. There is nothing to
+   guess, and dragging around the face turns it exactly like a real one. */
+/* The dial's geometry, read from the CSS so the hit zones can never
+   disagree with the drawn detents. Six stops across a fixed arc: the outer
+   two sit at +/- span, and the step between neighbours is span*2/(n-1). */
+function knobSpanDeg(){
+  const v = parseFloat(getComputedStyle(lever).getPropertyValue("--kb-span"));
+  return isFinite(v) && v > 0 ? v : 75;
+}
+function detentDeg(i){
+  const span = knobSpanDeg();
+  return -span + i * (span * 2 / (MODES.length - 1));
+}
+
+function modeFromPoint(clientX, clientY){
+  const r  = lever.getBoundingClientRect();
+  const cx = r.left + r.width  / 2;
+  const cy = r.top  + r.height / 2;
+  const dx = clientX - cx;
+  const dy = cy - clientY;                   // screen y grows downward
+
+  /* Dead zone: a press within a few pixels of the spindle has no meaningful
+     angle, so leave the dial where it is rather than letting a rounding
+     error throw it to a detent. */
+  if(Math.hypot(dx, dy) < 4) return lever.dataset.mode;
+
+  const deg = Math.atan2(dx, dy) * 180 / Math.PI;   // 0 = straight up, + = clockwise
+
+  /* Snap to the NEAREST detent rather than slicing the circle into bands.
+     With six stops the bands would be 30 degrees wide and easy to get wrong
+     by one; nearest-of-six cannot be off by one by construction. */
+  let best = 0, bestD = Infinity;
+  for(let i = 0; i < MODES.length; i++){
+    const d = Math.abs(deg - detentDeg(i));
+    if(d < bestD){ bestD = d; best = i; }
+  }
+  return MODES[best];
+}
+
+if(lever){
+  let turning = false;
+
+  lever.addEventListener("pointerdown", e=>{
+    turning = true;
+    try{ lever.setPointerCapture(e.pointerId); }catch(err){}
+    setMode(modeFromPoint(e.clientX, e.clientY));
+  });
+  lever.addEventListener("pointermove", e=>{
+    if(turning) setMode(modeFromPoint(e.clientX, e.clientY));
+  });
+  const stopTurning = e=>{
+    turning = false;
+    try{ lever.releasePointerCapture(e.pointerId); }catch(err){}
+  };
+  lever.addEventListener("pointerup", stopTurning);
+  lever.addEventListener("pointercancel", stopTurning);
+
+  /* A <button> still fires click on Enter and Space. `detail === 0` marks a
+     click the keyboard generated rather than a pointer, so this steps only
+     for keyboard users and never double-fires after a press. */
+  lever.addEventListener("click", e=>{
+    if(e.detail !== 0) return;
+    const i = MODES.indexOf(lever.dataset.mode);
+    setMode(MODES[(i + 1) % MODES.length]);
+  });
+
+  /* Arrows go to a specific position, which is what a three-state control
+     should do from the keyboard. */
+  lever.addEventListener("keydown", e=>{
+    const i = MODES.indexOf(lever.dataset.mode);
+    if(e.key === "ArrowLeft" || e.key === "ArrowDown"){
+      e.preventDefault(); if(i > 0) setMode(MODES[i-1]);
+    }else if(e.key === "ArrowRight" || e.key === "ArrowUp"){
+      e.preventDefault(); if(i < MODES.length-1) setMode(MODES[i+1]);
+    }
   });
 }
 
+/* SYSTEM keeps tracking. The listener is always attached, not only while
+   unpinned, because SYSTEM is now a position you can come back to. */
+if(osLight){
+  /* Compare against the CURRENT mode id, not a literal. The id was renamed
+     "system" -> "auto" when the dial grew to six detents and this line kept
+     the old string, so AUTO silently stopped following the device: the mode
+     was right, the repaint never fired. */
+  const onOsChange = ()=>{
+    if(lever && lever.dataset.mode === "auto") paintMode("auto");
+  };
+  if(osLight.addEventListener) osLight.addEventListener("change", onOsChange);
+  else if(osLight.addListener) osLight.addListener(onOsChange);   // older Safari
+}
 
 /* ============================================================
    LIVE VIEWER COUNT
@@ -313,8 +490,24 @@ if(!themeMeta[savedTheme] && window.matchMedia){
     try{ sessionStorage.setItem("portfolio-viewer-id", viewerId); }catch(e){}
   }
 
+  const host = el.closest(".online");
+  let last = null;
+
   function paint(n){
-    el.textContent = `${n} Viewer${n===1?"":"s"} Online`;
+    /* The word stays for screen readers via aria-live; the eye gets the
+       instrument. Tabular numerals in the CSS stop the row jogging when the
+       count crosses 9 -> 10. */
+    el.textContent = `${n} ONLINE`;
+    el.setAttribute("aria-label", `${n} viewer${n === 1 ? "" : "s"} online`);
+
+    /* Flash only on a real change, never on the 20s heartbeat that returns
+       the same figure — a light that blinks every time says nothing. */
+    if(host && last !== null && n !== last){
+      host.classList.remove("tick");
+      void host.offsetWidth;            // restart the animation
+      host.classList.add("tick");
+    }
+    last = n;
   }
 
   async function ping(){
@@ -329,7 +522,6 @@ if(!themeMeta[savedTheme] && window.matchMedia){
       paint(Math.max(1, Number(data.online)||1));
     }catch(err){
       // No backend (or it's down): say nothing rather than invent a number.
-      const host=el.closest(".online");
       if(host) host.style.display="none";
     }
   }

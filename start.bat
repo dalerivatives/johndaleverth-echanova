@@ -11,12 +11,26 @@ call .venv\Scripts\activate.bat
 echo Installing/checking dependencies ...
 pip install -q -r requirements.txt
 
+REM ADMIN_KEY has no shared default any more - the server rejects the old
+REM "changeme123" outright, because it was printed in this repo's README and
+REM /editor.html is a public URL. For LOCAL runs a key is still needed to open
+REM the editor at all, so one is generated once and kept in .admin_key next to
+REM this script (gitignored). Deployed copies set the variable properly instead.
+REM NOTE the shape of this block. A variable SET inside parentheses cannot be
+REM read back with %VAR% inside those same parentheses - cmd expands the whole
+REM block before it runs, so %ADMIN_KEY% there would print the value from
+REM BEFORE the set (i.e. nothing). The generation stays in the block; the echo
+REM that reads it is deliberately outside.
 if not defined ADMIN_KEY (
+  if not exist ".admin_key" python -c "import secrets;print(secrets.token_urlsafe(24))" > .admin_key
+  set /p ADMIN_KEY=<.admin_key
+  set ADMIN_KEY_IS_LOCAL=1
+)
+if defined ADMIN_KEY_IS_LOCAL (
   echo.
-  echo [!] ADMIN_KEY is not set - using the default "changeme123".
-  echo     Set it before deploying anywhere public: set ADMIN_KEY=your-secret-key
+  echo [i] Local editor key ^(saved in .admin_key^): %ADMIN_KEY%
+  echo     Sign in at http://127.0.0.1:8000/editor.html with that.
   echo.
-  set ADMIN_KEY=changeme123
 )
 
 REM If a previous run of this app was closed by just closing the window

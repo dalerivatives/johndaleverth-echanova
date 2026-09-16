@@ -50,7 +50,14 @@ button{cursor:pointer}
 .app.cyber-mode,body.cyber-mode{--bg:#050b18;--panel:rgba(9,18,36,.84);--panel2:rgba(10,23,45,.78);--text:#eaf8ff;--muted:#8aa9bd;--line:rgba(76,224,255,.20);--accent:#38f4ff;--accent2:#7d8cff;--glow:rgba(56,244,255,.23);--code:rgba(56,244,255,.13);--formula:rgba(125,140,255,.13);--topbar-bg:rgba(5,11,24,.90);--nav-bg:rgba(7,18,35,.84);--nav-border:rgba(76,224,255,.22);--tooltip-bg:rgba(7,19,38,.97);--tooltip-text:#eaf8ff;--control-bg:rgba(56,244,255,.13);--control-icon-bg:#135f78;--control-icon:#fff;--control-text:#dff9ff;--social-text:#dff9ff;--tile-bg:rgba(56,244,255,.055);--tile-hover:rgba(56,244,255,.14);--panel-shadow:rgba(0,0,0,.38);--nav-shadow:rgba(0,0,0,.45);--grid-empty:#102b3a;--line-number:#66899a;--footer-text:#c9edf4;--menu-bg:rgba(7,19,38,.98);--card-bg:#0b1729;background:radial-gradient(circle at 78% 22%,rgba(56,244,255,.15),transparent 28%),radial-gradient(circle at 20% 70%,rgba(125,140,255,.12),transparent 30%),linear-gradient(135deg,var(--bg),#07132a)}
 .app.amber-mode,body.amber-mode{--bg:#120b05;--panel:rgba(31,20,10,.86);--panel2:rgba(43,28,13,.78);--text:#fff5df;--muted:#c0a985;--line:rgba(255,190,73,.20);--accent:#ffbf4a;--accent2:#ff7b35;--glow:rgba(255,191,74,.22);--code:rgba(255,191,74,.13);--formula:rgba(255,123,53,.12);--topbar-bg:rgba(18,11,5,.90);--nav-bg:rgba(29,19,9,.84);--nav-border:rgba(255,190,73,.22);--tooltip-bg:rgba(32,21,10,.98);--tooltip-text:#fff5df;--control-bg:rgba(255,191,74,.13);--control-icon-bg:#8a5a16;--control-icon:#fff5df;--control-text:#fff0cf;--social-text:#fff0cf;--tile-bg:rgba(255,191,74,.055);--tile-hover:rgba(255,191,74,.14);--panel-shadow:rgba(0,0,0,.4);--nav-shadow:rgba(0,0,0,.48);--grid-empty:#3a2914;--line-number:#a88a58;--footer-text:#f0d7a7;--menu-bg:rgba(32,21,10,.98);--card-bg:#211609;background:radial-gradient(circle at 78% 22%,rgba(255,191,74,.14),transparent 28%),radial-gradient(circle at 22% 72%,rgba(255,123,53,.11),transparent 30%),linear-gradient(135deg,var(--bg),#281507)}
 .app.light-mode .palette-btn i{transform:translateX(22px);background:var(--accent);color:white}
-.app.light-mode .nav-label,.app.light-mode .socials a:after,.app.cyber-mode,body.cyber-mode{--bg:#050b18;--panel:rgba(9,18,36,.84);--panel2:rgba(10,23,45,.78);--text:#eaf8ff;--muted:#8aa9bd;--line:rgba(76,224,255,.20);--accent:#38f4ff;--accent2:#7d8cff;--glow:rgba(56,244,255,.23);--code:rgba(56,244,255,.13);--formula:rgba(125,140,255,.13);--topbar-bg:rgba(5,11,24,.90);--nav-bg:rgba(7,18,35,.84);--nav-border:rgba(76,224,255,.22);--tooltip-bg:rgba(7,19,38,.97);--tooltip-text:#eaf8ff;--control-bg:rgba(56,244,255,.13);--control-icon-bg:#135f78;--control-icon:#fff;--control-text:#dff9ff;--social-text:#dff9ff;--tile-bg:rgba(56,244,255,.055);--tile-hover:rgba(56,244,255,.14);--panel-shadow:rgba(0,0,0,.38);--nav-shadow:rgba(0,0,0,.45);--grid-empty:#102b3a;--line-number:#66899a;--footer-text:#c9edf4;--menu-bg:rgba(7,19,38,.98);--card-bg:#0b1729;background:radial-gradient(circle at 78% 22%,rgba(56,244,255,.15),transparent 28%),radial-gradient(circle at 20% 70%,rgba(125,140,255,.12),transparent 30%),linear-gradient(135deg,var(--bg),#07132a)}
+/* Two light-mode selectors were merged into this cyber block, so in light
+   mode the nav labels and social tooltips inherited CYBER's whole variable
+   set — and its `background` shorthand overrode their own, giving a dark
+   cyber-tinted pill in the middle of the light theme. Readable, but plainly
+   not light. They are removed from this selector list so they fall back to
+   their own rules with the light palette. Mattered little when light was
+   one theme of six; it matters now that it is one of three. */
+.app.cyber-mode,body.cyber-mode{--bg:#050b18;--panel:rgba(9,18,36,.84);--panel2:rgba(10,23,45,.78);--text:#eaf8ff;--muted:#8aa9bd;--line:rgba(76,224,255,.20);--accent:#38f4ff;--accent2:#7d8cff;--glow:rgba(56,244,255,.23);--code:rgba(56,244,255,.13);--formula:rgba(125,140,255,.13);--topbar-bg:rgba(5,11,24,.90);--nav-bg:rgba(7,18,35,.84);--nav-border:rgba(76,224,255,.22);--tooltip-bg:rgba(7,19,38,.97);--tooltip-text:#eaf8ff;--control-bg:rgba(56,244,255,.13);--control-icon-bg:#135f78;--control-icon:#fff;--control-text:#dff9ff;--social-text:#dff9ff;--tile-bg:rgba(56,244,255,.055);--tile-hover:rgba(56,244,255,.14);--panel-shadow:rgba(0,0,0,.38);--nav-shadow:rgba(0,0,0,.45);--grid-empty:#102b3a;--line-number:#66899a;--footer-text:#c9edf4;--menu-bg:rgba(7,19,38,.98);--card-bg:#0b1729;background:radial-gradient(circle at 78% 22%,rgba(56,244,255,.15),transparent 28%),radial-gradient(circle at 20% 70%,rgba(125,140,255,.12),transparent 30%),linear-gradient(135deg,var(--bg),#07132a)}
 .app.amber-mode,body.amber-mode{--bg:#120b05;--panel:rgba(31,20,10,.86);--panel2:rgba(43,28,13,.78);--text:#fff5df;--muted:#c0a985;--line:rgba(255,190,73,.20);--accent:#ffbf4a;--accent2:#ff7b35;--glow:rgba(255,191,74,.22);--code:rgba(255,191,74,.13);--formula:rgba(255,123,53,.12);--topbar-bg:rgba(18,11,5,.90);--nav-bg:rgba(29,19,9,.84);--nav-border:rgba(255,190,73,.22);--tooltip-bg:rgba(32,21,10,.98);--tooltip-text:#fff5df;--control-bg:rgba(255,191,74,.13);--control-icon-bg:#8a5a16;--control-icon:#fff5df;--control-text:#fff0cf;--social-text:#fff0cf;--tile-bg:rgba(255,191,74,.055);--tile-hover:rgba(255,191,74,.14);--panel-shadow:rgba(0,0,0,.4);--nav-shadow:rgba(0,0,0,.48);--grid-empty:#3a2914;--line-number:#a88a58;--footer-text:#f0d7a7;--menu-bg:rgba(32,21,10,.98);--card-bg:#211609;background:radial-gradient(circle at 78% 22%,rgba(255,191,74,.14),transparent 28%),radial-gradient(circle at 22% 72%,rgba(255,123,53,.11),transparent 30%),linear-gradient(135deg,var(--bg),#281507)}
 .app.light-mode .palette-btn:after{background:rgba(255,255,255,.96);color:#17242b}
 .app.light-mode .socials{background:rgba(255,255,255,.45)}
@@ -1996,3 +2003,927 @@ body.lightbox-open{overflow:hidden}
     transform:translate(-50%,-50%);
   }
 }
+
+
+/* ============================================================
+   PHASE 44 / 46 — THE CODED HUMAN ON SMALL SCREENS
+   ------------------------------------------------------------
+   Phase 44 stacked the composition on a phone: a head-sized band of
+   padding at the top of the hero, text underneath. It cleared the face,
+   but it threw away the arrangement desktop actually has — text on the
+   left, figure on the right, base cut off by the terminal panel — and
+   the result read as a different page at narrow widths.
+
+   Phase 46 puts the desktop arrangement back at EVERY width, and makes
+   it survive the squeeze by narrowing the text column and scaling the
+   headline with the viewport, rather than by moving anything.
+
+   THE MEASUREMENT EVERYTHING RESTS ON
+   The PNG is a square 883x883 canvas. Tracing its alpha, the drawn
+   content runs y=101..882 and the silhouette is narrowest (the neck) at
+   y=443; across those rows it spans x=268..568. As fractions of the box:
+
+        face   x 0.303 .. 0.643      y 0.114 .. 0.502
+
+   Only the LEFT edge matters here, because the text approaches from the
+   left. For a box of side S whose right edge sits `overhang` past the
+   hero's right edge, the face begins at
+
+        face_left = hero.right + overhang - 0.697 * S
+
+   so the text may be exactly that much narrower than the hero, less a
+   gutter. That is the max-width below - written as the formula, not as
+   a hand-tuned number, so it stays true when S changes.
+
+   THE TUCK
+   `--human-tuck` pushes the box down past the hero's bottom edge, which
+   is where the terminal panel begins. The panel is z-index 4 and the
+   figure z-index 1, so the overflow is covered: the bust emerges from
+   behind the panel exactly as it does on desktop. The hero keeps a
+   min-height of S - tuck so the head still has room above the text.
+   ============================================================ */
+
+:root{
+  /* Where the neck and the left shoulder line are, as fractions of the
+     square image box. Both the code layer and the photo use these. */
+  --human-face-end:.502;
+  --human-face-left:.697;   /* 1 - 0.303, measured from the right edge */
+}
+
+@media(max-width:850px){
+  .hero{
+    /* Side by side again, vertically centred, exactly like desktop. */
+    align-items:center;
+    padding-top:0;
+    min-height:calc(var(--human-size) - var(--human-tuck));
+  }
+
+  /* The text stops before the face begins. This is the same rule that
+     fixed the 851-1259 laptop band - the only thing that differs is
+     that S is smaller here. */
+  .hero .identity{
+    max-width:calc(100% - var(--human-face-left) * var(--human-size) - 6px);
+  }
+
+  /* The headline has to shrink with the column or it cannot wrap inside
+     it. Fluid rather than stepped so there is no width at which the name
+     suddenly jumps a size. */
+  .hero h1{ font-size:clamp(17px,4.6vw,34px); line-height:1.12 }
+  .hero .sub{ font-size:clamp(11px,2.9vw,15px) }
+  .hero .eyebrow{ font-size:clamp(8px,2.1vw,11px) }
+
+  .human-backdrop{
+    /* Bottom-anchored, and pushed past the hero's bottom edge so the
+       terminal covers the base. */
+    top:auto;
+    bottom:0;
+    right:-6px;
+    width:var(--human-size);
+    height:var(--human-size);
+    transform:translateY(var(--human-tuck));
+  }
+  .human-backdrop #asciiArt,
+  .human-backdrop .real-portrait{
+    width:var(--human-size)!important;
+    height:var(--human-size)!important;
+    top:auto!important;
+    bottom:0!important;
+  }
+}
+
+/* S is a share of the viewport so the figure keeps the same presence at
+   every size, capped so it cannot run away on a wide tablet. The tuck is
+   roughly a fifth of S, which is the proportion desktop hides (52 of
+   389). */
+@media(max-width:850px){
+  :root{ --human-size:min(68vw,330px); --human-tuck:calc(var(--human-size) * .18) }
+}
+
+/* ------------------------------------------------------------
+   PHASE 44b — the laptop band, 851px to 1259px
+   ------------------------------------------------------------
+   Found by testing the fix above across every width rather than only
+   the two the screenshots showed. It is not a phone problem and it was
+   already there before Phase 44 — but it affects most laptops, so it
+   is worth fixing in the same pass.
+
+   Sweeping 860 -> 1440 shows one clean break:
+
+        860..1180   name on ONE line, ink reaches 606..802,
+                    face starts 423..743   -> overlaps, always
+        1260+       name WRAPS to two lines, ink falls back to ~640,
+                    face starts 823+       -> ~190px of clear air
+
+   So the headline only clears the figure on wide screens by accident:
+   the font grows with the viewport until the name is finally forced to
+   wrap. Below that the line just keeps getting longer and runs through
+   the jaw.
+
+   Rather than shrink the figure or retune the font, the text is given
+   the width it is actually allowed to use, so it wraps on purpose
+   instead of by luck. The figure's face begins at
+
+        art.x + 0.303 * art.width      (from the alpha trace)
+
+   and art is 389px anchored 8px past the hero's right edge, which puts
+   the face at hero.right - 264. Leaving a 24px gutter, the text may be
+   hero.width - 288 wide; 330 is that with room to spare at both ends.
+
+   Deliberately stops at 1259: from 1260 up the name already wraps on
+   its own and the desktop composition is the one being matched, so it
+   is left exactly as it is.
+   ------------------------------------------------------------ */
+@media (min-width:851px) and (max-width:1259px){
+  .hero .identity{ max-width:calc(100% - 330px) }
+}
+
+
+/* ============================================================
+   PHASE 47 — THEME CONTROL: LED HARDWARE SWITCH
+   ------------------------------------------------------------
+   Replaces the circular-knob pill. Two reasons it changed:
+
+   1. It kept coming out misaligned, and the cause was arithmetic,
+      not taste. The old rule was a 30x30 knob in a 64x36 track with
+      `left:3px` and `translateX(28px)` written in by hand, above a
+      comment doing the sum as 64 - 3 - 30 - 3 = 28. That sum forgets
+      the track's 1px border on each side. `left` is measured from the
+      PADDING box, so the real travel is 64 - 2 - 6 - 30 = 26: the knob
+      overshot by 2px and came to rest 2px from the right edge while
+      sitting 4px from the left, and 4px from the top against 2px from
+      the bottom. A tilted, off-centre circle - exactly as reported.
+      Phase 33 fixed this same control by hand once already; hand-fixing
+      it a second time would only schedule a third.
+
+   2. A circle is the hardest shape to make look centred, and the least
+      distinctive. A panel switch with an indicator lamp is squarer,
+      more obviously a switch, and suits an embedded-systems portfolio.
+
+   NOTHING HERE IS A MEASURED NUMBER. Give it a width, a height, a
+   border and a padding; the knob size and its travel are derived:
+
+        knob   = height - 2*border - 2*pad
+        travel = width  - 2*border - 2*pad - knob
+
+   Change the track and the knob follows. It cannot drift out again.
+
+   The lamp takes `var(--accent)`, which every theme already redefines,
+   so the switch also reports WHICH theme you are in: green on SYSTEM,
+   cyan on CYBER, amber on HARDWARE, and so on.
+   ============================================================ */
+.palette-btn{
+  --sw-w:56px;
+  --sw-h:30px;
+  --sw-bw:1px;
+  --sw-pad:3px;
+  --sw-knob:calc(var(--sw-h) - 2*var(--sw-bw) - 2*var(--sw-pad));
+  --sw-travel:calc(var(--sw-w) - 2*var(--sw-bw) - 2*var(--sw-pad) - var(--sw-knob));
+
+  width:var(--sw-w);
+  height:var(--sw-h);
+  padding:0;
+  border:var(--sw-bw) solid var(--nav-border,var(--line));
+  border-radius:8px;                    /* a switch, not a pill */
+  background:
+    linear-gradient(180deg,rgba(0,0,0,.28),rgba(0,0,0,0) 55%),
+    var(--control-bg);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),
+             inset 0 -1px 0 rgba(0,0,0,.25);
+  transition:background .3s,border-color .3s,box-shadow .3s;
+}
+
+.palette-btn i{
+  position:absolute;
+  top:var(--sw-pad);
+  left:var(--sw-pad);
+  width:var(--sw-knob);
+  height:var(--sw-knob);
+  display:grid;
+  place-items:center;
+  border-radius:4px;                    /* rounded cap, not a disc */
+  /* Deliberately NEUTRAL, not green. The cap sits in front of six
+     different accents; a tinted cap looked right in SYSTEM and wrong in
+     VIOLET and HARDWARE. Translucent white over near-black picks up
+     whatever is behind it and stays neutral in all of them. */
+  background:linear-gradient(180deg,rgba(255,255,255,.17),rgba(255,255,255,.035)),
+             rgba(9,13,11,.92);
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 1px 3px rgba(0,0,0,.55);
+  color:transparent;                    /* the glyph is replaced by the lamp */
+  font-size:0;
+  transition:transform .34s cubic-bezier(.2,.9,.2,1),background .3s,border-color .3s;
+}
+
+/* Font Awesome draws its glyph in ::before, so the lamp has to be ::after.
+   (::after on the BUTTON is the tooltip — different element, no clash.) */
+.palette-btn i::before{ display:none }
+
+.palette-btn i::after{
+  content:"";
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 6px var(--accent), 0 0 13px color-mix(in srgb,var(--accent) 55%,transparent);
+  transition:background .3s,box-shadow .3s;
+}
+
+/* Browsers without color-mix still get a lamp, just a flatter glow. */
+@supports not (color: color-mix(in srgb,red 50%,transparent)){
+  .palette-btn i::after{ box-shadow:0 0 6px var(--accent) }
+}
+
+.palette-btn:hover{ border-color:var(--accent) }
+.palette-btn:hover i{ border-color:rgba(255,255,255,.22) }
+
+/* STUDIO (light) is the switch's "thrown" position: the cap slides across
+   and the cap itself goes pale, the way a real switch shows its other face. */
+.app.light-mode .palette-btn{
+  background:linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,0) 55%),rgba(7,138,82,.12);
+  border-color:rgba(7,138,82,.34);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.6),inset 0 -1px 0 rgba(0,0,0,.08);
+}
+.app.light-mode .palette-btn i{
+  transform:translateX(var(--sw-travel));
+  background:linear-gradient(180deg,#ffffff,#e3ece7);
+  border-color:rgba(0,0,0,.14);
+  box-shadow:0 1px 3px rgba(0,0,0,.22);
+}
+
+/* Touch sizing. Only the two dimensions change — knob and travel are
+   recomputed from them, which is the entire point of the block above. */
+@media(hover:none),(pointer:coarse){
+  .palette-btn{ --sw-w:68px; --sw-h:36px; --sw-pad:4px }
+  .palette-btn i{ border-radius:5px }
+  .palette-btn i::after{ width:10px; height:10px }
+}
+
+
+
+
+/* ============================================================
+   PHASE 49 — THREE-POSITION ROTARY SELECTOR (TOP VIEW)
+   ------------------------------------------------------------
+   Phase 48 drew a toggle bat in SIDE elevation: it hinged at its base
+   and leaned left or right, which is the switch seen from the front.
+   This is the same control seen from directly ABOVE — a rotary dial
+   that turns in the plane of the screen, with a pointer aimed at one of
+   three detents on the bezel.
+
+       LIGHT   pointer at -46deg (upper left)
+       SYSTEM  pointer at   0deg (straight up)
+       DARK    pointer at +46deg (upper right)
+
+   Note which parts rotate, because Phase 48 got this exactly backwards
+   and it is the same question in reverse:
+
+     - the DIAL and its pointer rotate together, so the pointer is a
+       pseudo-element of the dial and inherits its transform. Correct
+       here: on a real knob the pointer is painted ON the knob.
+     - the BEZEL TICKS must NOT rotate; they are the fixed scale the
+       pointer reads against. They live outside the dial entirely.
+
+   Everything is derived from --kb-size. The ticks are placed by
+   rotating each one about the centre and pushing it out along its own
+   axis, so there are no hand-written x/y pairs to drift:
+
+       transform: rotate(angle) translateY(-ring-radius)
+   ============================================================ */
+.knob{
+  --kb-size:38px;
+  --kb-bw:1px;
+  --kb-pad:5px;                       /* bezel width: dial inset from the rim */
+  --kb-span:75deg;                    /* half-arc: outer detents sit at -/+ this */
+  --kb-step:calc(var(--kb-span) * 2 / 4);   /* five detents -> four gaps */
+  --kb-ring:calc(var(--kb-size) / 2 - var(--kb-pad) - 3px);
+  --kb-tick-w:2px;
+  --kb-tick-h:5px;
+
+  position:relative;
+  width:var(--kb-size);
+  height:var(--kb-size);
+  padding:0;
+  border:var(--kb-bw) solid var(--nav-border,var(--line));
+  border-radius:50%;
+  cursor:pointer;
+  /* The bezel: a ring of brushed metal catching light from above. */
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,0) 45%,rgba(0,0,0,.22)),
+    var(--control-bg);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12),
+             inset 0 -1px 0 rgba(0,0,0,.30),
+             0 1px 3px rgba(0,0,0,.4);
+  transition:border-color .3s,background .3s,box-shadow .3s;
+}
+
+/* ---- the fixed scale ---------------------------------------------------- */
+.kb-ticks{ position:absolute; inset:0; pointer-events:none }
+.kb-ticks i{
+  position:absolute;
+  left:50%; top:50%;
+  width:var(--kb-tick-w);
+  height:var(--kb-tick-h);
+  /* centred on the middle first, THEN thrown outward — so the ring radius
+     is the only number that decides where it lands. */
+  margin:calc(var(--kb-tick-h) / -2) 0 0 calc(var(--kb-tick-w) / -2);
+  border-radius:1px;
+  background:var(--muted);
+  opacity:.55;
+  transform-origin:50% 50%;
+  transition:background .25s,opacity .25s,box-shadow .25s;
+}
+/* Six detents from one formula: -span, then a step at a time. Nothing is
+   positioned by hand, so the scale and the pointer cannot drift apart. */
+.kb-ticks i:nth-child(1){ transform:rotate(calc(-1 * var(--kb-span)))                      translateY(calc(-1 * var(--kb-ring))) }
+.kb-ticks i:nth-child(2){ transform:rotate(calc(-1 * var(--kb-span) + 1 * var(--kb-step))) translateY(calc(-1 * var(--kb-ring))) }
+.kb-ticks i:nth-child(3){ transform:rotate(0deg)                                           translateY(calc(-1 * var(--kb-ring))) }
+.kb-ticks i:nth-child(4){ transform:rotate(calc(-1 * var(--kb-span) + 3 * var(--kb-step))) translateY(calc(-1 * var(--kb-ring))) }
+.kb-ticks i:nth-child(5){ transform:rotate(var(--kb-span))                                 translateY(calc(-1 * var(--kb-ring))) }
+
+/* The detent the dial is currently pointing at lights up, so the position
+   is readable at a glance without counting angles. */
+.knob[data-mode="mono-light"]   .kb-ticks i:nth-child(1),
+.knob[data-mode="colour-light"] .kb-ticks i:nth-child(2),
+.knob[data-mode="auto"]         .kb-ticks i:nth-child(3),
+.knob[data-mode="colour-dark"]  .kb-ticks i:nth-child(4),
+.knob[data-mode="mono-dark"]    .kb-ticks i:nth-child(5){
+  background:var(--accent);
+  opacity:1;
+  box-shadow:0 0 5px var(--accent);
+}
+
+/* ---- the dial ----------------------------------------------------------- */
+.kb-dial{
+  position:absolute;
+  inset:var(--kb-pad);
+  border-radius:50%;
+  /* Knurled grip seen face-on: fine radial flutes over a domed cap. */
+  background:
+    repeating-conic-gradient(from 0deg,
+      rgba(255,255,255,.10) 0deg 3deg, rgba(0,0,0,.14) 3deg 6deg),
+    radial-gradient(circle at 38% 30%, #3b4441 0%, #222926 55%, #121715 100%);
+  box-shadow:0 1px 2px rgba(0,0,0,.55),
+             inset 0 1px 1px rgba(255,255,255,.18),
+             inset 0 -2px 3px rgba(0,0,0,.45);
+  transform:rotate(0deg);
+  /* A touch of over-throw so it settles into the detent. */
+  transition:transform .32s cubic-bezier(.34,1.3,.5,1);
+}
+
+/* The pointer, painted ON the dial — it turns with it. */
+.kb-dial::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:12%;
+  width:var(--kb-tick-w);
+  height:36%;
+  margin-left:calc(var(--kb-tick-w) / -2);
+  border-radius:2px;
+  background:var(--accent);
+  box-shadow:0 0 5px var(--accent);
+}
+
+.knob[data-mode="mono-light"]   .kb-dial{ transform:rotate(calc(-1 * var(--kb-span)))                      }
+.knob[data-mode="colour-light"] .kb-dial{ transform:rotate(calc(-1 * var(--kb-span) + 1 * var(--kb-step))) }
+.knob[data-mode="auto"]         .kb-dial{ transform:rotate(0deg)                                           }
+.knob[data-mode="colour-dark"]  .kb-dial{ transform:rotate(calc(-1 * var(--kb-span) + 3 * var(--kb-step))) }
+.knob[data-mode="mono-dark"]    .kb-dial{ transform:rotate(var(--kb-span))                                 }
+
+.knob:hover{ border-color:var(--accent) }
+.knob:focus-visible{ outline:2px solid var(--accent); outline-offset:3px }
+
+/* ---- STUDIO ------------------------------------------------------------- */
+.app.light-mode .knob{
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,.3) 48%,rgba(0,0,0,.07)),
+    rgba(7,138,82,.12);
+  border-color:rgba(7,138,82,.34);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.95),
+             inset 0 -1px 0 rgba(0,0,0,.10),
+             0 1px 3px rgba(0,0,0,.16);
+}
+.app.light-mode .kb-dial{
+  background:
+    repeating-conic-gradient(from 0deg,
+      rgba(0,0,0,.07) 0deg 3deg, rgba(255,255,255,.55) 3deg 6deg),
+    radial-gradient(circle at 38% 30%, #ffffff 0%, #eef3f0 55%, #d3ded8 100%);
+  box-shadow:0 1px 2px rgba(0,0,0,.22),
+             inset 0 1px 1px rgba(255,255,255,.95),
+             inset 0 -2px 3px rgba(0,0,0,.10);
+}
+
+/* ---- touch -------------------------------------------------------------- */
+/* Only --kb-size and the bezel width change; the ring radius, the tick
+   placement and the pointer all recompute from them. */
+@media(hover:none),(pointer:coarse){
+  .knob{ --kb-size:42px; --kb-pad:6px }
+}
+
+/* The pointer position IS the state, so it still moves — just instantly. */
+@media (prefers-reduced-motion:reduce){
+  .kb-dial{ transition:none }
+}
+
+
+/* ---- the position, said out loud ------------------------------------------
+   SYSTEM and DARK render the same page on a device that is already dark, so
+   turning the dial to DARK can leave the screen unchanged — which reads as a
+   control that does nothing. This names the detent for a moment after you
+   move it, so the action is always visibly acknowledged.
+
+   `position:absolute` against the top bar, and it never takes pointer events,
+   so it cannot sit in front of the knob or the social links. */
+.top-actions{ position:relative }
+
+.kb-readout{
+  position:absolute;
+  top:calc(100% + 7px);
+  right:0;
+  pointer-events:none;
+  opacity:0;
+  transform:translateY(-4px);
+  transition:opacity .16s ease, transform .16s ease;
+
+  padding:4px 8px;
+  border:1px solid var(--line);
+  border-radius:6px;
+  background:var(--tooltip-bg);
+  color:var(--accent);
+  font:10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.14em;
+  white-space:nowrap;
+  box-shadow:0 8px 22px var(--panel-shadow);
+}
+.kb-readout.show{ opacity:1; transform:translateY(0) }
+
+@media (prefers-reduced-motion:reduce){
+  .kb-readout{ transition:opacity .16s ease }
+  .kb-readout.show{ transform:none }
+}
+
+/* Dragging the dial must turn it, not scroll the page under your finger. */
+.knob{ touch-action:none }
+
+
+/* ============================================================
+   PHASE 50 — DARK IS ITS OWN PALETTE ("MIDNIGHT")
+   ------------------------------------------------------------
+   Reported twice: "system and dark don't have a difference."
+
+   They did not, and the reason was structural rather than a fault.
+   SYSTEM resolves to whatever the device asks for, so on a dark phone
+   SYSTEM already produced the dark palette — and the DARK detent then
+   produced the same one. Correct by definition, and useless in the hand:
+   a third of the control did nothing you could see.
+
+   Explaining that does not fix it. So DARK is now a palette of its own.
+
+       LIGHT   STUDIO    - the light palette
+       SYSTEM  follows the device -> STUDIO or EMERALD
+       DARK    MIDNIGHT  - true black, cooler green, no ambient bloom
+
+   SYSTEM keeps its meaning (it still mirrors the device), and every
+   detent now lands somewhere visibly different whichever way the device
+   is set:
+
+       device dark  -> STUDIO / EMERALD / MIDNIGHT   (three looks)
+       device light -> STUDIO / STUDIO  / MIDNIGHT   (two, correctly:
+                       SYSTEM is *supposed* to equal LIGHT there)
+
+   MIDNIGHT is not "darker emerald". It is pitched as an OLED reading
+   mode: paper-black ground, flatter panels, a cooler and slightly
+   dimmer green so long text is easier on the eye, and the ambient glow
+   turned off — which is the part you actually notice.
+   ============================================================ */
+.app.dark-mode,body.dark-mode{
+  --bg:#000000;
+  --panel:rgba(9,11,12,.92);
+  --panel2:rgba(14,17,18,.88);
+  --text:#dfe7e4;
+  --muted:#7b8a85;
+  --line:rgba(255,255,255,.10);
+
+  /* Cooler and a touch dimmer than EMERALD's #4dff91: on pure black a
+     fully saturated green haloes badly at small sizes. */
+  --accent:#3ce0a4;
+  --accent2:#5ad9e8;
+  --glow:rgba(60,224,164,.10);
+  --code:rgba(60,224,164,.09);
+  --formula:rgba(90,217,232,.07);
+
+  --topbar-bg:rgba(0,0,0,.88);
+  --nav-bg:rgba(6,8,9,.86);
+  --nav-border:rgba(255,255,255,.13);
+  --tooltip-bg:rgba(4,6,7,.97);
+  --tooltip-text:#e4ece9;
+  --control-bg:rgba(255,255,255,.05);
+  --control-icon-bg:#0e1516;
+  --control-icon:#bcc8c4;
+  --control-text:#c3cecb;
+  --social-text:#d3dcd9;
+  --tile-bg:rgba(255,255,255,.02);
+  --tile-hover:rgba(255,255,255,.06);
+  --panel-shadow:rgba(0,0,0,.6);
+  --nav-shadow:rgba(0,0,0,.66);
+  --grid-empty:#10161a;
+  --line-number:#4a5a5a;
+  --footer-text:#b6c2bf;
+  --menu-bg:rgba(0,0,0,.96);
+  --card-bg:#080b0c;
+
+  /* Flat black ground. EMERALD's two coloured pools are what make it read
+     as "the green one", so MIDNIGHT drops them entirely — this is the
+     single biggest visible difference between the two. */
+  background:#000000;
+}
+
+/* And kill the drifting ambient wash for the same reason. */
+.app.dark-mode:after{ opacity:0 }
+
+/* The coded figure loses its bloom too, so it reads as etched rather than
+   lit. Matches the !important the other palettes use, or it would not win. */
+.app.dark-mode .human-backdrop:not(.revealed) #asciiArt{
+  opacity:.92!important;
+  filter:
+    drop-shadow(0 0 1px rgba(60,224,164,.55))
+    drop-shadow(0 0 3px rgba(60,224,164,.22))!important;
+}
+
+
+/* ============================================================
+   PHASE 51 — THE DRIFTING CODE, MADE READABLE IN EVERY MODE
+   ------------------------------------------------------------
+   The background snippets were invisible, and measurably so. Composited
+   over each theme's real ground and scored with the WCAG formula:
+
+       STUDIO    code 1.069:1   formula 1.055:1
+       EMERALD   code 1.027:1   formula 1.057:1
+       MIDNIGHT  code 1.018:1   formula 1.024:1
+
+   1.0:1 is "identical to the background". Nothing there was legible.
+
+   THE CAUSE WAS A DOUBLE MULTIPLY. `--code` already carries its own
+   alpha (~0.12), and background.js then set a per-element opacity of
+   0.16–0.50 on top. The product is 0.02–0.05 — two percent ink.
+
+   Raising `--code` was NOT the fix: that token is also the background
+   tint behind buttons, tabs, chips and the chat avatar in ten places,
+   so louder code would have meant louder buttons everywhere. The
+   drifting field gets its own ink instead, and nothing else uses it.
+
+   The alphas below were solved, not guessed. For each theme's ink over
+   that theme's ground, the effective alpha needed for a given contrast
+   ratio is:
+
+                        1.4:1   1.7:1   2.0:1
+       EMERALD code     0.161   0.223   0.272
+       MIDNIGHT code    0.197   0.267   0.320
+       STUDIO   code    0.214   0.327   0.416
+
+   background.js now picks an opacity in 0.55–1.0, so the effective
+   alpha is tokenAlpha x (0.55..1.0). The tokens are set so that lands
+   between about 1.4:1 (farthest snippets) and 2.0:1 (nearest) — legible
+   if you look at it, still plainly behind the content. Body text this
+   is not, so 4.5:1 is deliberately not the target.
+   ============================================================ */
+:root{
+  --code-ink:rgba(77,255,145,.29);      /* EMERALD, the default dark */
+  --formula-ink:rgba(33,217,255,.33);
+}
+
+.app.light-mode,body.light-mode{
+  /* A light ground needs more ink for the same contrast — see the table. */
+  --code-ink:rgba(0,91,122,.42);
+  --formula-ink:rgba(0,126,170,.52);
+}
+
+.app.dark-mode,body.dark-mode{
+  /* MIDNIGHT sits on pure black, so it needs a touch more than EMERALD. */
+  --code-ink:rgba(60,224,164,.34);
+  --formula-ink:rgba(90,217,232,.34);
+}
+
+/* These two rules are the only consumers of the ink tokens. */
+.code{ color:var(--code-ink) }
+.formula{ color:var(--formula-ink) }
+
+
+/* ============================================================
+   PHASE 51b — PRESENCE AS TELEMETRY
+   ------------------------------------------------------------
+   "1 Viewer Online" was a sentence sitting in a top bar that is
+   otherwise all instruments. It now reads like one:
+
+       (o)) ▁▃▅█  3 ONLINE
+
+   a beacon that pulses on each heartbeat, four bars that fill with the
+   count, and a figure that ticks when it changes. Everything is driven
+   by the same number the old sentence used — nothing is invented.
+   ============================================================ */
+.online{
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.12em;
+  color:var(--control-text);
+}
+
+/* ---- the beacon --------------------------------------------------------- */
+.online i.beacon{
+  position:relative;
+  display:inline-block;
+  width:7px; height:7px;
+  border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 10px var(--accent);
+  margin-right:0;                       /* the flex gap handles spacing now */
+  flex:none;
+}
+/* The expanding ring. Drawn on ::after so the dot itself stays crisp. */
+.online i.beacon::after{
+  content:"";
+  position:absolute;
+  left:50%; top:50%;
+  width:7px; height:7px;
+  margin:-3.5px 0 0 -3.5px;
+  border-radius:50%;
+  border:1px solid var(--accent);
+  animation:beacon-ring 2.6s cubic-bezier(.2,.7,.3,1) infinite;
+}
+@keyframes beacon-ring{
+  0%   { transform:scale(1);   opacity:.55 }
+  70%  { transform:scale(3.4); opacity:0 }
+  100% { transform:scale(3.4); opacity:0 }
+}
+
+/* ---- the count ---------------------------------------------------------- */
+#viewerCount{
+  color:var(--accent);
+  font-variant-numeric:tabular-nums;     /* the row must not jog on 9 -> 10 */
+  white-space:nowrap;
+}
+
+/* A brief flash when the number actually changes — the only moment this
+   control has anything new to say. */
+.online.tick #viewerCount{ animation:presence-tick .5s ease }
+@keyframes presence-tick{
+  0%   { opacity:.25; transform:translateY(-2px) }
+  100% { opacity:1;   transform:none }
+}
+
+@media(max-width:380px){
+  .online{ gap:7px; letter-spacing:.06em }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .online i.beacon::after{ animation:none; opacity:0 }
+  .online.tick #viewerCount{ animation:none }
+}
+
+
+/* ============================================================
+   PHASE 52 — MONOCHROME LIGHT AND DARK, GREEN RESERVED FOR SYSTEM
+   ------------------------------------------------------------
+   New arrangement:
+
+       LIGHT    black on white   — no colour at all
+       SYSTEM   GREEN, and the only adapting position: it follows the
+                device and lands on the green-light or green-dark page
+       DARK     white on black   — no colour at all
+
+   So the green is now the identity, shown by the position that decides
+   for itself; the two positions you set by hand are deliberately plain.
+
+   HOW THE CLASSES COMPOSE
+   `.light-mode` and `.dark-mode` continue to carry the STRUCTURE of a
+   light or deep-dark page (shadows, tooltip treatment, the figure's
+   handling). `.mono-mode` is added on top and strips the colour out.
+   SYSTEM never gets `.mono-mode`, which is what keeps it green.
+
+       LIGHT   -> .light-mode .mono-mode
+       SYSTEM  -> .light-mode  (device light)  or no class (device dark)
+       DARK    -> .dark-mode  .mono-mode
+
+   Written as .app.light-mode.mono-mode (three classes) so it outranks
+   the palette blocks it is correcting without needing !important.
+   ============================================================ */
+
+/* ---- LIGHT: black on white --------------------------------------------- */
+.app.light-mode.mono-mode,body.light-mode.mono-mode{
+  --bg:#f4f4f4;
+  --panel:rgba(255,255,255,.93);
+  --panel2:rgba(247,247,247,.90);
+  --text:#0d0d0d;
+  --muted:#5e5e5e;
+  --line:rgba(0,0,0,.16);
+  --accent:#111111;
+  --accent2:#555555;
+  --glow:rgba(0,0,0,.05);
+  --code:rgba(0,0,0,.06);
+  --formula:rgba(0,0,0,.05);
+  --topbar-bg:rgba(244,244,244,.92);
+  --nav-bg:rgba(255,255,255,.88);
+  --nav-border:rgba(0,0,0,.16);
+  --tooltip-bg:rgba(255,255,255,.98);
+  --tooltip-text:#0d0d0d;
+  --control-bg:rgba(0,0,0,.06);
+  --control-icon-bg:#111111;
+  --control-icon:#ffffff;
+  --control-text:#2a2a2a;
+  --social-text:#2a2a2a;
+  --tile-bg:#ffffff;
+  --tile-hover:rgba(0,0,0,.06);
+  --panel-shadow:rgba(0,0,0,.12);
+  --nav-shadow:rgba(0,0,0,.16);
+  --grid-empty:#dedede;
+  --line-number:#8a8a8a;
+  --footer-text:#3a3a3a;
+  --menu-bg:rgba(255,255,255,.97);
+  --card-bg:#ffffff;
+  --btn-on-accent:#ffffff;
+  /* Flat. The coloured radial pools are the whole reason the other
+     palettes read as tinted, so monochrome cannot keep them. */
+  background:#f4f4f4;
+}
+
+/* ---- DARK: white on black ---------------------------------------------- */
+.app.dark-mode.mono-mode,body.dark-mode.mono-mode{
+  --bg:#000000;
+  --panel:rgba(14,14,14,.93);
+  --panel2:rgba(20,20,20,.88);
+  --text:#ededed;
+  --muted:#8f8f8f;
+  --line:rgba(255,255,255,.14);
+  --accent:#ffffff;
+  --accent2:#b8b8b8;
+  --glow:rgba(255,255,255,.06);
+  --code:rgba(255,255,255,.06);
+  --formula:rgba(255,255,255,.05);
+  --topbar-bg:rgba(0,0,0,.90);
+  --nav-bg:rgba(8,8,8,.88);
+  --nav-border:rgba(255,255,255,.15);
+  --tooltip-bg:rgba(6,6,6,.97);
+  --tooltip-text:#ededed;
+  --control-bg:rgba(255,255,255,.07);
+  --control-icon-bg:#181818;
+  --control-icon:#e2e2e2;
+  --control-text:#c9c9c9;
+  --social-text:#d8d8d8;
+  --tile-bg:rgba(255,255,255,.03);
+  --tile-hover:rgba(255,255,255,.08);
+  --panel-shadow:rgba(0,0,0,.62);
+  --nav-shadow:rgba(0,0,0,.68);
+  --grid-empty:#161616;
+  --line-number:#5a5a5a;
+  --footer-text:#bdbdbd;
+  --menu-bg:rgba(0,0,0,.97);
+  --card-bg:#0b0b0b;
+  background:#000000;
+}
+
+/* The drifting ambient wash is a colour effect; in monochrome it only
+   muddies the ground. (Its own tint comes from --glow, already neutral
+   above, but switching it off is cleaner than a grey smear.) */
+.app.mono-mode:after{ opacity:0 }
+
+/* ---- the coded figure --------------------------------------------------
+   The PNG is not tintable: its pixels are solid rgb(38,255,166), measured
+   straight off the file. A monochrome page therefore has to desaturate the
+   image itself, and the glows that the green palettes bolt on with
+   !important have to be overridden in kind. */
+.app.mono-mode .human-backdrop #asciiArt{
+  color:#ffffff!important;
+  text-shadow:none!important;
+}
+.app.dark-mode.mono-mode .human-backdrop:not(.revealed) #asciiArt{
+  opacity:.9!important;
+  filter:
+    grayscale(1) brightness(1.08)
+    drop-shadow(0 0 1px rgba(255,255,255,.45))
+    drop-shadow(0 0 4px rgba(255,255,255,.16))!important;
+}
+.app.light-mode.mono-mode .human-backdrop:not(.revealed) #asciiArt{
+  opacity:1!important;
+  filter:
+    grayscale(1) brightness(.34) contrast(1.7)
+    drop-shadow(0 0 1px rgba(0,0,0,.55))
+    drop-shadow(0 0 4px rgba(0,0,0,.18))!important;
+}
+/* The whoami portrait is a colour photograph, so it goes grey too — a
+   colour face in a strictly black-and-white page is the one thing that
+   would give the theme away as half-done. */
+.app.mono-mode .human-backdrop .real-portrait{ filter:grayscale(1) contrast(1.04) }
+
+/* ---- controls that hardcoded the studio green --------------------------- */
+.app.light-mode.mono-mode .knob{
+  background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,.3) 45%,rgba(0,0,0,.07)),
+             rgba(0,0,0,.05);
+  border-color:rgba(0,0,0,.2);
+}
+
+/* ---- the drifting code, solved for these two grounds -------------------
+   Same method as PHASE 51: the effective alpha is tokenAlpha x the
+   0.55–1.0 element opacity, aimed at roughly 1.4:1 to 2.0:1. Pure black
+   ink on #f4f4f4 and pure white on #000 need less than a hue does. */
+/* Solved so the ENTIRE 0.55–1.0 opacity band clears 1.4:1, not just its
+   midpoint. The first pass set the formula ink by eye and its faintest
+   snippets measured 1.316:1 — below the floor. token = need(1.4:1) / 0.55.
+
+     white on #000     need 0.152  ->  token 0.28  ->  band 1.42 .. 2.26:1
+     black on #f4f4f4  need 0.147  ->  token 0.27  ->  band 1.41 .. 1.93:1
+
+   Formulas sit a shade under code, as in the colour themes, but both ends
+   now stay legible. */
+.app.light-mode.mono-mode{
+  --code-ink:rgba(0,0,0,.30);
+  --formula-ink:rgba(0,0,0,.27);
+}
+.app.dark-mode.mono-mode{
+  --code-ink:rgba(255,255,255,.30);
+  --formula-ink:rgba(255,255,255,.28);
+}
+
+/* The terminal's three window dots are hardcoded red/amber/green — the only
+   colour left on the page once the palettes go grey (measured: 240 pixels,
+   and nothing else). Three greys keep them readable as three separate dots
+   instead of flattening them into one. */
+.app.mono-mode .dots b:nth-child(1){ background:#8e8e8e }
+.app.mono-mode .dots b:nth-child(2){ background:#6b6b6b }
+.app.mono-mode .dots b:nth-child(3){ background:#4c4c4c }
+.app.light-mode.mono-mode .dots b:nth-child(1){ background:#9a9a9a }
+.app.light-mode.mono-mode .dots b:nth-child(2){ background:#777777 }
+.app.light-mode.mono-mode .dots b:nth-child(3){ background:#555555 }
+
+
+/* ============================================================
+   PHASE 53a — MONOCHROME, EVERYWHERE THIS TIME
+   ------------------------------------------------------------
+   Phase 52 measured the HOME page, found zero coloured pixels and
+   called the theme monochrome. It had screenshotted one view out of
+   five. World Chat was still in colour the whole time.
+
+   Auditing all five views two ways — a DOM walk for CSS colour and a
+   pixel scan for anything drawn into a canvas or an image — turns up
+   what the first pass could not have seen:
+
+     robot HP bar and % : colour set INLINE from JS as hsl(...), so no
+                          plain CSS rule can reach it
+     the UNIT-01 robot  : a WebGL canvas; its pixels are not CSS at all
+     chat avatars       : drawn, not styled
+     window dots        : hardcoded #ff5f57 / amber / green
+
+   `filter:grayscale(1)` is the right tool for all of them: it acts on
+   the painted result, so it does not care whether the colour came from
+   a stylesheet, an inline style or a shader. The HP bar keeps its
+   meaning — width still reads as health, it is simply grey.
+   ============================================================ */
+/* Named selectors first for the things with meaning (the HP readout), then
+   a catch-all for anything DRAWN inside the two device mockups. Chasing
+   avatar classes one at a time is how the last three were missed: an
+   avatar appears in the message list, the composer AND the window header,
+   under three different class names. */
+.app.mono-mode .robot-hp-value,
+.app.mono-mode .robot-hp-fill,
+.app.mono-mode .desktop-dots b,
+.app.mono-mode [class*="avatar"],
+.app.mono-mode [class*="-face"],
+.app.mono-mode .device img,
+.app.mono-mode .device canvas,
+.app.mono-mode .device svg,
+.app.mono-mode .robot-3d,
+.app.mono-mode .robot-stage{
+  filter:grayscale(1);
+}
+/* On black, a fully desaturated robot loses too much separation from the
+   ground; a little extra contrast brings the silhouette back. */
+.app.dark-mode.mono-mode .robot-3d,
+.app.dark-mode.mono-mode .robot-3d canvas,
+.app.dark-mode.mono-mode .robot-stage canvas{
+  filter:grayscale(1) contrast(1.12) brightness(1.05);
+}
+
+
+/* ============================================================
+   PHASE 53b — THE PRESENCE DOT SITS LOW
+   ------------------------------------------------------------
+   `align-items:center` centres the dot on the text's LINE BOX, and a
+   line box reserves room for descenders. "1 ONLINE" is all capitals and
+   digits, so it never uses that room — its ink stops at the baseline.
+   The dot therefore centres about half a descender too low.
+
+   Measured off a 6x screenshot with the ring animation frozen so the
+   halo could not blur the reading:
+
+       dot  ink rows  66-107   centroid 86.5
+       text ink rows  54-108   centroid 81.6
+       -> the dot sits 0.83px low, 0.92px against the cap band
+
+   Corrected in em, not px, so it holds when the font shrinks on small
+   phones rather than becoming wrong at a second size.
+   ============================================================ */
+.online i.beacon{ transform:translateY(-0.075em) }
+.online i.beacon::after{ /* the ring is positioned from the dot, so it follows */ }
+
+

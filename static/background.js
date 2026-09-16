@@ -68,7 +68,11 @@
       const base = 11 + Math.random()*17;
       el.style.animationDuration = (base / Math.max(0.15, config.speed)) + "s";
       el.style.animationDelay = (-Math.random()*15) + "s";
-      el.style.opacity = (0.16 + Math.random()*0.34).toFixed(2);
+      /* 0.55–1.0, not 0.16–0.50. The colour token already carries the
+         alpha that makes this a backdrop; this only varies depth between
+         snippets. The old range multiplied the token down to ~2% ink and
+         made the whole field invisible — see PHASE 51 in style.css. */
+      el.style.opacity = (0.55 + Math.random()*0.45).toFixed(2);
       frag.appendChild(el);
     }
     codeField.appendChild(frag);

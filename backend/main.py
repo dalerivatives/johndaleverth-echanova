@@ -1445,6 +1445,60 @@ def _effective_site_url(db: Session, request: Request) -> str:
     return _request_origin(request)
 
 
+# ---------------------------------------------------------------------------
+# ASSET VERSION — why this is computed, not typed
+#
+# index.html linked its CSS and JS as `style.css?v=50`. That number was
+# written by hand at one release and then never touched again, so every
+# version after it shipped the SAME asset URLs. Anything that caches by URL
+# — a browser, and Cloudflare's edge in front of this site — was free to keep
+# serving the older file while the HTML around it was new.
+#
+# That is not theoretical. It produces a page where the markup and one script
+# are current but the stylesheet (or vice versa) is stale, so a feature that
+# depends on both silently does nothing: a theme class gets applied by new JS
+# that old CSS has no rule for, and the page falls back to a palette the user
+# was not asking for. Debugging that from the outside looks like "the fix was
+# never applied".
+#
+# The fingerprint below is the newest mtime across the static files, in base
+# 36. It changes the moment any asset changes and cannot be forgotten, which
+# is the whole point — a cache-buster a human has to remember to bump is a
+# cache-buster that will be wrong.
+# ---------------------------------------------------------------------------
+_ASSET_EXTS = (".css", ".js", ".html")
+
+def asset_version() -> str:
+    newest = 0.0
+    try:
+        for f in STATIC_DIR.rglob("*"):
+            if f.suffix.lower() in _ASSET_EXTS and f.is_file():
+                newest = max(newest, f.stat().st_mtime)
+    except OSError:
+        return "0"
+    # Base 36 keeps it short; seconds resolution is plenty for a deploy.
+    n = int(newest)
+    out = ""
+    while n:
+        n, r = divmod(n, 36)
+        out = "0123456789abcdefghijklmnopqrstuvwxyz"[r] + out
+    return out or "0"
+
+
+_ASSET_QS = re.compile(r"(\.(?:css|js))\?v=[A-Za-z0-9._-]*")
+
+
+def _stamp_assets(html: str) -> str:
+    """Rewrite every `?v=...` on a local asset to the current fingerprint.
+
+    NOT a lookbehind. `(?<=\.(?:css|js))` is variable width — three characters
+    for .css, two for .js — and Python's `re` refuses to compile that, which
+    took down the whole page with a 500 rather than failing quietly. Capturing
+    the extension and putting it back is both legal and clearer."""
+    ver = asset_version()
+    return _ASSET_QS.sub(lambda m: m.group(1) + "?v=" + ver, html)
+
+
 def _settings_map(db: Session) -> dict:
     stored = {s.key: (s.value or "") for s in db.query(models.Setting).all()}
     return {**seed.DEFAULT_SETTINGS, **stored}
@@ -1477,7 +1531,7 @@ def _render_index(db: Session, request: Request) -> HTMLResponse:
         html = set_meta(html, r'(<meta property="og:description" content=")[^"]*"', safe)
         html = set_meta(html, r'(<meta name="twitter:description" content=")[^"]*"', safe)
 
-    html = _inject_livereload(html)
+    html = _stamp_assets(_inject_livereload(html))
     return HTMLResponse(html, headers={"Cache-Control": "no-cache, must-revalidate"})
 
 
@@ -1510,7 +1564,8 @@ def serve_editor():
     wants to refresh itself. In production this is the same bytes the static
     mount would have returned."""
     html = (STATIC_DIR / "editor.html").read_text(encoding="utf-8")
-    return HTMLResponse(_inject_livereload(html), headers={"Cache-Control": "no-cache, must-revalidate"})
+    return HTMLResponse(_stamp_assets(_inject_livereload(html)),
+                        headers={"Cache-Control": "no-cache, must-revalidate"})
 
 
 @app.get("/robots.txt", include_in_schema=False)
