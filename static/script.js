@@ -120,7 +120,6 @@ async function applySiteSettings(){
 /* Kicked off immediately; the GitHub sync below awaits it so it can use the
    configured username rather than racing it. */
 const settingsReady = applySiteSettings();
-if(window.PortfolioBoot) window.PortfolioBoot.track(settingsReady.then(value=>{if(!value) throw new Error("Site settings unavailable");}), "Site content");
 
 const app=document.getElementById("app");
 const stack=document.getElementById("stack");
@@ -528,70 +527,24 @@ if(osLight){
   if(!el) return;
   const PING_MS=20000;
 
-  let viewerId;
-  try{viewerId=sessionStorage.getItem("portfolio-viewer-id");}catch(e){}
+  let viewerId=sessionStorage.getItem("portfolio-viewer-id");
   if(!viewerId){
     viewerId=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now());
     try{ sessionStorage.setItem("portfolio-viewer-id", viewerId); }catch(e){}
   }
 
   const host = el.closest(".online");
-  const stackEl = document.getElementById("presenceFaces");
-  let last = null, lastFaces = [];
+  let last = null;
 
-  /* Registered visitors show their chat avatar; guests show a circular human silhouette.
-     The total appears once in the text. At most three faces occupy the header. */
-  const ANON_GLYPH = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 22v-2a8 8 0 0 1 16 0v2z"/></svg>';
-  function myName(){
-    try{return localStorage.getItem('portfolio-chat-name') || '';}catch(e){return '';}
-  }
-  let lastSig = null;
-  function paintFaces(faces, online){
-    if(!stackEl) return;
-    const mine = myName();
-    const list = [...new Set((faces || []).filter(Boolean))];
-    if(mine && list.includes(mine)){list.splice(list.indexOf(mine),1);list.unshift(mine);}
-    const visible = list.slice(0, Math.min(3,online));
-    const guests = Math.min(Math.max(0,online-list.length), 3-visible.length);
-    const sig = visible.join('\u0000')+'|'+guests;
-    if(sig===lastSig) return;
-    lastSig = sig;
-    stackEl.innerHTML = visible.map(n=>'<span class="pv-face" title="'+escapeAttr(n)+'">'+
-      (window.ChatAvatar ? window.ChatAvatar.svg(n) : ANON_GLYPH)+'</span>').join('') +
-      ('<span class="pv-face is-anon" title="Unregistered visitor" aria-label="Unregistered visitor">'+ANON_GLYPH+'</span>').repeat(guests);
-    stackEl.classList.toggle('is-empty',online===0);
-  }
+  function paint(n){
+    /* The word stays for screen readers via aria-live; the eye gets the
+       instrument. Tabular numerals in the CSS stop the row jogging when the
+       count crosses 9 -> 10. */
+    el.textContent = `${n} ONLINE`;
+    el.setAttribute("aria-label", `${n} viewer${n === 1 ? "" : "s"} online`);
 
-  /* A name claimed mid-session should show up at once, not at the next
-     20-second heartbeat. */
-  window.addEventListener("chat-named", ()=>{ lastSig = null; ping(); });
-
-  /* Does the row still sit inside the space the header gives it?
-     Measured, because the label, the stack and the tail are all
-     variable, and so is whatever sits on the other side of the bar. */
-  function fits(){
-    if(!host) return true;
-    const bar = host.closest(".topbar");
-    if(!bar) return true;
-    const actions = bar.querySelector(".top-actions");
-    const room = (actions ? actions.getBoundingClientRect().left : bar.getBoundingClientRect().right)
-               - host.getBoundingClientRect().left - 14;
-    return host.scrollWidth <= room;
-  }
-
-  function paint(n, faces){
-    if(faces) lastFaces = faces;
-    paintFaces(lastFaces, n);
-
-    el.textContent = n + (n === 1 ? " person viewing now" : " people viewing now");
-
-    /* The visible text abbreviates; the announced text never does. */
-    host.setAttribute("aria-label",
-      n === 1 ? "1 person viewing now" : n + " people viewing now");
-
-    /* Flash only on a real change, never on the 20s heartbeat that
-       returns the same figure — a light that blinks every time says
-       nothing. */
+    /* Flash only on a real change, never on the 20s heartbeat that returns
+       the same figure — a light that blinks every time says nothing. */
     if(host && last !== null && n !== last){
       host.classList.remove("tick");
       void host.offsetWidth;            // restart the animation
@@ -600,27 +553,16 @@ if(osLight){
     last = n;
   }
 
-  /* Re-fit when the bar changes width, so a rotation does not leave the
-     long form overlapping the controls until the next heartbeat. */
-  let refit = null;
-  window.addEventListener("resize", ()=>{
-    clearTimeout(refit);
-    refit = setTimeout(()=>{ if(last !== null) paint(last); }, 150);
-  });
-
   async function ping(){
     try{
       const res=await fetch("/api/presence",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        /* The name goes up with the heartbeat so the server can tell the
-           badge WHO is here, not just how many. Empty for anyone who
-           has not joined the chat — they are counted, never named. */
-        body:JSON.stringify({viewer_id:viewerId, name:myName()})
+        body:JSON.stringify({viewer_id:viewerId})
       });
       if(!res.ok) throw new Error("presence unavailable");
       const data=await res.json();
-      paint(Math.max(1, Number(data.online)||1), Array.isArray(data.faces) ? data.faces : []);
+      paint(Math.max(1, Number(data.online)||1));
     }catch(err){
       // No backend (or it's down): say nothing rather than invent a number.
       if(host) host.style.display="none";
@@ -632,96 +574,6 @@ if(osLight){
   document.addEventListener("visibilitychange",()=>{ if(!document.hidden) ping(); });
 })();
 
-
-/* ============================================================
-   HEADER RESERVATION — a number that cannot disagree with itself
-   ------------------------------------------------------------
-   `.topbar` is fixed and uses `min-height`, so it GROWS with its
-   contents. `--header-h` is what reserves space for it at the top
-   of the page. They were two hand-maintained numbers that had to
-   match, and they did not: measured on a phone the bar is 75px
-   against a reservation of 68px, so the fixed header had been
-   covering the first 7px of every page — the top of a heading,
-   the first line of the terminal — on every phone, in every
-   version, for as long as the social links have been that size.
-
-   It is not the sort of thing anyone notices directly. It looks
-   like the page just starts a little tight.
-
-   So the reservation is measured from the bar rather than typed
-   next to it. A ResizeObserver keeps it true through font loading,
-   a rotation, the social links arriving from the API, and anything
-   added to the bar later. The CSS value stays as the pre-script
-   fallback.
-   ============================================================ */
-(() => {
-  const bar = document.querySelector(".topbar");
-  if(!bar) return;
-
-  let applied = 0;
-  function sync(){
-    const h = Math.ceil(bar.getBoundingClientRect().height);
-    /* A tenth of a pixel of jitter must not thrash the layout. */
-    if(!h || Math.abs(h - applied) < 1) return;
-    applied = h;
-    document.documentElement.style.setProperty("--header-h", h + "px");
-  }
-  sync();
-
-  if(window.ResizeObserver){
-    new ResizeObserver(sync).observe(bar);
-  }else{
-    window.addEventListener("resize", sync);
-  }
-  /* Web fonts land after first paint and change the bar's height. */
-  if(document.fonts && document.fonts.ready) document.fonts.ready.then(sync).catch(()=>{});
-  window.addEventListener("load", sync);
-})();
-
-/* ============================================================
-   TERMINAL GUTTER — numbers that cannot drift
-   ------------------------------------------------------------
-   The numbers down the left of the profile terminal were typed by
-   hand and had drifted to 01, 02, 02, 03, 05: one repeated, one
-   skipped. That is what hand-typed line numbers always do in the
-   end, and these are worse than most, because the lines beside
-   them are editable from the CMS — add a line in the editor and
-   the gutter silently goes wrong again.
-
-   So the gutter is generated from however many lines are actually
-   there. Zero-padded to two digits to match the monospace column,
-   and marked aria-hidden: a screen reader reading "zero one" before
-   every sentence is noise, and the numbers carry no meaning beyond
-   making the block look like a listing.
-   ============================================================ */
-(() => {
-  const body = document.querySelector(".terminal-body");
-  if(!body) return;
-
-  function renumber(){
-    const lines = body.querySelectorAll(".line");
-    lines.forEach((line, i) => {
-      const gutter = line.firstElementChild;
-      if(!gutter) return;
-      gutter.textContent = String(i + 1).padStart(2, "0");
-      gutter.setAttribute("aria-hidden", "true");
-    });
-  }
-  renumber();
-
-  /* Site settings arrive after load and can add or remove lines, so
-     renumber whenever the block's children change. Guarded against its
-     own writes: textContent changes fire childList too, and without the
-     flag this would loop. */
-  let busy = false;
-  const mo = new MutationObserver(() => {
-    if(busy) return;
-    busy = true;
-    renumber();
-    busy = false;
-  });
-  mo.observe(body, {childList:true});
-})();
 
 /* ============================================================
    WHOAMI — SAME HUMAN CONTOUR REVEAL
@@ -767,10 +619,15 @@ if(osLight){
       field.value="";
       field.placeholder=reverseHint;
       field.blur();
+
+      /* The command is intentionally acknowledged by voice only. There is no
+         toast, modal or terminal reply competing with the portrait reveal. */
+      if(window.Speech && window.Speech.supported && !(window.SFX && window.SFX.muted)){
+        window.Speech.robot("Welcome to my world!", true);
+      }
     }
 
     function showCode(){
-      if(window.Speech) window.Speech.stop();
       revealed=false; backdrop.classList.add("crossfade");
       backdrop.classList.remove("revealed");
       window.setTimeout(()=>backdrop.classList.remove("crossfade"), 760);
@@ -804,11 +661,6 @@ if(osLight){
 
       if(!revealed && command==="whoami"){
         showPhoto();
-        let voiceEnabled=true;
-        try{voiceEnabled=localStorage.getItem('portfolio-chat-voice') !== 'off';}catch(e){}
-        if(voiceEnabled && window.Speech){
-          window.Speech.robot("Welcome to my world!",true);
-        }
         return;
       }
 
@@ -849,23 +701,17 @@ if(osLight){
 
 /* ============================================================
    GITHUB CONTRIBUTIONS SYNC
+   Pulls a real GitHub contribution calendar into the Activity
+   panel, client-side, with no backend and no access token.
 
-   One request, to our own /api/github/<username>. The server talks to
-   GitHub; this file only draws what comes back.
+   Data sources (both public, CORS-enabled, unauthenticated):
+   - https://api.github.com/users/<username>            → profile stats
+   - https://github-contributions-api.jogruber.de/v4/... → daily contribution calendar
 
-   It used to talk to api.github.com and a third-party calendar host
-   directly from the browser, "with no backend and no access token" — a
-   design that reads as elegant and fails on phones, because an
-   unauthenticated GitHub allows 60 requests an hour per IP and a carrier
-   network shares one IP between thousands of people. Whoever loads the
-   page is not who spent the quota. backend/github.py has the full
-   account; syncGithub() below has the short one.
-
-   The username comes from the editor's Site settings and is remembered
-   per browser in localStorage. Two caches now sit in front of the
-   upstreams: the server's, which is shared by every device and is the
-   one that matters, and this browser's, which survives the server being
-   unreachable entirely.
+   The username is entered once via the "Sync GitHub" control in
+   the Activity panel and remembered in this browser (localStorage),
+   so it re-syncs automatically on future visits. Results are also
+   cached for a few hours to stay well under public rate limits.
    ============================================================ */
 (() => {
   const GITHUB_STORAGE_KEY="portfolio-github-username";
@@ -922,7 +768,7 @@ if(osLight){
   }
 
 
-  function applyGithubData(data, username, fromCache, meta){
+  function applyGithubData(data, username, fromCache){
     const days=(data.calendar && data.calendar.contributions) || [];
     const trimmed=days.slice(-364);
     if(trimmed.length){
@@ -935,18 +781,10 @@ if(osLight){
       renderDemoHeatmap();
     }
     if(syncNoteEl){
-      /* The profile is now allowed to be missing while the calendar is
-         present — that combination is the common case when api.github.com
-         has rate-limited us and the calendar came from elsewhere — so
-         every piece of this line is optional. */
       const repoCount=data.profile && typeof data.profile.public_repos==="number" ? `${data.profile.public_repos} public repos` : "";
       const followerCount=data.profile && typeof data.profile.followers==="number" ? `${data.profile.followers} followers` : "";
-      const stale = meta && meta.stale;
       const bits=[`Synced with @${username}`, repoCount, followerCount].filter(Boolean);
-      let note = bits.join(" · ");
-      if(stale) note += " · showing the last good copy";
-      else if(fromCache) note += " (cached)";
-      syncNoteEl.textContent=note;
+      syncNoteEl.textContent=bits.join(" · ")+(fromCache?" (cached)":"");
     }
   }
 
@@ -957,7 +795,7 @@ if(osLight){
       try{
         const cached=JSON.parse(localStorage.getItem(GITHUB_CACHE_KEY)||"null");
         if(cached && cached.username===username && (Date.now()-cached.at)<GITHUB_CACHE_TTL){
-          applyGithubData(cached.data, username, true, null);
+          applyGithubData(cached.data, username, true);
           return;
         }
       }catch(e){/* ignore corrupt cache */}
@@ -965,56 +803,17 @@ if(osLight){
 
     if(syncNoteEl) syncNoteEl.textContent=`Syncing @${username}…`;
 
-    /* ONE REQUEST, TO OUR OWN SERVER.
-
-       This used to be two direct calls from the browser — api.github.com
-       for the profile and a third-party host for the calendar — wrapped in
-       a Promise.all. Reported as "the GitHub contribution is not syncing
-       in mobile view or in other devices, it says couldn't reach GitHub
-       for @dalerivatives", and every part of that was the architecture
-       rather than a bug:
-
-         - api.github.com allows 60 unauthenticated requests an hour PER
-           IP. Phones on a carrier share one address with thousands of
-           strangers, so a phone can be refused on its first ever request
-           because somebody else spent the quota.
-         - the calendar host is a hobby service; when it wobbles, every
-           visitor breaks at once and the client can do nothing.
-         - Promise.all meant EITHER failure discarded BOTH results, so a
-           rate-limited profile lookup threw away a calendar that had
-           arrived intact.
-         - 8 seconds is a fine timeout on wifi and a mean one on a train.
-
-       Same-origin now, so CORS is not a factor; the server holds one
-       shared cache, so devices cannot disagree; and it will serve a
-       day-old calendar rather than nothing, which beats random demo
-       squares by a wide margin. The timeout goes up because a cold cache
-       legitimately costs the server two upstream round trips. */
     try{
-      const data = await fetchJSON(`api/github/${encodeURIComponent(username)}`, 20000);
-      const days = (data.calendar && data.calendar.contributions) || [];
-      if(!days.length) throw new Error(data.errors ? data.errors.join("; ") : "no calendar");
+      const [profile, calendar]=await Promise.all([
+        fetchJSON(`https://api.github.com/users/${encodeURIComponent(username)}`),
+        fetchJSON(`https://github-contributions-api.jogruber.de/v4/${encodeURIComponent(username)}?y=last`)
+      ]);
+      const data={profile, calendar};
       try{ localStorage.setItem(GITHUB_CACHE_KEY, JSON.stringify({username, at:Date.now(), data})); }catch(e){}
-      applyGithubData(data, username, false, data);
+      applyGithubData(data, username, false);
     }catch(err){
-      /* Last resort: this browser's own cache, however old. A heatmap from
-         last week is real data about a real person; the demo squares are
-         an invention, and showing an invention next to the words
-         "contributions in the last year" is the worse of the two. */
-      let served = false;
-      try{
-        const cached = JSON.parse(localStorage.getItem(GITHUB_CACHE_KEY) || "null");
-        if(cached && cached.username === username &&
-           cached.data && cached.data.calendar &&
-           (cached.data.calendar.contributions || []).length){
-          applyGithubData(cached.data, username, true, {stale:true});
-          served = true;
-        }
-      }catch(e){}
-      if(!served){
-        if(syncNoteEl) syncNoteEl.textContent=`GitHub activity for @${username} is unavailable right now — the squares below are a placeholder, not real data. It will fill in on its own once GitHub responds.`;
-        renderDemoHeatmap();
-      }
+      if(syncNoteEl) syncNoteEl.textContent=`Couldn't reach GitHub for @${username} right now — showing sample activity instead. Check the username and your connection, then try again.`;
+      renderDemoHeatmap();
     }
   }
 
@@ -1342,16 +1141,12 @@ if(osLight){
       container.innerHTML = "";
       withItems.forEach(cat => container.appendChild(renderCategory(cat)));
     }catch(err){
-      container.innerHTML = `<p class="cms-empty">This section is temporarily unavailable. Please refresh to try again.</p>`;
-      if(window.PortfolioBoot) window.PortfolioBoot.fail(section);
+      container.innerHTML = `<p class="cms-empty">Couldn't load this section right now — is the backend server running? (Static previews without the FastAPI backend won't have live content.)</p>`;
     }
   }
 
   function init(){
-    document.querySelectorAll(".cms-section[data-section]").forEach(container=>{
-      const task=loadCmsSection(container);
-      if(window.PortfolioBoot) window.PortfolioBoot.track(task,container.dataset.section);
-    });
+    document.querySelectorAll(".cms-section[data-section]").forEach(loadCmsSection);
   }
 
   if(document.readyState==="loading"){
@@ -1513,7 +1308,6 @@ if(osLight){
      nobody had touched. The flag is cleared here so an upgraded browser
      doesn't keep believing it. */
   let verified = false;
-  let gateWasOpen = null;
   try{ localStorage.removeItem("portfolio-robot-beaten"); }catch(e){}
   function beaten(){ return verified; }
   function applyGate(){
@@ -1530,15 +1324,6 @@ if(osLight){
       }
     }
     if(lockedEl && !lockedEl.hidden) lockedEl.dataset.wasLocked = "1";
-
-    /* The moment the chat becomes usable. Sounded once per transition,
-       not on every re-check — applyGate() runs on a heartbeat and on
-       every stream event, and a latch that keeps re-latching is noise.
-       `gateWasOpen` starts null so arriving at an already-open chat is
-       silent; nothing just happened. */
-    const nowOpen = open && named;
-    if(gateWasOpen !== null && nowOpen && !gateWasOpen && window.SFX) window.SFX.unlock();
-    gateWasOpen = nowOpen;
   }
   /* The robot module fires this when a kill lands. It doesn't decide anything
      — it just prompts a re-check, because only the server knows whether THIS
@@ -1676,11 +1461,8 @@ if(osLight){
       const claimed = data.name || value;
       verified = !!data.verified;
       setName(claimed);
-      // Spoken once, on the claim itself — syncClaim() calls setName too, and
-      // greeting someone again on every reload would get old fast.
-      if(window.Speech && window.Speech.supported && voiceOn()){
-        window.Speech.robot(`Welcome to the world! ${claimed}`, true);
-      }
+      /* No spoken join greeting here. The signature welcome belongs to the
+         profile terminal's `whoami` command, so joining chat stays quiet. */
     }catch(err){
       showError(err.message);
     }finally{
@@ -1831,8 +1613,7 @@ if(osLight){
      The fallback object is not defensive padding: if sfx.js ever fails to
      load, the robot must still take hits silently rather than throwing on
      every tap. */
-  const sfx = window.SFX || { hit(){}, farHit(){}, boom(){}, revive(){},
-                              join(){}, unlock(){}, crown(){}, victory(){},
+  const sfx = window.SFX || { hit(){}, boom(){}, revive(){},
                               prime(){}, toggle(){ return true; },
                               get muted(){ return true; }, set muted(v){} };
 
@@ -1849,7 +1630,6 @@ if(osLight){
   const champRound  = document.getElementById("boardChampRound");
   const champDmg    = document.getElementById("boardChampDmg");
   let boardTimer = null;
-  let lastChamp = null, champSeeded = false;
 
   function boardFace(name){
     return window.ChatAvatar ? window.ChatAvatar.svg(name || "?") : "";
@@ -1890,31 +1670,6 @@ if(osLight){
           champRound.textContent = data.kills || 1;
           champDmg.title = `${champ.damage.toFixed(1)}% across ${champ.blows} hits`;
         }
-
-        /* A NEW round winner has been crowned.
-
-           Keyed on the name AND the round number, because the same person
-           can win twice running and that is still a new crown. The first
-           board load only records who is already champion — arriving at a
-           page should not congratulate you for something that happened
-           before you got there. */
-        const key = champ ? `${champ.name}#${data.kills || 0}` : "";
-        if(champSeeded && key && key !== lastChamp){
-          /* chatName(), not myName(): myName() falls back to the string
-             "you" for a visitor who has not joined, and a champion who
-             happened to be called "you" would then get the personal
-             fanfare played at a stranger. */
-          const me = chatName();
-          const mine = !!me && champ.name === me;
-          if(mine) sfx.victory(); else sfx.crown();
-          if(boardChamp){
-            boardChamp.classList.remove("crowned");
-            void boardChamp.offsetWidth;
-            boardChamp.classList.add("crowned");
-          }
-        }
-        lastChamp = key;
-        champSeeded = true;
       }
     }catch(e){/* the board is decoration; a failed poll is not worth a message */}
   }
@@ -2107,12 +1862,8 @@ if(osLight){
     }
   }
 
-  function reactToHit(nx, ny, mine){
-    /* Your own blow lands on your hand; everyone else's lands across the
-       room. Playing every visitor's tap at full strength made a busy
-       arena sound like hail. `mine` defaults to true so the local call
-       sites that never passed it keep the loud clank. */
-    if(mine === false) sfx.farHit(); else sfx.hit();
+  function reactToHit(nx, ny){
+    sfx.hit();
     if(use3d && window.Robot3D){
       window.Robot3D.hit(nx, ny);
     }else if(fallbackBody){
@@ -2199,7 +1950,7 @@ if(osLight){
       else {
         // Someone else's tap: play it exactly where they hit.
         floatHit(event.name, event.damage, event.x, event.y, false);
-        reactToHit(event.x, event.y, false);     // someone else's
+        reactToHit(event.x, event.y);
       }
       noteAttacker(event.name, event.damage);
       refreshBoard();
@@ -2779,7 +2530,7 @@ if(osLight){
        installed, or an engine that has wedged. */
     if(spoke === false){
       btn.classList.add("failed");
-      btn.setAttribute("title", "Voice playback unavailable. Please try again.");
+      btn.setAttribute("title", "Your browser's speech engine didn't respond");
       clearTimeout(btn.__failT);
       btn.__failT = setTimeout(()=>{
         btn.classList.remove("failed");
@@ -2805,13 +2556,15 @@ if(osLight){
     const text = Array.from(body.querySelectorAll(".line"))
       .map(line => Array.from(line.querySelectorAll("span")).slice(1).map(s=>s.textContent).join(" "))
       .filter(t => t.trim())
+      /* These are visual source-code rows, not sentence boundaries. Joining
+         them with periods made the voice reset its prosody every row. */
       .join(" ");
     if(!text.trim()) return;
     busy();
     /* Driven by the queue draining, not by polling `speaking`. The poll used
        to catch the gap between two chunks and reset the button a second in,
        while the voice kept going. */
-    const queued = window.Speech.plain(text, true, idle);
+    const queued = window.Speech.robot(text, true, idle);
     if(!queued){
       idle();
       return;

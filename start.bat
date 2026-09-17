@@ -10,11 +10,6 @@ call .venv\Scripts\activate.bat
 
 echo Installing/checking dependencies ...
 pip install -q -r requirements.txt
-if errorlevel 1 (
-  echo Dependency installation failed. Check your internet connection and Python installation.
-  pause
-  exit /b 1
-)
 
 REM ADMIN_KEY has no shared default any more - the server rejects the old
 REM "changeme123" outright, because it was printed in this repo's README and

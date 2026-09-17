@@ -57,97 +57,6 @@
     else S.click();
   }, true);
 
-  /* ---- 1b. arriving on a control --------------------------------------
-     A cursor landing on something that can be pressed.
-
-     Driven by `pointermove`, NOT by `pointerover`, and that is the whole
-     design. A hover is caused by the pointer moving onto a control; it is
-     not caused by a control moving under a stationary pointer — and
-     `pointerover` cannot tell those apart. The navigation rail expands
-     over 350ms and drops seven controls under a cursor that has not moved
-     a pixel; watching `pointerover` meant resting the mouse there played
-     the open sound and then chattered three times.
-
-     Tracking the control under each real move gets it right by
-     construction: no move, no sound, however much the page rearranges
-     itself. Moving WITHIN one control is silent because the control has
-     not changed; moving from one to the next fires exactly once.
-
-     Touch is separate. A finger produces `pointerover` immediately before
-     its `pointerdown`, so treating that as a hover would make every tap
-     play hover-then-click — two sounds for one action. The real touch
-     equivalent is dragging a finger ACROSS controls while already down,
-     which is how people scan a rail before committing; that case gets the
-     sound, a plain tap does not. */
-  let hoveredEl = null;
-  let pointerDown = false;
-  let lastTarget = null;
-  let dwellTimer = null;
-
-  /* ---- a hover is a DWELL, not an arrival --------------------------
-     Moving the mouse to a button and clicking it used to play hover and
-     then click: two sounds for one action, which is exactly the "there
-     are 2 sounds when I click" report — the soft one arriving a tenth of
-     a second before the press.
-
-     The cause is that arriving on a control and passing through it on the
-     way to pressing it look identical at the moment of arrival. They are
-     only told apart by what happens NEXT. So the hover waits: if a press
-     lands on the same control first, the visit was never a hover at all
-     and the sound is cancelled before it is made.
-
-     140ms is the whole trick. It is long enough that a deliberate move-
-     and-click never triggers it, and short enough that resting on a
-     control still feels immediate. A sweep across a row of icons now
-     sounds only where the cursor actually pauses, which is also more
-     honest than ticking once per icon crossed. */
-  const DWELL_MS = 140;
-
-  function cancelDwell(){
-    if(dwellTimer){ clearTimeout(dwellTimer); dwellTimer = null; }
-  }
-
-  document.addEventListener("pointerdown", e => {
-    if(!e.isTrusted) return;
-    pointerDown = true;
-    cancelDwell();              // this was a press, not a hover
-  }, true);
-
-  for(const ev of ["pointerup","pointercancel"])
-    document.addEventListener(ev, () => { pointerDown = false; }, true);
-
-  function arrive(el, viaTouch){
-    if(el === hoveredEl) return;
-    cancelDwell();
-    hoveredEl = el;
-    if(!el || el.disabled) return;
-    if(el.closest(OWN_VOICE)) return;      // the dial owns its sound, and is dragged
-    if(viaTouch && !pointerDown) return;   // that is a tap, not a hover
-    dwellTimer = setTimeout(() => {
-      dwellTimer = null;
-      /* Still on the same control, and no button is down. */
-      if(hoveredEl === el && !pointerDown) S.hover();
-    }, DWELL_MS);
-  }
-
-  document.addEventListener("pointermove", e => {
-    if(!e.isTrusted || e.pointerType === "touch") return;
-    const t = e.target;
-    if(t === lastTarget) return;           // cheap early-out: most moves stay put
-    lastTarget = t;
-    arrive(t instanceof Element ? isControl(t) : null, false);
-  }, true);
-
-  /* Touch only: a finger already down, dragged onto a different control. */
-  document.addEventListener("pointerover", e => {
-    if(!e.isTrusted || e.pointerType !== "touch" || !pointerDown) return;
-    const t = e.target;
-    if(!(t instanceof Element)) return;
-    arrive(isControl(t), true);
-  }, true);
-
-  document.addEventListener("pointerleave", () => { cancelDwell(); hoveredEl = null; lastTarget = null; }, true);
-
   /* Keyboard activation makes the same sound. Without this the site is
      silent for anyone driving it from the keyboard, which is the one
      group most likely to be relying on feedback that isn't visual.
@@ -259,12 +168,6 @@
        inside that window as history too. */
     setTimeout(()=>{ seeded = true; count = log.children.length; }, 1500);
   }
-
-  /* Joining the chat. The name form's submit is the send sound above, but
-     actually being LET IN is a different event and deserves to be heard:
-     it happens once, and until it happens nothing else in the chat works.
-     The chat module fires this when a name is accepted. */
-  window.addEventListener("chat-named", () => S.join());
 
   for(const id of ["chatSendForm","chatNameForm"]){
     const f = document.getElementById(id);

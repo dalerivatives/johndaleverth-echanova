@@ -8,6 +8,3 @@ pydantic>=2.6
 # (Supabase, Render, Neon…); with the default SQLite it is never imported, so
 # it costs a local run nothing but an install.
 psycopg2-binary>=2.9
-
-# Bundled native engine provides the same male robot voice on every device.
-espeakng-loader==0.2.4

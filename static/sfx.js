@@ -55,16 +55,6 @@
       try{ ctx = new AC(); }catch(e){ return null; }
     }
     if(!master){
-      /* Everything goes through one bus, and the bus goes straight out.
-
-         There WAS a DynamicsCompressor here as a safety limiter. Measured
-         offline, it cost 13dB on a signal peaking at -22dBFS — twenty-two
-         decibels below its own -6dB threshold, where it should have been
-         doing nothing at all. Click 0.080 in, 0.018 out. That single node
-         was most of why the palette sounded thin and far away, and it was
-         solving a problem that does not exist: these voices are short and
-         sparse, the loudest peaks about 0.15, so even four landing at once
-         stays well clear of full scale. Levels are set by design instead. */
       master = ctx.createGain();
       master.gain.value = 1;
       master.connect(ctx.destination);
@@ -217,113 +207,24 @@
 
   /* A band of noise. `to` sweeps the filter rather than the pitch, which
      is what turns a click into a whoosh without changing anything else. */
-  /* `shape`: "hit" gives a near-instant exponential decay, which is what a
-     STRIKE sounds like — a pawl hitting steel, a switch bottoming out.
-     The default linear fade is right for a wash or a sweep and wrong for
-     an impact: it is what made the old presses read as a short buzz
-     rather than as something being hit. */
-  function noise(dur, peak, freq, q, delay, to, shape, type){
+  function noise(dur, peak, freq, q, delay, to){
     withCtx(c => {
       const t0 = c.currentTime + (delay || 0);
       const frames = Math.max(1, Math.floor(c.sampleRate * dur));
       const buffer = c.createBuffer(1, frames, c.sampleRate);
       const data = buffer.getChannelData(0);
-      if(shape === "tail"){
-        /* A long natural decay — loud immediately, then falling away for
-           the better part of a second. The linear fade is too even for a
-           blast tail (it reads as a fade-out someone is performing) and
-           the "hit" curve is far too fast. */
-        for(let i=0;i<frames;i++) data[i] = (Math.random()*2-1) * Math.exp(-3.2 * i/frames);
-      }else if(shape === "hit"){
-        /* A steep exponential over a LONGER buffer, rather than a gentle
-           one over a short buffer. Both are over in about the same few
-           milliseconds by ear, but the short version held only ~430
-           samples, and the spectrum of 430 random samples is close to
-           random itself: measured across renders, the click's spectral
-           centre wandered by +/-1700Hz. A press that is different every
-           time is the point; a press that is a DIFFERENT SOUND every time
-           is sloppiness. More samples, same envelope, a third of the
-           variance. */
-        for(let i=0;i<frames;i++) data[i] = (Math.random()*2-1) * Math.exp(-16 * i/frames);
-      }else{
-        for(let i=0;i<frames;i++) data[i] = (Math.random()*2-1) * (1 - i/frames);
-      }
+      for(let i=0;i<frames;i++) data[i] = (Math.random()*2-1) * (1 - i/frames);
       const src = c.createBufferSource(); src.buffer = buffer;
       const filter = c.createBiquadFilter();
-      /* bandpass for a body or a wash; highpass for a STRIKE, which has to
-         keep its top end — a short burst through a low-Q bandpass loses
-         most of exactly the brightness that makes it sound like an
-         impact rather than a puff. */
-      filter.type = type || "bandpass";
+      filter.type = "bandpass";
       filter.frequency.setValueAtTime(freq, t0);
       if(to && to !== freq) filter.frequency.exponentialRampToValueAtTime(Math.max(20, to), t0 + dur);
       filter.Q.value = q || 1;
       const gain = c.createGain();
-      if(shape === "tail"){
-        /* The BUFFER already carries the decay for a tail, so the gain
-           stays flat and only releases at the very end.
-
-           This was a real and invisible bug: the shaped buffer and this
-           envelope were both decaying exponentially, and the two multiply.
-           A 1.3s tail with a gentle exp(-3.2) in its samples was also
-           being ramped from 0.34 to 0.0001 — another factor of 3400 — so
-           the effective decay was exp(-11) and the rumble was inaudible
-           by 350ms. Dumping the envelope in 50ms slices is what showed it;
-           the arithmetic on paper said 1.3 seconds. */
-        gain.gain.setValueAtTime(peak, t0);
-        gain.gain.setValueAtTime(peak, t0 + dur*0.94);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      }else{
-        gain.gain.setValueAtTime(peak, t0);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      }
+      gain.gain.setValueAtTime(peak, t0);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
       src.connect(filter).connect(gain).connect(master);
       src.start(t0);
-    });
-  }
-
-  /* The BODY of an impact: a low sine whose pitch collapses almost
-     immediately. This is the part the old presses were missing entirely —
-     they had 0% of their energy below 400Hz, which is exactly why they
-     sounded like an insect rather than like a switch. You barely hear this
-     on its own; you notice when it is gone. */
-  function thock(from, to, dur, peak, delay){
-    withCtx(c => {
-      const t0 = c.currentTime + (delay || 0);
-      const osc = c.createOscillator();
-      const g = c.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(from, t0);
-      osc.frequency.exponentialRampToValueAtTime(Math.max(20, to), t0 + dur*0.7);
-      g.gain.setValueAtTime(peak, t0);                       // no fade-in: it is a hit
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      osc.connect(g).connect(master);
-      osc.start(t0); osc.stop(t0 + dur + 0.02);
-    });
-  }
-
-  /* METAL. A struck steel part does not ring on a harmonic series the way
-     a string does — its partials are INHARMONIC, unevenly spaced, and the
-     high ones die first. That irregular spacing is the whole difference
-     between "a bell" and "a beep", and it is what a revolver cylinder
-     dropping into its notch actually sounds like. Each partial gets its
-     own decay so the sound thins as it fades, like real metal. */
-  function ring(partials, delay){
-    withCtx(c => {
-      const t0 = c.currentTime + (delay || 0);
-      for(const [f, amp, dur] of partials){
-        const osc = c.createOscillator();
-        const g = c.createGain();
-        osc.type = "sine";
-        /* A few cents of drift per strike. Identical partials every time
-           is the tell of a sample; real metal never rings twice alike. */
-        osc.frequency.setValueAtTime(f * (1 + (Math.random()-0.5)*0.014), t0);
-        g.gain.setValueAtTime(0.0001, t0);
-        g.gain.exponentialRampToValueAtTime(amp, t0 + 0.002);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-        osc.connect(g).connect(master);
-        osc.start(t0); osc.stop(t0 + dur + 0.02);
-      }
     });
   }
 
@@ -351,131 +252,44 @@
     /* A generic control: a tiny high tick with just enough body to feel
        like a switch closing rather than a beep. The pitch wanders a few
        percent per press so a run of clicks doesn't sound looped. */
-    /* A GOOD SWITCH, in three layers.
-
-       The old one was a 1650Hz tick with 0% of its energy below 400Hz —
-       measurably an insect. What a quality button actually sounds like is
-       a STRIKE (the high transient of two hard things meeting), a BODY
-       (the low thud of the mass behind it) and an EDGE (a brief mid tone
-       that gives it a pitch). Drop any one and it stops sounding like an
-       object: no strike and it is a beep, no body and it is a mosquito,
-       no edge and it is a tap on cardboard. */
     click(){
-      if(!gate("click", 34)) return;
-      const j = 0.94 + Math.random()*0.12;                        // life per press
-      noise(0.022, 0.185, 1700*j, 0.7, 0, 1200, "hit", "highpass"); // strike
-      thock(250*j, 132, 0.030, 0.050);                              // body
-      tone("square", 900*j, 540, 0.018, 0.045);                    // edge
+      if(!gate("click", 35)) return;
+      const p = 1650 + Math.random()*180;
+      noise(0.016, 0.030, p*1.7, 2.6);
+      tone("square", p, p*0.62, 0.022, 0.017);
     },
 
     /* A single keystroke in the terminal. The quietest thing here by a
        wide margin — it fires once per character, so anything with real
        body would be intolerable inside one word. */
-    /* A single keystroke in the terminal. Same three layers as a click,
-       scaled right down — it fires once per character, so anything with
-       real weight would be intolerable inside one word. */
     key(){
-      if(!gate("key", 20)) return;
-      const j = 0.9 + Math.random()*0.2;
-      noise(0.013, 0.055, 1350*j, 0.8, 0, 1000, "hit", "highpass");
-      thock(320*j, 190, 0.015, 0.026);
-      tone("square", 1250*j, 900, 0.009, 0.014);
+      if(!gate("key", 22)) return;
+      noise(0.010, 0.016, 2600 + Math.random()*700, 3.0);
+      tone("square", 1900 + Math.random()*300, 1400, 0.012, 0.008);
     },
 
-    /* Navigation. The same object, struck more softly and lower down, so
-       moving between sections does not sound like pressing a button. */
+    /* Navigation: lower and rounder than a button, so moving between
+       sections doesn't sound like pressing one. */
     tap(){
-      if(!gate("tap", 38)) return;
-      const j = 0.94 + Math.random()*0.12;
-      noise(0.024, 0.150, 1250*j, 0.7, 0, 900, "hit", "highpass");
-      thock(200*j, 112, 0.038, 0.048);
-      tone("triangle", 660*j, 420, 0.028, 0.040);
+      if(!gate("tap", 40)) return;
+      const p = 880 + Math.random()*120;
+      noise(0.022, 0.034, 1500, 1.8);
+      tone("triangle", p, p*0.7, 0.05, 0.030);
     },
 
-    /* THE DIAL — one pawl of a bike hub freewheel.
-
-       A revolver cylinder and a freewheel are both ratchets and they
-       sound nothing alike, because the difference is MASS. A revolver
-       turns a heavy steel cylinder: the note is low, the body thuds, the
-       ring is long. A bike hub pawl is a sliver of spring steel flicking
-       over a fine tooth — almost no weight behind it, so it is bright,
-       quick and dry. Coasting is dozens of these a second, and any real
-       low thump in one of them would turn that into a rumble.
-
-       Against the revolver it replaces: the pawl strike moved up and got
-       shorter, the ring partials moved up about an octave and lost two
-       thirds of their decay, and the mass layer — the whole point of the
-       revolver — is a fifth of what it was, kept only so the tick has
-       somewhere to sit instead of floating.
-
-       The partials stay INHARMONIC. That is what makes steel sound like
-       steel at any size; only their register says whether the steel is
-       heavy or light. */
+    /* The theme dial landing on a detent. Two layers, because a real
+       rotary switch makes two noises at once: the sprung ball dropping
+       into the notch (the low knock) and the metal-on-metal edge of it
+       (the high tick). One without the other sounds like a UI beep. */
     detent(){
-      if(!gate("detent", 24)) return;
-      const j = 0.96 + Math.random()*0.08;
-
-      noise(0.010, 0.26, 4000*j, 0.8, 0, 3000, "hit", "highpass");   // the pawl
-      ring([                                                          // fine teeth
-        [2480*j, 0.050, 0.032],
-        [3390*j, 0.042, 0.027],
-        [4610*j, 0.032, 0.021],
-        [6180*j, 0.020, 0.015],
-        [8240*j, 0.011, 0.011]
-      ]);
-      /* The hub SHELL. A freewheel pawl has almost no mass of its own,
-         but it is flicking against an aluminium drum that does — take
-         this out entirely and the tick floats, all hiss and no object.
-         At 98% treble it measured as escaping steam rather than a
-         ratchet; a fifth of a revolver's body is the difference. */
-      thock(300*j, 190, 0.026, 0.044);
-      noise(0.018, 0.038, 1900*j, 1.3, 0.004, 2900, "hit");           // the spring
+      if(!gate("detent", 28)) return;
+      noise(0.030, 0.075, 2300, 3.4);                 // the edge
+      tone("square", 420, 190, 0.045, 0.038);         // the knock
+      noise(0.050, 0.030, 700, 1.4, 0.008);           // the body of the housing
     },
 
-    /* VOX — the half-second of machinery before the robot speaks.
-
-       The Web Speech API hands back audio this code can never touch: no
-       filter, no resonance, no pitch-shift. Voice choice and pitch are the
-       only levers on the VOICE itself, and they only get so far towards a
-       character built on a chestful of gears.
-
-       So the character is carried in front of it instead — a short low
-       servo turning over and settling, the sound of something mechanical
-       preparing to talk. It plays once as a line begins and is out of the
-       way well before the first syllable, so it colours the delivery
-       rather than competing with it.
-
-       Gated at two seconds: a burst of chat messages read aloud back to
-       back should sound like one machine talking, not like it is rebooting
-       between sentences. */
-    vox(){
-      if(!gate("vox", 2000)) return;
-      const j = 0.97 + Math.random()*0.06;
-      tone("sawtooth", 62*j, 96, 0.20, 0.030);            // the servo spinning up
-      ring([                                               // gears meshing
-        [188*j, 0.028, 0.16],
-        [274*j, 0.020, 0.13],
-        [409*j, 0.013, 0.10]
-      ], 0.02);
-      noise(0.13, 0.026, 520*j, 1.1, 0.01, 260);           // the housing settling
-    },
-
-    /* HOVER — the cursor or a finger ARRIVING on a control.
-
-       The hardest voice here to get right, because it fires without
-       anyone asking for it. It has to be present enough that the control
-       feels like it noticed you, and quiet enough that sweeping across a
-       row of icons is not an event. So: no strike, no body, no real
-       pitch — a short breath of filtered air rising slightly, at about a
-       fifth the level of a click. If you catch yourself listening TO it
-       rather than just noticing it, it is too loud. */
-    hover(){
-      if(!gate("hover", 55)) return;
-      const j = 0.92 + Math.random()*0.16;
-      noise(0.030, 0.026, 1900*j, 0.9, 0, 3400);
-      tone("sine", 560*j, 720, 0.045, 0.011);
-    },
-
+    /* A switch turning on / off. Same gesture, opposite directions, so
+       you can hear which way it went without looking. */
     on(){
       if(!gate("toggle", 60)) return;
       noise(0.018, 0.034, 2000, 2.4);
@@ -487,49 +301,20 @@
       tone("triangle", 880, 380, 0.10, 0.038);
     },
 
-    /* A section arriving.
-
-       This one was reported as "an explosion sound when I click the
-       section buttons", and the report was right about what it sounded
-       like and wrong only about which voice it was: nothing calls boom()
-       on a nav press. The old reveal was a 150Hz sine sweeping up under a
-       320Hz band of noise for a quarter of a second — measured, 98% of
-       its energy below 400Hz, spectral centre 184Hz, flatness 0.002. A
-       low pure tone swelling is exactly the shape of a distant blast, and
-       it landed on top of the tap's own low body, which doubled it.
-
-       The lesson is in the spec rather than the sound: `reveal` was only
-       ever checked for loudness and length, and it passed both the whole
-       time. A voice with no constraint on its CHARACTER can drift into
-       being a different sound entirely without a single test going red.
-
-       What replaces it is movement with no weight — two offset bands of
-       filtered air rising, and a whisper of pitch near the top to give
-       the sweep a direction. Nothing here has meaningful energy below
-       about 600Hz, so it reads as the page moving rather than as
-       something landing, and it stays out of the way of the tap it always
-       plays with. */
+    /* A section arriving. A soft sweep rather than a click: it is the
+       only sound here that accompanies motion instead of a press, and it
+       is pitched low and wide so it sits underneath everything else. */
     reveal(){
       if(!gate("reveal", 220)) return;
-      noise(0.20, 0.058, 1000, 1.1, 0,     3800);   // the movement
-      noise(0.15, 0.028, 1700, 0.9, 0.040, 5400);   // its trailing edge
-      tone("sine", 1150, 1780, 0.10, 0.011, 0.050); // a hint of direction
+      noise(0.26, 0.036, 320, 0.9, 0, 2100);
+      tone("sine", 150, 330, 0.24, 0.026, 0.01);
     },
 
-    /* Something opening over the page — a lightbox, the nav rail.
-
-       Rising for open, falling for close: the pair has to read as a
-       direction, which is the whole reason they are two voices and not
-       one. The start pitch used to be 320Hz, which put 92% of this below
-       400Hz — the same low swell that made the old reveal sound like a
-       blast, and on a phone it fires in the same gesture (a nav tap opens
-       the rail AND reveals a section, so all three used to stack). Moved
-       up a fifth it still rises, still sits under the tap, and no longer
-       contributes any weight of its own. */
+    /* Something opening over the page — a lightbox, the nav rail. */
     open(){
       if(!gate("panel", 90)) return;
-      noise(0.09, 0.034, 1100, 1.1, 0, 2400);
-      tone("sine", 520, 940, 0.10, 0.024);
+      noise(0.09, 0.034, 900, 1.1, 0, 2000);
+      tone("sine", 320, 620, 0.10, 0.026);
     },
     close(){
       if(!gate("panel", 90)) return;
@@ -545,8 +330,8 @@
     },
     receive(){
       if(!gate("msg", 70)) return;
-      tone("triangle", 1180, 700, 0.12, 0.042);
-      noise(0.05, 0.028, 1400, 1.6);
+      tone("triangle", 1180, 700, 0.12, 0.030);
+      noise(0.05, 0.020, 1400, 1.6);
     },
 
     /* Refused input — a wrong key, an empty field, a rejected name. Two
@@ -566,148 +351,14 @@
       tone("square", p, p*0.55, 0.09, 0.055);
       noise(0.07, 0.09, 1800 + Math.random()*900, 1.2);
     },
-    /* THE EXPLOSION.
-
-       It was a descending sawtooth with a noise burst over it, and a
-       sawtooth sliding down is a PEW — a pitch, and the ear hears a pitch
-       as something tuned rather than something destroyed. Measured, it was
-       84% below 400Hz with a flatness of 0.031: almost pure tone, which is
-       the opposite of a detonation.
-
-       A real blast is five things arriving in order, and leaving out any
-       one of them is audible:
-
-         1. the CRACK — the shock front. A few milliseconds of very loud
-            broadband, and the only part with any top end. Without it
-            there is no moment of detonation, just a swell;
-         2. the BODY — a big burst of low noise whose filter collapses
-            downward. The "whoomp" is that collapse, not a pitch;
-         3. the PUNCH — the sub you feel more than hear;
-         4. DEBRIS — scattered crackle over the next third of a second,
-            irregularly spaced, because nothing about falling wreckage is
-            evenly timed;
-         5. the TAIL — a long rumble that outlasts everything else. This
-            is what makes a blast sound BIG: size is communicated by how
-            long the room keeps ringing, not by how loud the hit was. */
     boom(){
-      const j = 0.94 + Math.random()*0.12;
-
-      /* Loud, and it gets the first few milliseconds to ITSELF. Measured
-         at the old level with the body arriving 4ms behind it, only 6% of
-         the attack's energy was above 2kHz — the shock front existed on
-         paper and was inaudible under the body. A blast without a crack
-         is a swell. */
-      noise(0.045, 0.47, 2000*j, 0.45, 0, 380, "hit", "highpass");  // 1. crack
-      /* A WIDE filter, not a resonant one. At Q 0.7 the body rang around
-         its centre frequency and the whole blast measured as nearly a
-         pure tone; an explosion is broadband by nature, so the filter is
-         there to shape it, not to pitch it. */
-      /* LOWPASS, not bandpass. A bandpass sweeping down to 70Hz throws
-         away everything on both sides of a very narrow band, so most of
-         the blast was being filtered into nothing; a lowpass keeps the
-         whole bottom of the spectrum and lets the sweep close over it,
-         which is what a pressure wave actually does. */
-      noise(0.34,  0.58, 1000*j, 0.4, 0.012, 95, "tail", "lowpass");  // 2. body
-      noise(0.20,  0.050, 1000*j, 0.5, 0.016, 300, "tail");         // 2b. grit
-      /* The punch is a sine, so it is the most tonal thing in here —
-         enough to be felt, not enough to be heard as a note. */
-      thock(130*j, 34, 0.30, 0.15, 0.010);                          // 3. punch
-
-      /* 4. debris — deliberately uneven. Evenly spaced crackle sounds
-         like a machine gun; real wreckage lands when it lands. */
-      for(let k = 0; k < 5; k++){
-        const at = 0.06 + Math.random()*0.30;
-        /* Quieter and lower than the first attempt. Debris is texture, not
-           the event: at the old level the blast's spectral centre sat at
-           1250Hz — brighter than the small clank of a single punch, which
-           cannot be right for something an order of magnitude bigger. */
-        noise(0.03 + Math.random()*0.05,
-              0.030 + Math.random()*0.035,
-              (500 + Math.random()*1700) * j,
-              1.4, at, 240, "hit");
-      }
-
-      /* The tail is LOUD for a tail. Size is communicated by how long the
-         room keeps ringing, and at a tenth of the blast it fell under the
-         floor in a third of a second, which is a firecracker rather than
-         a machine coming apart. */
-      /* The tail's filter barely moves. Sweeping it from 380Hz down to
-         80Hz sounded right in principle and measured wrong: by half a
-         second the filter had closed so far that a rumble which should
-         still be going was already inaudible. A rumble stays a rumble —
-         it gets quieter, not darker. */
-      noise(1.30, 0.34, 300*j, 0.4, 0.045, 165, "tail", "lowpass"); // 5. tail
+      noise(0.55, 0.32, 260, 0.6);
+      tone("sawtooth", 180, 32, 0.6, 0.13);
+      tone("triangle", 90, 24, 0.75, 0.1, 0.03);
     },
     revive(){
       tone("triangle", 220, 880, 0.34, 0.075);
       tone("sine", 440, 1320, 0.3, 0.05, 0.08);
-    },
-
-    /* ---- the world chat --------------------------------------------- */
-
-    /* JOINING. Two rising notes and a soft latch — the sound of being let
-       in. Short, because it happens once and then never again. */
-    join(){
-      if(!gate("join", 400)) return;
-      noise(0.020, 0.055, 1800, 0.9, 0, 1200, "hit", "highpass");
-      tone("triangle", 420, 620, 0.10, 0.045);
-      tone("triangle", 620, 830, 0.14, 0.038, 0.09);
-    },
-
-    /* THE GATE OPENING once UNIT-01 falls. A real latch: the bolt lets go,
-       something heavy slides, and a tone confirms it. This is the moment
-       the chat becomes usable, so it is allowed to be the most mechanical
-       thing in the room. */
-    unlock(){
-      if(!gate("unlock", 800)) return;
-      const j = 0.97 + Math.random()*0.06;
-      noise(0.030, 0.13, 2600*j, 1.1, 0, 900, "hit", "highpass");   // the bolt
-      thock(150*j, 92, 0.11, 0.075, 0.01);                          // the weight
-      noise(0.16, 0.048, 700*j, 0.9, 0.03, 1500, "tail");           // the slide
-      tone("triangle", 330, 660, 0.20, 0.042, 0.12);                // confirmed
-    },
-
-    /* SOMEONE ELSE LANDING A HIT. The same clank as your own, heard from
-       across the room: quieter, duller, and without the noise burst that
-       makes your own hit feel like it came off your hand. Hearing every
-       blow is what makes the arena feel occupied; hearing them at full
-       strength would make it unbearable. */
-    farHit(){
-      if(!gate("farhit", 90)) return;
-      const p = 300 + Math.random()*180;
-      tone("square", p, p*0.6, 0.07, 0.018);
-      noise(0.05, 0.022, 900 + Math.random()*500, 1.1);
-    },
-
-    /* THE ROUND WINNER, crowned — someone else. A short bright flourish
-       up a major triad with a metal shimmer over it: news about another
-       person, worth looking up for and over in half a second. */
-    crown(){
-      if(!gate("crown", 1500)) return;
-      const root = 523;                                   // C5
-      tone("triangle", root,        root,        0.13, 0.050);
-      tone("triangle", root*1.26,   root*1.26,   0.13, 0.048, 0.10);
-      tone("triangle", root*1.5,    root*1.5,    0.30, 0.055, 0.20);
-      ring([[2093, 0.020, 0.34], [3136, 0.014, 0.26], [4186, 0.009, 0.20]], 0.20);
-      noise(0.30, 0.020, 3200, 0.8, 0.20, 6000, "tail");
-    },
-
-    /* ...and when the winner is YOU. The same shape, one octave of
-       ambition further, with a low note under it so it lands rather than
-       tinkles, and a fourth step at the top. A win should be audibly
-       different from someone else's win — otherwise the site has told you
-       something happened but not that it happened to you. */
-    victory(){
-      if(!gate("crown", 1500)) return;
-      const root = 523;
-      thock(131, 131, 0.55, 0.055);                       // the floor under it
-      tone("triangle", root,      root,      0.14, 0.060);
-      tone("triangle", root*1.26, root*1.26, 0.14, 0.058, 0.11);
-      tone("triangle", root*1.5,  root*1.5,  0.14, 0.060, 0.22);
-      tone("triangle", root*2,    root*2,    0.48, 0.068, 0.33);
-      tone("sine",     root,      root,      0.48, 0.030, 0.33);    // an octave below the top
-      ring([[2093, 0.026, 0.50], [3136, 0.019, 0.40], [4186, 0.013, 0.30]], 0.33);
-      noise(0.45, 0.026, 3000, 0.8, 0.33, 7000, "tail");
     },
 
     /* ---- state ---- */

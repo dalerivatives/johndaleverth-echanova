@@ -1,124 +1,273 @@
-/* v69: one bundled robot voice on every device; never select an OS voice. */
+/* ============================================================
+   SPEECH  —  window.Speech
+
+   One shared wrapper over the browser's SpeechSynthesis. The goal is a
+   smooth, low male/robot character without relying on novelty robot voices,
+   because those are usually the least natural and vary wildly in tempo.
+   ============================================================ */
 (() => {
-  const AudioEngine = window.AudioContext || window.webkitAudioContext;
-  const supported = !!AudioEngine && typeof Worker === 'function';
-  let context, worker, source, current = null, queue = [], serial = 0;
-  let unlocked = false, timer = null;
-  const emit = (type, detail) => window.dispatchEvent(new CustomEvent(type, {detail}));
-  function finish(ok){
-    if(!current) return;
-    const job = current;
-    current = null;
-    clearTimeout(timer);
-    if(source){ source.onended = null; source.disconnect(); source = null; }
-    emit('portfolio-speech-end', {text:job.original, ok});
-    if(typeof job.done === 'function') { try{ job.done(ok); }catch(e){ console.warn(e); } }
-    next();
+  const synth = window.speechSynthesis;
+  const supported = !!synth && typeof SpeechSynthesisUtterance === "function";
+
+  let voices = [];
+  let chosen = null;
+  let voiceLocked = false;
+  let unlocked = false;
+
+  /* Prefer a high-quality English male/natural voice. The robot character is
+     then created gently with rate/pitch; forcing a novelty robot voice or an
+     extreme pitch is what made syllables and sentences feel uneven. */
+  function voiceScore(v){
+    const n = (v.name || "").toLowerCase();
+    const lang = (v.lang || "").toLowerCase();
+    let s = 0;
+
+    if(lang === "en-us") s += 45;
+    else if(lang.startsWith("en")) s += 36;
+    else s -= 80;
+
+    if(/natural|neural|premium|enhanced/.test(n)) s += 42;
+    if(/microsoft|google|apple/.test(n)) s += 16;
+
+    /* Common male English voice names across Windows/macOS/browser engines. */
+    if(/\b(guy|david|mark|george|daniel|ryan|alex|fred|aaron|arthur|brian|christopher|eric|james|john|liam|oliver|thomas)\b/.test(n)) s += 36;
+
+    /* Avoid novelty/effect voices: fun, but poor for smooth narration. */
+    if(/robot|zarvox|trinoids|cellos|whisper|boing|bells|bad news|good news/.test(n)) s -= 70;
+    if(/\b(zira|aria|samantha|victoria|susan|hazel|karen|moira|fiona|tessa)\b/.test(n)) s -= 12;
+
+    if(v.localService) s += 5; // stable/offline is a small bonus, not a requirement
+    if(v.default) s += 3;
+    return s;
   }
-  function prime(){
+
+  function refreshVoices(){
     if(!supported) return;
-    try {
-      context ||= new AudioEngine();
-      context.resume().then(()=>{ unlocked = context.state === 'running'; }).catch(()=>{});
-    } catch(e){}
+    const list = synth.getVoices() || [];
+    if(!list.length) return;
+    voices = list;
+
+    /* Once the page has actually chosen a voice for speech, keep it for the
+       session. Some browsers fire voiceschanged more than once; changing the
+       winner mid-visit makes the robot sound like a different person. */
+    if(voiceLocked && chosen && list.some(v => v.name === chosen.name && v.lang === chosen.lang)) return;
+
+    chosen = list.slice().sort((a,b)=>voiceScore(b)-voiceScore(a))[0] || null;
   }
-  window.addEventListener('pointerdown', prime, {passive:true});
-  window.addEventListener('keydown', prime);
-  function prepareWorker(){
-    if(worker) return;
-    worker = new Worker('speech-worker.js?v=69');
-    worker.onmessage = async ({data}) => {
-      if(!current || data.id !== current.id) return;
-      if(data.error){ finish(false); return; }
-      clearTimeout(timer);
-      try {
-        if(context.state !== 'running'){ finish(false); return; }
-        const buffer = await context.decodeAudioData(data.wav);
-        if(!current || data.id !== current.id) return;
-        source = context.createBufferSource();
-        source.buffer = buffer;
-        source.connect(context.destination);
-        const id = current.id;
-        source.onended = ()=>{ if(current && current.id === id) playPart(); };
-        emit('portfolio-speech-start', {text:current.original});
-        source.start();
-        timer = setTimeout(()=>{ if(source){source.onended=null; source.stop();} finish(false); }, buffer.duration*1000+5000);
-      } catch(e){ if(current && current.id===data.id) finish(false); }
+
+  if(supported){
+    refreshVoices();
+    synth.addEventListener("voiceschanged", refreshVoices);
+    const prime = ()=>{
+      unlocked = true;
+      try{ synth.resume(); }catch(e){}
+      window.removeEventListener("pointerdown", prime);
+      window.removeEventListener("keydown", prime);
     };
-    const ownedWorker=worker;
-    worker.onerror = ()=>{
-      if(worker !== ownedWorker) return;
-      worker.terminate(); worker = null;
-      finish(false);
-    };
+    window.addEventListener("pointerdown", prime, {once:false});
+    window.addEventListener("keydown", prime, {once:false});
   }
-  function playPart(){
-    clearTimeout(timer);
-    if(source){ source.onended = null; source.disconnect(); source = null; }
-    if(!current) return;
-    if(!current.parts.length){ finish(true); return; }
-    try {
-      prepareWorker();
-      const text=current.parts.shift();
-      worker.postMessage({id:current.id, text, profile:current.profile, intro:current.profile==='robot' && text === 'Welcome to my world!'});
-      timer = setTimeout(()=>{
-        if(worker){worker.terminate();worker=null;}
-        finish(false);
-      }, 15000);
-    } catch(e){ finish(false); }
+
+  /* Give punctuation predictable pauses. Smart typography and slash-heavy
+     technical wording can make browser TTS engines abruptly change cadence. */
+  function normalize(text){
+    return String(text || "")
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .replace(/[—–]+/g, ", ")
+      .replace(/\s*[·•]\s*/g, ", ")
+      .replace(/\bUI\s*\/\s*UX\b/gi, "U I, U X")
+      .replace(/\bIoT\b/g, "I O T")
+      .replace(/\bAI\b/g, "A I")
+      .replace(/\s+([,.;!?])/g, "$1")
+      .replace(/([,.;!?])(?=[A-Za-z])/g, "$1 ")
+      .replace(/\s+/g, " ")
+      .trim();
   }
-  function next(){
-    if(current || !queue.length) return;
-    current = queue.shift();
-    playPart();
-  }
-  function stop(){
-    queue = [];
-    clearTimeout(timer);
-    if(worker){ worker.terminate(); worker=null; }
-    if(source){ source.onended=null; try{source.stop();source.disconnect();}catch(e){} source=null; }
-    const job = current; current = null;
-    if(job){
-      emit('portfolio-speech-end', {text:job.original, ok:false});
-      if(typeof job.done==='function'){try{job.done(false);}catch(e){console.warn(e);}}
+
+  /* A single utterance keeps one continuous prosody contour. 220 chars keeps
+     the profile terminal in one pass on normal content while remaining below
+     Chrome's long-utterance trouble zone for ordinary English. */
+  const CHUNK_CHARS = 220;
+
+  function splitLong(piece, size){
+    const out = [];
+    let rest = piece.trim();
+    while(rest.length > size){
+      let cut = -1;
+      for(const mark of ["; ", ", ", ": ", " "]){
+        const at = rest.lastIndexOf(mark, size);
+        if(at > cut && at >= Math.floor(size * .62)) cut = at + (mark === " " ? 0 : 1);
+      }
+      if(cut <= 0) cut = size;
+      out.push(rest.slice(0, cut).trim());
+      rest = rest.slice(cut).trim();
     }
+    if(rest) out.push(rest);
+    return out;
   }
-  function speak(text, interrupt, done, profile="robot"){
+
+  function chunk(text, size){
+    const clean = String(text || "").trim();
+    if(!clean) return [];
+    if(clean.length <= size) return [clean];
+
+    const sentences = clean.match(/[^.!?]+[.!?]+(?:["'](?=\s|$))?|[^.!?]+$/g) || [clean];
+    const out = [];
+    let current = "";
+
+    for(const raw of sentences){
+      const sentence = raw.trim();
+      if(!sentence) continue;
+      if(sentence.length > size){
+        if(current){ out.push(current); current = ""; }
+        out.push(...splitLong(sentence, size));
+        continue;
+      }
+      const merged = current ? `${current} ${sentence}` : sentence;
+      if(merged.length <= size) current = merged;
+      else { if(current) out.push(current); current = sentence; }
+    }
+    if(current) out.push(current);
+    return out;
+  }
+
+  let outstanding = 0;
+  let onDrain = null;
+  let watchdog = null;
+  let started = false;
+  const alive = [];
+
+  function forget(u){
+    const i = alive.indexOf(u);
+    if(i >= 0) alive.splice(i, 1);
+  }
+
+  function settle(){
+    started = true;
+    clearTimeout(watchdog);
+    outstanding = Math.max(0, outstanding - 1);
+    if(outstanding > 0){
+      startWatchdog(STALL_MS);
+      return;
+    }
+    started = false;
+    const done = onDrain;
+    onDrain = null;
+    if(typeof done === "function") done(true);
+  }
+
+  let lastSaid = null;
+
+  function speak(text, opts, isRetry){
     if(!supported) return false;
-    // Keep sentence punctuation and accented names. Remove emoji, not words.
-    const clean = String(text || '').normalize('NFKC')
-      .replace(/[’‘]/g,"'").replace(/[“”]/g,'').replace(/[—–]/g,', ')
-      .replace(/\p{Extended_Pictographic}/gu,' ').replace(/[\u200d\ufe0f]/g,'')
-      .replace(/\s+/g,' ').trim().slice(0,4000);
+    const clean = normalize(text);
     if(!clean) return false;
-    prime();
-    if(!context) return false;
-    if(interrupt) stop();
-    if(queue.length >= 8) return false; // no unbounded public-chat backlog
-    // Keep ordinary paragraphs together. Split long text at sentence boundaries
-    // instead of resetting the voice halfway through a 120-character clause.
-    const parts=[];
-    let rest=clean;
-    while(rest.length>440){
-      const prefix=rest.slice(0,440);
-      const endings=[...prefix.matchAll(/[.!?](?=\s)/g)];
-      let cut=endings.length ? endings[endings.length-1].index+1 : -1;
-      if(cut<160) cut=prefix.lastIndexOf(' ');
-      if(cut<1) cut=440;
-      parts.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();
+    const o = opts || {};
+    if(!isRetry) lastSaid = {text: clean, opts: o, tries: 0};
+
+    const mustInterrupt = !!o.interrupt &&
+      (outstanding > 0 || synth.speaking || synth.pending);
+
+    if(mustInterrupt){
+      outstanding = 0;
+      onDrain = null;
+      alive.length = 0;
+      synth.cancel();
     }
-    if(rest) parts.push(rest);
-    queue.push({id:++serial, original:clean, parts, done, profile});
-    // Resume in the initiating gesture; generation finishes after that resume.
-    context.resume().then(()=>{unlocked=context.state==='running';}).catch(()=>{});
-    next();
+
+    if(!chosen) refreshVoices();
+    if(chosen) voiceLocked = true;
+
+    const parts = chunk(clean, CHUNK_CHARS);
+    if(!parts.length) return false;
+    onDrain = typeof o.onend === "function" ? o.onend : null;
+
+    const enqueue = () => parts.forEach(part=>{
+      const u = new SpeechSynthesisUtterance(part);
+      if(chosen) u.voice = chosen;
+      u.rate = o.rate != null ? o.rate : 1;
+      u.pitch = o.pitch != null ? o.pitch : 1;
+      u.volume = o.volume != null ? o.volume : 1;
+      u.lang = (chosen && chosen.lang) || "en-US";
+      u.onstart = ()=>{ started = true; clearTimeout(watchdog); };
+      u.onend = ()=>{ forget(u); settle(); };
+      u.onerror = ()=>{ forget(u); settle(); };
+      alive.push(u);
+      outstanding += 1;
+      synth.speak(u);
+    });
+
+    const fire = () => {
+      enqueue();
+      try{ synth.resume(); }catch(e){}
+      startWatchdog();
+    };
+
+    if(mustInterrupt) setTimeout(fire, 60);
+    else fire();
     return true;
   }
+
+  const START_MS = 1800;
+  const STALL_MS = 24000;
+
+  function startWatchdog(ms){
+    clearTimeout(watchdog);
+    if(!outstanding) return;
+    const budget = ms || START_MS;
+    watchdog = setTimeout(()=>{
+      if(!outstanding) return;
+      if(budget === START_MS && started) return;
+
+      const canRetry = budget === START_MS && !started &&
+                       lastSaid && lastSaid.tries < 1;
+      if(canRetry){
+        lastSaid.tries += 1;
+        const again = lastSaid;
+        outstanding = 0;
+        alive.length = 0;
+        try{ synth.cancel(); }catch(e){}
+        setTimeout(()=>speak(again.text, again.opts, true), 80);
+        return;
+      }
+
+      console.warn("[speech] the engine stopped responding — giving up on this read");
+      outstanding = 0;
+      const done = onDrain;
+      onDrain = null;
+      alive.length = 0;
+      try{ synth.cancel(); }catch(e){}
+      if(typeof done === "function") done(false);
+    }, budget);
+  }
+
   window.Speech = {
-    supported, robot:(text,interrupt,done)=>speak(text,interrupt,done,"robot"),
-    plain:(text,interrupt,done)=>speak(text,interrupt,done,"narration"), stop,
-    get speaking(){return !!current || queue.length > 0;},
-    get primed(){return unlocked;}
+    supported,
+
+    /* Smooth machine voice: low enough to sound synthetic, but not so low that
+       the engine stretches vowels/consonants at different rates. */
+    robot(text, interrupt, onend){
+      return speak(text, {rate:0.92, pitch:0.82, volume:1, interrupt:!!interrupt, onend});
+    },
+
+    plain(text, interrupt, onend){
+      return speak(text, {rate:0.96, pitch:0.94, volume:1, interrupt:!!interrupt, onend});
+    },
+
+    stop(){
+      if(!supported) return;
+      lastSaid = null;
+      outstanding = 0;
+      onDrain = null;
+      alive.length = 0;
+      started = false;
+      clearTimeout(watchdog);
+      synth.cancel();
+    },
+
+    get speaking(){ return outstanding > 0; },
+    get primed(){ return unlocked; },
+    get voiceName(){ return chosen ? chosen.name : ""; }
   };
-  document.addEventListener('visibilitychange', ()=>{if(document.hidden) stop();});
 })();
