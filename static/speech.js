@@ -1,4 +1,4 @@
-/* v66: one bundled robot voice on every device; never select an OS voice. */
+/* v67: one bundled robot voice on every device; never select an OS voice. */
 (() => {
   const AudioEngine = window.AudioContext || window.webkitAudioContext;
   const supported = !!AudioEngine && typeof Worker === 'function';
@@ -26,7 +26,7 @@
   window.addEventListener('keydown', prime);
   function prepareWorker(){
     if(worker) return;
-    worker = new Worker('speech-worker.js?v=66');
+    worker = new Worker('speech-worker.js?v=67');
     worker.onmessage = async ({data}) => {
       if(!current || data.id !== current.id) return;
       if(data.error){ finish(false); return; }
@@ -60,7 +60,7 @@
     try {
       prepareWorker();
       const text=current.parts.shift();
-      worker.postMessage({id:current.id, text, intro:text === 'Identity confirmed. Meet Dale, the mind behind the code. Welcome to my world.'});
+      worker.postMessage({id:current.id, text, intro:text === 'Welcome to my world!'});
       timer = setTimeout(()=>{
         if(worker){worker.terminate();worker=null;}
         finish(false);

@@ -771,8 +771,6 @@ if(osLight){
 
     function showCode(){
       if(window.Speech) window.Speech.stop();
-      const caption=document.getElementById('whoamiSpeech');
-      if(caption) caption.hidden=true;
       revealed=false; backdrop.classList.add("crossfade");
       backdrop.classList.remove("revealed");
       window.setTimeout(()=>backdrop.classList.remove("crossfade"), 760);
@@ -806,15 +804,10 @@ if(osLight){
 
       if(!revealed && command==="whoami"){
         showPhoto();
-        const message = "Identity confirmed. Meet Dale, the mind behind the code. Welcome to my world.";
-        const caption = document.getElementById('whoamiSpeech');
-        if(caption){caption.hidden=false;caption.querySelector('span').textContent=message;}
         let voiceEnabled=true;
         try{voiceEnabled=localStorage.getItem('portfolio-chat-voice') !== 'off';}catch(e){}
-        const done=()=>{backdrop.classList.remove('is-speaking');};
         if(voiceEnabled && window.Speech){
-          backdrop.classList.add('is-speaking');
-          if(!window.Speech.robot(message,true,done)) done();
+          window.Speech.robot("Welcome to my world!",true);
         }
         return;
       }

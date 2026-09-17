@@ -48,7 +48,7 @@
       if(released) return;
       byId('bootStatus').textContent='Finishing images and typography…';
       const assets=[];
-      assets.push(track(fetch('assets/whoami-robot.wav').then(r=>{if(!r.ok) throw new Error('Voice unavailable');return r.arrayBuffer();}),'Welcome voice'));
+      assets.push(track(fetch('assets/whoami-robot.wav?v=67').then(r=>{if(!r.ok) throw new Error('Voice unavailable');return r.arrayBuffer();}),'Welcome voice'));
       if(document.fonts) assets.push(track(document.fonts.ready,'Fonts'));
       for(const img of document.images){
         img.loading='eager';

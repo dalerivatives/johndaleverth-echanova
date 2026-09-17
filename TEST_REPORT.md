@@ -1,3 +1,14 @@
+# v68 verification
+
+The supplied logo was copied byte-for-byte and its HTML asset reference checked.
+The existing loader logic regression suite passed after integration.
+Real-browser and physical-phone visual checks remain unverified.
+
+# v67 verification
+
+The backend, speech-controller and loader checks were rerun after the v67 changes.
+The welcome caption is absent from the served HTML. Browser limitations below still apply.
+
 # v66 verification report
 
 Completed in the build environment:

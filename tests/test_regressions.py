@@ -44,8 +44,9 @@ class RegressionTests(unittest.TestCase):
 
     def test_loader_and_speech_assets(self):
         html = self.client.get('/').text
-        for feature in ['bootScreen','Developed by Trevelade Company.','whoamiSpeech','loader.js']:
+        for feature in ['bootScreen','Developed by Trevelade Company.','loader.js']:
             self.assertIn(feature,html)
+        self.assertNotIn('whoamiSpeech', html)
         for asset in ['/loader.js','/loader.css','/speech-worker.js','/assets/whoami-robot.wav']:
             self.assertEqual(self.client.get(asset).status_code,200)
 
