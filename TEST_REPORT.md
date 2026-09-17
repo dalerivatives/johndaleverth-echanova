@@ -1,3 +1,9 @@
+# v69 verification
+
+Seven backend tests passed, including term pronunciation and narration-profile validation.
+Speech-controller checks now also cover intact paragraph delivery and narration routing.
+The existing loader checks passed. Physical listening and browser limitations below remain.
+
 # v68 verification
 
 The supplied logo was copied byte-for-byte and its HTML asset reference checked.

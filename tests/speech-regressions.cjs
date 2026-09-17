@@ -34,6 +34,12 @@ vm.runInNewContext(fs.readFileSync('static/speech.js','utf8'),sandbox);
   speech.robot('Unavailable.',true,ok=>done.push(ok));w=workers.at(-1);id=w.sent.at(-1).id;
   await w.onmessage({data:{id,error:'Offline'}});assert(!speech.speaking);assert.equal(done.at(-1),false);
   assert.equal(speech.robot(' ',true),false);
+  const paragraph="Hello world. I am Dale, a computer engineer, full stack developer and inventor who enjoys building software and turning creative ideas into useful projects. This paragraph should keep its natural sentence flow.";
+  speech.plain(paragraph,true);
+  assert.equal(workers.at(-1).sent.at(-1).text,paragraph);
+  assert.equal(workers.at(-1).sent.at(-1).profile,'narration');
+  speech.stop();
+
   speech.robot('one',false);for(let i=0;i<8;i++)assert(speech.robot('queued',false));
   assert.equal(speech.robot('over limit',false),false);speech.stop();
   console.log('PASS: playback lifecycle, completion, cancellation, stale response, interruption, error, empty input, bounded queue');

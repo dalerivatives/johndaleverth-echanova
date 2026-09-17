@@ -1,4 +1,4 @@
-/* v67: one bundled robot voice on every device; never select an OS voice. */
+/* v69: one bundled robot voice on every device; never select an OS voice. */
 (() => {
   const AudioEngine = window.AudioContext || window.webkitAudioContext;
   const supported = !!AudioEngine && typeof Worker === 'function';
@@ -26,7 +26,7 @@
   window.addEventListener('keydown', prime);
   function prepareWorker(){
     if(worker) return;
-    worker = new Worker('speech-worker.js?v=67');
+    worker = new Worker('speech-worker.js?v=69');
     worker.onmessage = async ({data}) => {
       if(!current || data.id !== current.id) return;
       if(data.error){ finish(false); return; }
@@ -60,7 +60,7 @@
     try {
       prepareWorker();
       const text=current.parts.shift();
-      worker.postMessage({id:current.id, text, intro:text === 'Welcome to my world!'});
+      worker.postMessage({id:current.id, text, profile:current.profile, intro:current.profile==='robot' && text === 'Welcome to my world!'});
       timer = setTimeout(()=>{
         if(worker){worker.terminate();worker=null;}
         finish(false);
@@ -83,26 +83,40 @@
       if(typeof job.done==='function'){try{job.done(false);}catch(e){console.warn(e);}}
     }
   }
-  function speak(text, interrupt, done){
+  function speak(text, interrupt, done, profile="robot"){
     if(!supported) return false;
-    // English robot voice: normalize typography and skip unsupported emoji.
-    const clean = String(text || '').normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
-      .replace(/[’‘]/g,"'").replace(/[—–]/g,', ').replace(/[^\x20-\x7e]/g,' ')
+    // Keep sentence punctuation and accented names. Remove emoji, not words.
+    const clean = String(text || '').normalize('NFKC')
+      .replace(/[’‘]/g,"'").replace(/[“”]/g,'').replace(/[—–]/g,', ')
+      .replace(/\p{Extended_Pictographic}/gu,' ').replace(/[\u200d\ufe0f]/g,'')
       .replace(/\s+/g,' ').trim().slice(0,4000);
     if(!clean) return false;
     prime();
     if(!context) return false;
     if(interrupt) stop();
     if(queue.length >= 8) return false; // no unbounded public-chat backlog
-    const parts = clean.match(/.{1,120}(?:\s|$)|\S{1,120}/g) || [clean];
-    queue.push({id:++serial, original:clean, parts, done});
+    // Keep ordinary paragraphs together. Split long text at sentence boundaries
+    // instead of resetting the voice halfway through a 120-character clause.
+    const parts=[];
+    let rest=clean;
+    while(rest.length>440){
+      const prefix=rest.slice(0,440);
+      const endings=[...prefix.matchAll(/[.!?](?=\s)/g)];
+      let cut=endings.length ? endings[endings.length-1].index+1 : -1;
+      if(cut<160) cut=prefix.lastIndexOf(' ');
+      if(cut<1) cut=440;
+      parts.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();
+    }
+    if(rest) parts.push(rest);
+    queue.push({id:++serial, original:clean, parts, done, profile});
     // Resume in the initiating gesture; generation finishes after that resume.
     context.resume().then(()=>{unlocked=context.state==='running';}).catch(()=>{});
     next();
     return true;
   }
   window.Speech = {
-    supported, robot:speak, plain:speak, stop,
+    supported, robot:(text,interrupt,done)=>speak(text,interrupt,done,"robot"),
+    plain:(text,interrupt,done)=>speak(text,interrupt,done,"narration"), stop,
     get speaking(){return !!current || queue.length > 0;},
     get primed(){return unlocked;}
   };

@@ -3451,3 +3451,7 @@ a.btn:active{
   object-fit:cover;
 }
 .pv-rest{letter-spacing:0;font-size:clamp(9px,2.5vw,13px)}
+
+/* Anonymous visitor: human silhouette on a true circular, theme-aware disc. */
+#presenceFaces > .pv-face.is-anon{background:var(--accent);color:var(--bg)}
+#presenceFaces > .pv-face.is-anon > svg{width:78%;height:78%;fill:currentColor;opacity:1;border-radius:0}

@@ -13,7 +13,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Literal
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -268,6 +268,7 @@ from .speech import synthesize
 
 class SpeechRequest(BaseModel):
     text: str = Field(min_length=1, max_length=500)
+    profile: Literal["robot", "narration"] = "robot"
 
 _speech_hits = {}
 _speech_rate_lock = threading.Lock()
@@ -293,7 +294,7 @@ def robot_speech(payload: SpeechRequest, request: Request):
             raise HTTPException(status_code=429, detail="Please wait before requesting more speech")
         hits.append(now)
     try:
-        data = synthesize(text)
+        data = synthesize(text, payload.profile)
     except Exception:
         raise HTTPException(status_code=503, detail="Robot voice is temporarily unavailable")
     return Response(data, media_type="audio/wav", headers={"Cache-Control":"no-store"})

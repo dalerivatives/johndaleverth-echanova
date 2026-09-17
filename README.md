@@ -1,3 +1,7 @@
+# v69 update
+
+See **UPDATE_v69.md** for anonymous visitor silhouettes and improved speech delivery.
+
 # v68 update
 
 See **UPDATE_v68.md** for the supplied-logo loading screen.

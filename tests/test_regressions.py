@@ -5,7 +5,7 @@ import wave
 from concurrent.futures import ThreadPoolExecutor
 from fastapi.testclient import TestClient
 from backend.main import app, _speech_hits
-from backend.speech import synthesize
+from backend.speech import synthesize, normalize_pronunciation
 
 class RegressionTests(unittest.TestCase):
     def setUp(self):
@@ -23,6 +23,14 @@ class RegressionTests(unittest.TestCase):
             self.assertEqual(audio.getnchannels(), 1)
             self.assertGreater(audio.getnframes(), 22050)
         self.assertEqual(response.headers['cache-control'], 'no-store')
+
+    def test_pronunciation_and_narration(self):
+        self.assertEqual(normalize_pronunciation('AI, IoT, HTML, C++, C# and GitHub.'),
+                         'A I, internet of things, H T M L, C plus plus, C sharp and Git Hub.')
+        text = "Hello world. I'm Dale, a computer engineer."
+        self.assertNotEqual(synthesize(text, 'robot'), synthesize(text, 'narration'))
+        self.assertEqual(self.client.post('/api/speech', json={'text':text, 'profile':'narration'}).status_code,200)
+        self.assertEqual(self.client.post('/api/speech', json={'text':text, 'profile':'invalid'}).status_code,422)
 
     def test_voice_validation(self):
         for text in ['', '   ', 'a'*501]:

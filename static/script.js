@@ -539,9 +539,9 @@ if(osLight){
   const stackEl = document.getElementById("presenceFaces");
   let last = null, lastFaces = [];
 
-  /* Registered visitors show their chat avatar; guests show a plain circle.
+  /* Registered visitors show their chat avatar; guests show a circular human silhouette.
      The total appears once in the text. At most three faces occupy the header. */
-  const ANON_GLYPH = '';
+  const ANON_GLYPH = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 22v-2a8 8 0 0 1 16 0v2z"/></svg>';
   function myName(){
     try{return localStorage.getItem('portfolio-chat-name') || '';}catch(e){return '';}
   }
@@ -557,8 +557,8 @@ if(osLight){
     if(sig===lastSig) return;
     lastSig = sig;
     stackEl.innerHTML = visible.map(n=>'<span class="pv-face" title="'+escapeAttr(n)+'">'+
-      (window.ChatAvatar ? window.ChatAvatar.svg(n) : '')+'</span>').join('') +
-      '<span class="pv-face is-anon" title="Unregistered visitor" aria-label="Unregistered visitor"></span>'.repeat(guests);
+      (window.ChatAvatar ? window.ChatAvatar.svg(n) : ANON_GLYPH)+'</span>').join('') +
+      ('<span class="pv-face is-anon" title="Unregistered visitor" aria-label="Unregistered visitor">'+ANON_GLYPH+'</span>').repeat(guests);
     stackEl.classList.toggle('is-empty',online===0);
   }
 
@@ -2779,7 +2779,7 @@ if(osLight){
        installed, or an engine that has wedged. */
     if(spoke === false){
       btn.classList.add("failed");
-      btn.setAttribute("title", "Your browser's speech engine didn't respond");
+      btn.setAttribute("title", "Voice playback unavailable. Please try again.");
       clearTimeout(btn.__failT);
       btn.__failT = setTimeout(()=>{
         btn.classList.remove("failed");
@@ -2805,7 +2805,7 @@ if(osLight){
     const text = Array.from(body.querySelectorAll(".line"))
       .map(line => Array.from(line.querySelectorAll("span")).slice(1).map(s=>s.textContent).join(" "))
       .filter(t => t.trim())
-      .join(". ");
+      .join(" ");
     if(!text.trim()) return;
     busy();
     /* Driven by the queue draining, not by polling `speaking`. The poll used
