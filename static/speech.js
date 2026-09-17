@@ -49,6 +49,26 @@
     const DEEP = /\b(alex|daniel|david|guy|fred|george|oliver|thomas|aaron|reed|rocko|arthur|gordon|lee|liam|ryan|male)\b/;
     const NOVELTY = /zarvox|trinoids|cellos|bells|boing|bubbles|whisper|bad news|good news|jester|organ|superstar|wobble|bahh|albert|junior|princess|kathy|hysterical|deranged|zuzu/;
 
+    /* A VOICE THAT LIVES ON THE DEVICE BEATS A BETTER ONE THAT DOES NOT.
+
+       This weighting used to say the opposite, and it is what made the
+       terminal speaker fail on its first press: `localService` was worth 4
+       points while the name "google" was worth 10, so on desktop Chrome the
+       scorer picked "Google UK English Male" — a NETWORK voice — over the
+       local baritone Daniel, by six points.
+
+       A network voice has to fetch its audio the first time it is used.
+       Until that fetch lands the utterance has been accepted and has not
+       started, which from the page is indistinguishable from an engine that
+       has wedged; the watchdog concluded exactly that and turned the button
+       red. The visitor's description was the diagnosis: "it looks like it's
+       calling the speaker api first."
+
+       It also cannot work offline, and it can stall part-way through a long
+       line. None of that is worth a slightly nicer timbre, so being local is
+       now worth more than any other single property. The vendor bonus is
+       gone with it — Android's Google voices are mostly local and still win
+       on their own merits, which is the distinction that actually matters. */
     const score = v => {
       const n = (v.name || "").toLowerCase();
       const lang = (v.lang || "").toLowerCase();
@@ -57,10 +77,9 @@
       if(NOVELTY.test(n)) s -= 70;                    // beeps and chirps are not Optimus
       if(/female|samantha|victoria|karen|moira|tessa|fiona|zira|susan/.test(n)) s -= 30;
       if(/natural|enhanced|premium|neural/.test(n)) s += 16;   // more body, less buzz
-      if(/google|microsoft/.test(n)) s += 10;
       if(lang.startsWith("en-gb")) s += 8;            // the films' cadence is closer to this
       if(lang.startsWith("en")) s += 25;
-      if(v.localService) s += 4;                      // no network stall mid-sentence
+      if(v.localService) s += 40;                     // instant, offline, cannot stall
       return s;
     };
     chosen = voices.slice().sort((a,b)=>score(b)-score(a))[0] || null;
@@ -263,14 +282,48 @@
      to rest instead of lying. */
   const START_MS = 1500;    // "it never began at all"
   const STALL_MS = 20000;   // "it began and then stopped advancing"
+  /* HOW LONG THE ENGINE IS ALLOWED TO BE SLOW BEFORE WE CALL IT BROKEN.
+
+     1.5s is a fair budget for a warm local voice and far too mean for a cold
+     one. It is not a bug for the first read of a session to take a couple of
+     seconds — the engine may be waking, or fetching a voice — and declaring
+     failure at 1.5s is what put a red cross on a button that was about to
+     work perfectly well. `WAITING_MS` is the total the engine gets while it
+     still claims to be holding our utterance; `GRACE_MS` is how long each
+     extension runs. Past that it really has stopped, and saying so is
+     better than a spinner that never ends. */
+  const GRACE_MS = 1500;
+  const WAITING_MS = 12000;
+  let waited = 0;
 
   function startWatchdog(ms){
     clearTimeout(watchdog);
     if(!outstanding) return;
     const budget = ms || START_MS;
+    if(budget === START_MS && !ms) waited = 0;   // a fresh read, fresh patience
     watchdog = setTimeout(()=>{
       if(!outstanding) return;
-      if(budget === START_MS && started) return;
+      if(budget !== STALL_MS && started) return;
+
+      /* IS IT BROKEN, OR MERELY SLOW? Those need different answers and the
+         engine will tell us which: `speaking`/`pending` stay true from the
+         moment speak() is accepted, so an utterance that has not started
+         while the engine still claims it is one being WORKED ON — a voice
+         being fetched, most often. Cancelling that to "retry" is the worst
+         possible move: it throws away a download that was nearly done and
+         starts another from cold, which is why the first press could never
+         win however long the visitor waited.
+
+         So while the engine is holding it, we wait. Only when the engine has
+         gone idle with our utterance unaccounted for has it genuinely been
+         dropped, and only then is there anything to retry. */
+      let holding = false;
+      try{ holding = !!(synth.speaking || synth.pending); }catch(e){}
+      if(!started && holding && waited < WAITING_MS){
+        waited += GRACE_MS;
+        startWatchdog(GRACE_MS);
+        return;
+      }
 
       /* IT NEVER STARTED. Try once more before giving up.
 
@@ -287,7 +340,7 @@
 
          Exactly one retry. A loop against an engine with no voices
          installed would keep a phone awake saying nothing. */
-      const canRetry = budget === START_MS && !started &&
+      const canRetry = budget !== STALL_MS && !started &&
                        lastSaid && lastSaid.tries < 1;
       if(canRetry){
         lastSaid.tries += 1;
