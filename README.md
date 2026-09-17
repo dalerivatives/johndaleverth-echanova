@@ -1,3 +1,23 @@
+# v70 update
+
+Start with **UPDATE_v70.md**. This release includes a new neural voice and its model parts.
+
+# v69 update
+
+See **UPDATE_v69.md** for anonymous visitor silhouettes and improved speech delivery.
+
+# v68 update
+
+See **UPDATE_v68.md** for the supplied-logo loading screen.
+
+# v67 update
+
+See **UPDATE_v67.md** for the latest voice-only welcome and circular avatars.
+
+# v66 update
+
+Start with **UPDATE_v66.md**, **KEEP_AWAKE.md** and **TEST_REPORT.md** for this release.
+
 # Johndaleverth "Dale" Echanova — Portfolio
 
 A full-stack version of the portfolio: a FastAPI + SQLite backend serves both

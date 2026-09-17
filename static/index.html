@@ -63,10 +63,26 @@
 }
 </script>
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
-<link rel="stylesheet" href="style.css?v=60">
+<link rel="preload" as="image" href="assets/trevelade-logo.jpg?v=70">
+<link rel="stylesheet" href="loader.css?v=70">
+<script src="loader.js?v=70"></script>
+<link rel="stylesheet" href="vendor/fontawesome/all.min.css?v=70">
+<link rel="stylesheet" href="style.css?v=70">
 </head>
 <body>
+<div id="bootScreen" role="dialog" aria-modal="true" aria-labelledby="bootBrand" hidden>
+  <div class="boot-grid" aria-hidden="true"></div>
+  <div class="boot-card">
+    <div class="boot-orbit"><img class="boot-logo" src="assets/trevelade-logo.jpg?v=70" alt="Trevelade Company logo" width="1254" height="1254" fetchpriority="high" loading="eager"></div>
+    <p class="boot-eyebrow">A DIGITAL EXPERIENCE BY</p>
+    <h1 id="bootBrand">TREVELADE<span>COMPANY</span></h1>
+    <p class="boot-credit">Developed by Trevelade Company.</p>
+    <div class="boot-track"><span id="bootBar"></span></div>
+    <p id="bootStatus" role="status">Preparing your experience…</p>
+    <div id="bootActions" hidden><button id="bootRetry" type="button">Retry</button><button id="bootContinue" type="button">Continue with available content</button></div>
+  </div>
+</div>
+<noscript><p>This portfolio needs JavaScript for navigation and live features. Please enable JavaScript and reload.</p></noscript>
 <!-- Keyboard users land here first: one Tab press, one Enter, straight past
      the theme picker and social icons into the actual page content. -->
 <a class="skip-link" href="#mainContent">Skip to content</a>
@@ -79,14 +95,24 @@
 
   <header class="topbar">
     <div class="brand">
-      <!-- Presence. The beacon says the feed is live — something the number
-           alone cannot say. The four-bar meter that briefly lived here was
-           removed: it encoded the same count printed 8px to its right, so it
-           carried no information, only decoration. -->
+      <!-- PRESENCE — "VIEWERS (face) +3 others"
+
+           The face is not decoration and it is not a stranger: it is YOU,
+           drawn from your chat name when you have claimed one and a plain
+           silhouette when you have not. That is what makes "+3 others"
+           mean something — one of the viewers is the person reading, and
+           the rest are other people.
+
+           The live ring pulses around the face rather than sitting beside
+           it as a separate dot. It says the feed is live, which the number
+           alone cannot; folding it into the face costs one element and
+           reads as "this is you, and you are connected".
+
+           The tail collapses on narrow screens: "+3 others" -> "+3" -> the
+           bare count, whichever still fits. -->
       <span class="online" id="presence">
-        <span class="presence-avatar" aria-hidden="true"><i class="fa-solid fa-circle-user"></i></span>
-        <i class="beacon" aria-hidden="true"></i>
-        <span id="viewerCount" aria-live="polite">LINKING…</span>
+        <span class="pv-stack" id="presenceFaces" aria-hidden="true"></span>
+        <span class="pv-rest" id="viewerCount" aria-live="polite">LINKING…</span>
       </span>
     </div>
     <div class="top-actions">
@@ -161,8 +187,16 @@
       </div>
 
       <div class="human-backdrop" aria-hidden="true">
-        <img id="asciiArt" class="coded-human-outline" src="assets/human-coded-exact-contour.png" alt="" aria-hidden="true" draggable="false">
-        <img id="realPortrait" class="real-portrait" src="assets/profile-transparent.png" alt="Johndaleverth Pastorfide Echanova">
+        <!-- width/height are here so the browser can reserve the right box
+             BEFORE the image arrives. Both files are 883x883; without the
+             attributes the backdrop has no size until it loads, and the
+             hero text reflows around it when it does — a visible jump on
+             the slow connections this matters most on. The CSS still
+             controls the drawn size; these only give the aspect ratio. -->
+        <img id="asciiArt" class="coded-human-outline" src="assets/human-coded-exact-contour.png"
+             width="883" height="883" alt="" aria-hidden="true" draggable="false" decoding="async">
+        <img id="realPortrait" class="real-portrait" src="assets/profile-transparent.png"
+             width="883" height="883" alt="Johndaleverth Pastorfide Echanova" decoding="async">
       </div>
     </section>
 
@@ -171,10 +205,16 @@
         <div class="dots"><b></b><b></b><b></b></div>
       </div>
       <div class="terminal-body">
+        <!-- The gutter numbers are RENUMBERED from the DOM on load (see
+             script.js). They were hand-typed and had drifted to
+             01, 02, 02, 03, 05 — a repeat and a skip — which is what
+             hand-typed line numbers always eventually do, especially when
+             the lines beside them are editable from the CMS. These values
+             are the no-JS fallback; the script is what guarantees them. -->
         <div class="line"><span>01</span></div>
         <div class="line"><span>02</span><span data-setting="terminal_line_1">“Hello World.” I’m Dale — a Computer Engineer,</span></div>
-        <div class="line"><span>02</span><span data-setting="terminal_line_2">Full Stack Developer, Inventor, who enjoys building codes</span></div>
-        <div class="line"><span>03</span><span data-setting="terminal_line_3">and turning out of the “blue” ideas into Output</span></div>
+        <div class="line"><span>03</span><span data-setting="terminal_line_2">Full Stack Developer, Inventor, who enjoys building codes</span></div>
+        <div class="line"><span>04</span><span data-setting="terminal_line_3">and turning out of the “blue” ideas into Output</span></div>
         <div class="line"><span>05</span></div>
       </div>
       <div class="terminal-footer">PS C:\whoami&gt; <input id="whoamiField" class="whoami-field" type="text" placeholder="Type “whoami” to see the man behind the code" aria-label="Type whoami to reveal the man behind the code" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -413,7 +453,7 @@
                form followed by a chat. -->
           <form class="chat-name-form" id="chatNameForm">
             <div class="chat-composer">
-              <span class="chat-composer-avatar placeholder" aria-hidden="true"><i class="fa-solid fa-circle-user"></i></span>
+              <span class="chat-composer-avatar placeholder" aria-hidden="true"><i class="fa-solid fa-user-plus"></i></span>
               <input type="text" id="chatNameInput" maxlength="40" placeholder="Type your name to join…" autocomplete="nickname" required>
               <button type="submit" id="chatJoinBtn" aria-label="Join the chat"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>
             </div>
@@ -468,13 +508,13 @@
     <span id="footerZone">LOADING ZONE</span>
 </time>
 </footer>
-<script src="sfx.js?v=50"></script>
-<script src="background.js?v=50"></script>
-<script src="avatar.js?v=60"></script>
-<script src="speech.js?v=60"></script>
-<script src="vendor/three.min.js?v=50"></script>
-<script src="robot3d.js?v=50"></script>
-<script src="script.js?v=60"></script>
-<script src="uisound.js?v=50"></script>
+<script src="sfx.js?v=70"></script>
+<script src="background.js?v=70"></script>
+<script src="avatar.js?v=70"></script>
+<script src="speech.js?v=70"></script>
+<script src="vendor/three.min.js?v=70"></script>
+<script src="robot3d.js?v=70"></script>
+<script src="script.js?v=70"></script>
+<script src="uisound.js?v=70"></script>
 </body>
 </html>

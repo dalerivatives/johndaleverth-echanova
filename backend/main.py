@@ -13,7 +13,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Literal
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTex
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from . import linkpreview, models, schemas, seed
+from . import github, linkpreview, models, schemas, seed
 from .database import IS_SQLITE, Base, SessionLocal, engine, get_db
 
 # ---------------------------------------------------------------------------
@@ -261,6 +261,45 @@ def dev_version():
     return {"enabled": True, "version": _static_fingerprint(), "pid": os.getpid()}
 
 
+# Bounded voice endpoint. Per-process state matches the single-worker deployment.
+from collections import deque
+from pydantic import BaseModel, Field
+from .speech import synthesize
+
+class SpeechRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+    profile: Literal["robot", "narration"] = "robot"
+
+_speech_hits = {}
+_speech_rate_lock = threading.Lock()
+
+@app.post("/api/speech")
+def robot_speech(payload: SpeechRequest, request: Request):
+    text = payload.text.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="Text is required")
+    ip = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    with _speech_rate_lock:
+        # Delete expired buckets and bound even a flood of unique addresses.
+        for key in list(_speech_hits):
+            if not _speech_hits[key] or now-_speech_hits[key][-1] > 60:
+                del _speech_hits[key]
+        if ip not in _speech_hits and len(_speech_hits) >= 2048:
+            raise HTTPException(status_code=429, detail="Voice is busy")
+        hits = _speech_hits.setdefault(ip, deque())
+        while hits and now-hits[0] > 60:
+            hits.popleft()
+        if len(hits) >= 60:
+            raise HTTPException(status_code=429, detail="Please wait before requesting more speech")
+        hits.append(now)
+    try:
+        data = synthesize(text, payload.profile)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Robot voice is temporarily unavailable")
+    return Response(data, media_type="audio/wav", headers={"Cache-Control":"no-store"})
+
+
 @app.get("/api/health")
 def health():
     """Liveness only. Returns a constant and opens no database connection, so
@@ -324,30 +363,65 @@ def login(payload: schemas.LoginIn):
 # several workers, move _presence into Redis and the rest of this stays put.
 # ---------------------------------------------------------------------------
 PRESENCE_TTL_SECONDS = 45
-_presence: dict[str, float] = {}
+
+# viewer_id -> (last_seen, claimed_name_or_empty). The name is carried so the
+# badge can show the FACES of the people here, not just a number. Only names
+# already claimed in world chat appear — that is public information on this
+# site by definition, and a visitor who never joins is counted without ever
+# being named.
+_presence: dict[str, tuple[float, str]] = {}
 _presence_lock = threading.Lock()
 
+# How many faces the badge shows before it starts counting "+N".
+PRESENCE_FACES = 3
 
-def _count_present() -> int:
+
+def _sweep_present() -> list[tuple[float, str]]:
+    """Drop the stale heartbeats and return what is left. The caller holds
+    the lock; every reader needs the same expiry, so it lives in one place."""
     cutoff = time.time() - PRESENCE_TTL_SECONDS
+    for viewer_id in [k for k, v in _presence.items() if v[0] < cutoff]:
+        _presence.pop(viewer_id, None)
+    return list(_presence.values())
+
+
+def _presence_state() -> dict:
     with _presence_lock:
-        for viewer_id in [k for k, seen in _presence.items() if seen < cutoff]:
-            _presence.pop(viewer_id, None)
-        return len(_presence)
+        rows = _sweep_present()
+
+    # Most recently seen first, so the faces shown are the people who are
+    # actually active rather than whoever happened to load the page first.
+    named = sorted(
+        ((seen, name) for seen, name in rows if name),
+        key=lambda r: r[0],
+        reverse=True,
+    )
+
+    # One face per PERSON, not per tab: someone with the site open twice
+    # should not appear twice in the stack.
+    faces: list[str] = []
+    for _, name in named:
+        if name not in faces:
+            faces.append(name)
+        if len(faces) >= PRESENCE_FACES:
+            break
+
+    return {"online": len(rows), "faces": faces, "named": len({n for _, n in named})}
 
 
 @app.post("/api/presence")
 def presence_ping(payload: schemas.PresenceIn):
     viewer_id = (payload.viewer_id or "").strip()[:64]
+    name = (payload.name or "").strip()[:40]
     if viewer_id:
         with _presence_lock:
-            _presence[viewer_id] = time.time()
-    return {"online": _count_present()}
+            _presence[viewer_id] = (time.time(), name)
+    return _presence_state()
 
 
 @app.get("/api/presence")
 def presence_count():
-    return {"online": _count_present()}
+    return _presence_state()
 
 
 # ---------------------------------------------------------------------------
@@ -1128,6 +1202,146 @@ def link_preview(url: str, db: Session = Depends(get_db)):
     return data
 
 
+# ---------------------------------------------------------------------------
+# GitHub activity
+# ---------------------------------------------------------------------------
+# The heatmap was fetched straight from the browser and reported "couldn't
+# reach GitHub" on phones and on other people's machines. backend/github.py
+# has the full account of why; the short version is that an unauthenticated
+# api.github.com allows 60 requests an hour PER IP, and a phone on a carrier
+# network shares its IP with a great many strangers.
+#
+# This endpoint is the whole fix: ONE server, ONE IP, ONE cache that every
+# device reads from. A hundred visitors cost the upstreams a single request
+# between them, and the answer they all get is identical.
+GH_FRESH_SECONDS = 30 * 60          # serve from cache without asking upstream
+GH_STALE_SECONDS = 24 * 60 * 60     # serve a stale answer rather than nothing
+GH_FAIL_SECONDS = 2 * 60            # don't hammer a broken upstream
+
+_gh_cache: dict[str, tuple[float, dict]] = {}
+_gh_lock = threading.Lock()
+# One asyncio lock per username, so a burst of visitors arriving together
+# makes one upstream call and the rest wait for its result. Without this, a
+# cold cache plus a page refresh on six devices is six identical fetches —
+# which is how you get rate-limited by accident while fixing rate limiting.
+_gh_inflight: dict[str, asyncio.Lock] = {}
+
+# This endpoint makes the server fetch a URL containing a name the CALLER
+# chose, which is the same shape of risk linkpreview.py exists to contain.
+# The name itself is safe — github.valid_username is strict, so nothing but
+# [A-Za-z0-9-] ever reaches a URL and no other host can be addressed. What is
+# left is amplification: without a bound, /api/github/<a-different-name-each-
+# time> turns this server into a free GitHub scraper on someone else's behalf
+# and burns our own rate limit doing it.
+#
+# Two bounds, and neither is felt by an actual visitor, who arrives at a warm
+# cache for the one account this site is about:
+GH_MAX_ACCOUNTS = 12                # distinct usernames held at a time
+GH_MISSES_PER_IP_HOUR = 8           # cache MISSES, not requests
+
+_gh_misses: dict[str, list[float]] = {}
+
+
+def _gh_evict(now: float):
+    """Keep the cache to GH_MAX_ACCOUNTS, oldest out first."""
+    if len(_gh_cache) <= GH_MAX_ACCOUNTS:
+        return
+    for name, _ in sorted(_gh_cache.items(), key=lambda kv: kv[1][0])[:len(_gh_cache) - GH_MAX_ACCOUNTS]:
+        _gh_cache.pop(name, None)
+        _gh_inflight.pop(name, None)
+
+
+def _gh_allow_miss(client_ip: str):
+    """Charge one miss to this IP, or refuse.
+
+    Only misses are counted. A visitor reading a cached heatmap is never
+    limited however often they reload, so the ceiling can sit low enough to
+    actually mean something."""
+    now = time.time()
+    with _gh_lock:
+        hits = [t for t in _gh_misses.get(client_ip, []) if now - t < 3600]
+        if client_ip != "unknown" and len(hits) >= GH_MISSES_PER_IP_HOUR:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many GitHub lookups from here in the last hour.",
+            )
+        hits.append(now)
+        _gh_misses[client_ip] = hits
+        _prune(_gh_misses, now)
+
+
+def _gh_cached(username: str, max_age: float):
+    with _gh_lock:
+        entry = _gh_cache.get(username)
+    if not entry:
+        return None
+    at, data = entry
+    if time.time() - at > max_age:
+        return None
+    return at, data
+
+
+async def _github_activity(username: str, client_ip: str, force: bool):
+    username = (username or "").strip()
+    if not github.valid_username(username):
+        raise HTTPException(status_code=400, detail="Not a GitHub username")
+
+    if not force:
+        hit = _gh_cached(username, GH_FRESH_SECONDS)
+        if hit:
+            return {**hit[1], "cached": True, "age": int(time.time() - hit[0])}
+        _gh_allow_miss(client_ip)
+
+    lock = _gh_inflight.setdefault(username, asyncio.Lock())
+    async with lock:
+        # Re-check after waiting: whoever held the lock has just refreshed it.
+        if not force:
+            hit = _gh_cached(username, GH_FRESH_SECONDS)
+            if hit:
+                return {**hit[1], "cached": True, "age": int(time.time() - hit[0])}
+
+        # to_thread, NOT a direct call. urllib is blocking and this app runs a
+        # SINGLE worker on purpose (the viewer count, the robot's tap buffer
+        # and the rate limiters all live in this process's memory). A ten
+        # second blocking fetch on the event loop would freeze the site for
+        # everyone, chat and all, while one heatmap loads.
+        data = await asyncio.to_thread(github.fetch, username)
+
+    if data.get("ok"):
+        with _gh_lock:
+            _gh_cache[username] = (time.time(), data)
+            _gh_evict(time.time())
+        return {**data, "cached": False, "age": 0}
+
+    # Upstream is having a bad day. A stale calendar is enormously better
+    # than the random demo squares the page falls back to, so anything within
+    # a day is served with a note rather than thrown away.
+    stale = _gh_cached(username, GH_STALE_SECONDS)
+    if stale:
+        return {**stale[1], "cached": True, "stale": True,
+                "age": int(time.time() - stale[0]), "errors": data.get("errors", [])}
+
+    # Nothing to serve. Remember the failure briefly so a broken upstream is
+    # asked once a couple of minutes instead of once a visitor.
+    with _gh_lock:
+        _gh_cache[username] = (time.time() - (GH_FRESH_SECONDS - GH_FAIL_SECONDS), data)
+        _gh_evict(time.time())
+    return {**data, "cached": False, "age": 0}
+
+
+@app.get("/api/github/{username}")
+async def github_activity(username: str, request: Request):
+    return await _github_activity(username, _client_ip(request), force=False)
+
+
+# Forcing a refetch is deliberately NOT something a visitor can ask for: it
+# skips the cache by definition, so a public `force=1` would hand anyone a
+# switch for bypassing every protection above it. The editor has it instead.
+@app.post("/api/github/{username}/refresh", dependencies=[Depends(require_admin)])
+async def github_refresh(username: str, request: Request):
+    return await _github_activity(username, _client_ip(request), force=True)
+
+
 @app.get("/api/content/{section}", response_model=list[schemas.CategoryOut])
 def get_content(section: str, db: Session = Depends(get_db)):
     valid_section(section)
@@ -1491,7 +1705,7 @@ _ASSET_QS = re.compile(r"(\.(?:css|js))\?v=[A-Za-z0-9._-]*")
 def _stamp_assets(html: str) -> str:
     """Rewrite every `?v=...` on a local asset to the current fingerprint.
 
-    NOT a lookbehind. `(?<=\.(?:css|js))` is variable width — three characters
+    NOT a lookbehind. `(?<=\\.(?:css|js))` is variable width — three characters
     for .css, two for .js — and Python's `re` refuses to compile that, which
     took down the whole page with a 500 rather than failing quietly. Capturing
     the extension and putting it back is both legal and clearer."""
