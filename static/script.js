@@ -885,17 +885,23 @@ if(osLight){
 
 /* ============================================================
    GITHUB CONTRIBUTIONS SYNC
-   Pulls a real GitHub contribution calendar into the Activity
-   panel, client-side, with no backend and no access token.
 
-   Data sources (both public, CORS-enabled, unauthenticated):
-   - https://api.github.com/users/<username>            → profile stats
-   - https://github-contributions-api.jogruber.de/v4/... → daily contribution calendar
+   One request, to our own /api/github/<username>. The server talks to
+   GitHub; this file only draws what comes back.
 
-   The username is entered once via the "Sync GitHub" control in
-   the Activity panel and remembered in this browser (localStorage),
-   so it re-syncs automatically on future visits. Results are also
-   cached for a few hours to stay well under public rate limits.
+   It used to talk to api.github.com and a third-party calendar host
+   directly from the browser, "with no backend and no access token" — a
+   design that reads as elegant and fails on phones, because an
+   unauthenticated GitHub allows 60 requests an hour per IP and a carrier
+   network shares one IP between thousands of people. Whoever loads the
+   page is not who spent the quota. backend/github.py has the full
+   account; syncGithub() below has the short one.
+
+   The username comes from the editor's Site settings and is remembered
+   per browser in localStorage. Two caches now sit in front of the
+   upstreams: the server's, which is shared by every device and is the
+   one that matters, and this browser's, which survives the server being
+   unreachable entirely.
    ============================================================ */
 (() => {
   const GITHUB_STORAGE_KEY="portfolio-github-username";
@@ -952,7 +958,7 @@ if(osLight){
   }
 
 
-  function applyGithubData(data, username, fromCache){
+  function applyGithubData(data, username, fromCache, meta){
     const days=(data.calendar && data.calendar.contributions) || [];
     const trimmed=days.slice(-364);
     if(trimmed.length){
@@ -965,10 +971,18 @@ if(osLight){
       renderDemoHeatmap();
     }
     if(syncNoteEl){
+      /* The profile is now allowed to be missing while the calendar is
+         present — that combination is the common case when api.github.com
+         has rate-limited us and the calendar came from elsewhere — so
+         every piece of this line is optional. */
       const repoCount=data.profile && typeof data.profile.public_repos==="number" ? `${data.profile.public_repos} public repos` : "";
       const followerCount=data.profile && typeof data.profile.followers==="number" ? `${data.profile.followers} followers` : "";
+      const stale = meta && meta.stale;
       const bits=[`Synced with @${username}`, repoCount, followerCount].filter(Boolean);
-      syncNoteEl.textContent=bits.join(" · ")+(fromCache?" (cached)":"");
+      let note = bits.join(" · ");
+      if(stale) note += " · showing the last good copy";
+      else if(fromCache) note += " (cached)";
+      syncNoteEl.textContent=note;
     }
   }
 
@@ -979,7 +993,7 @@ if(osLight){
       try{
         const cached=JSON.parse(localStorage.getItem(GITHUB_CACHE_KEY)||"null");
         if(cached && cached.username===username && (Date.now()-cached.at)<GITHUB_CACHE_TTL){
-          applyGithubData(cached.data, username, true);
+          applyGithubData(cached.data, username, true, null);
           return;
         }
       }catch(e){/* ignore corrupt cache */}
@@ -987,17 +1001,56 @@ if(osLight){
 
     if(syncNoteEl) syncNoteEl.textContent=`Syncing @${username}…`;
 
+    /* ONE REQUEST, TO OUR OWN SERVER.
+
+       This used to be two direct calls from the browser — api.github.com
+       for the profile and a third-party host for the calendar — wrapped in
+       a Promise.all. Reported as "the GitHub contribution is not syncing
+       in mobile view or in other devices, it says couldn't reach GitHub
+       for @dalerivatives", and every part of that was the architecture
+       rather than a bug:
+
+         - api.github.com allows 60 unauthenticated requests an hour PER
+           IP. Phones on a carrier share one address with thousands of
+           strangers, so a phone can be refused on its first ever request
+           because somebody else spent the quota.
+         - the calendar host is a hobby service; when it wobbles, every
+           visitor breaks at once and the client can do nothing.
+         - Promise.all meant EITHER failure discarded BOTH results, so a
+           rate-limited profile lookup threw away a calendar that had
+           arrived intact.
+         - 8 seconds is a fine timeout on wifi and a mean one on a train.
+
+       Same-origin now, so CORS is not a factor; the server holds one
+       shared cache, so devices cannot disagree; and it will serve a
+       day-old calendar rather than nothing, which beats random demo
+       squares by a wide margin. The timeout goes up because a cold cache
+       legitimately costs the server two upstream round trips. */
     try{
-      const [profile, calendar]=await Promise.all([
-        fetchJSON(`https://api.github.com/users/${encodeURIComponent(username)}`),
-        fetchJSON(`https://github-contributions-api.jogruber.de/v4/${encodeURIComponent(username)}?y=last`)
-      ]);
-      const data={profile, calendar};
+      const data = await fetchJSON(`api/github/${encodeURIComponent(username)}`, 20000);
+      const days = (data.calendar && data.calendar.contributions) || [];
+      if(!days.length) throw new Error(data.errors ? data.errors.join("; ") : "no calendar");
       try{ localStorage.setItem(GITHUB_CACHE_KEY, JSON.stringify({username, at:Date.now(), data})); }catch(e){}
-      applyGithubData(data, username, false);
+      applyGithubData(data, username, false, data);
     }catch(err){
-      if(syncNoteEl) syncNoteEl.textContent=`Couldn't reach GitHub for @${username} right now — showing sample activity instead. Check the username and your connection, then try again.`;
-      renderDemoHeatmap();
+      /* Last resort: this browser's own cache, however old. A heatmap from
+         last week is real data about a real person; the demo squares are
+         an invention, and showing an invention next to the words
+         "contributions in the last year" is the worse of the two. */
+      let served = false;
+      try{
+        const cached = JSON.parse(localStorage.getItem(GITHUB_CACHE_KEY) || "null");
+        if(cached && cached.username === username &&
+           cached.data && cached.data.calendar &&
+           (cached.data.calendar.contributions || []).length){
+          applyGithubData(cached.data, username, true, {stale:true});
+          served = true;
+        }
+      }catch(e){}
+      if(!served){
+        if(syncNoteEl) syncNoteEl.textContent=`GitHub activity for @${username} is unavailable right now — the squares below are a placeholder, not real data. It will fill in on its own once GitHub responds.`;
+        renderDemoHeatmap();
+      }
     }
   }
 

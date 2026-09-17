@@ -3330,3 +3330,99 @@ body.lightbox-open{overflow:hidden}
 }
 .board-champ.crowned{ animation:crowned .75s cubic-bezier(.2,.9,.2,1) }
 @media(prefers-reduced-motion:reduce){ .board-champ.crowned{ animation:none } }
+
+/* ============================================================
+   PHASE 64 — THE SQUARE THAT APPEARED ON EVERY TAP
+   ============================================================
+
+   Reported as "in mobile view when I'm clicking the buttons it has a
+   square outline in each". Measured on a phone viewport, every control
+   on the page computes
+
+       -webkit-tap-highlight-color: rgba(51, 181, 229, 0.4)
+
+   which is not ours — it is Chromium's built-in touch feedback, a
+   translucent light-blue rectangle painted over the element's box. On the
+   navigation buttons that box has border-radius 0, so the highlight is a
+   literal square. This was never visible on desktop, which is why six
+   phases of work on those controls never showed it.
+
+   Worth being precise about what it is NOT, because all three were live
+   suspects and only one survived the test: our :focus-visible ring does
+   not match after a touch tap (checked with a real touchscreen tap —
+   :focus-visible came back false on the nav, the sound switch and the
+   dial), and no element has a UA outline (all measured `none 0px`). The
+   ring stays exactly as it is; keyboard users still get it.
+
+   Removing the highlight on its own would be a downgrade, though. It is
+   ugly, but it is the ONLY visual confirmation a finger currently gets —
+   the page had almost no :active styling at all. So the highlight is
+   replaced rather than deleted: a press state that follows each control's
+   own shape instead of its bounding box. */
+
+html{ -webkit-tap-highlight-color:transparent }
+
+/* Inherited in theory; set again on the controls themselves because a
+   handful of engines re-apply their own value per element. */
+a, button, input, select, textarea, label,
+[role="button"], [tabindex],
+.nav-item, .nav-btn, .nav-tool, .knob, .sound-toggle,
+.dot, .card, .chip-list span, .carousel-track{
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* The replacement. Shaped, brief, and driven by :active so it tracks the
+   finger — it appears on touch-down and is gone on release, which is what
+   the UA highlight was doing right.
+
+   scale is deliberately the main channel rather than colour: it reads at a
+   glance on any of the five theme modes without needing a per-theme value,
+   and it cannot fight the accent glow that .active already puts on the
+   current section. */
+.nav-btn:active,
+.sound-toggle:active,
+.chip-list span:active,
+.socials a:active,
+.chat-socials a:active,
+button:active,
+a.btn:active{
+  transform:scale(.93);
+  transition:transform .06s ease-out;
+}
+
+/* The nav's current section is already scaled up by .active; pressing it
+   should still dip, so it needs its own value rather than inheriting the
+   1.05 above it. */
+.nav-item.active .nav-btn:active{ transform:scale(.98) }
+
+/* THE DIAL IS THE EXCEPTION, and for a reason worth writing down.
+
+   :active is held for the whole of a press, and the dial is a rotary
+   control you DRAG — so a scale would shrink it for the entire turn and
+   spring back when you let go. Real knobs do not do that. (The maths is
+   safe either way: modeFromPoint takes only the ANGLE from the knob's
+   centre, and scaling about the centre changes neither. It is purely how
+   it looks.) So the dial lights its rim instead, which is what a machined
+   control under a finger actually does. */
+.knob:active{
+  /* The dial IS a <button>, so the generic button:active above still
+     reaches it — removing it from the scale list was not enough, the
+     transform has to be cancelled explicitly. */
+  transform:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--glow), inset 0 0 14px var(--glow);
+  transition:box-shadow .06s ease-out, border-color .06s ease-out;
+}
+
+/* Cards and rows are too large to scale convincingly — a 7% dip on a
+   full-width card looks like the layout broke. They dim instead. */
+.card:active,
+.board-row:active,
+.cms-card:active{
+  filter:brightness(.93);
+  transition:filter .06s ease-out;
+}
+
+/* Anything that can be dragged keeps its own cursor and must not move
+   under the finger while being dragged. */
+.carousel-track:active{ transform:none }

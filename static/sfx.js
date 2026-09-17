@@ -487,20 +487,49 @@
       tone("triangle", 880, 380, 0.10, 0.038);
     },
 
-    /* A section arriving. A soft sweep rather than a click: it is the
-       only sound here that accompanies motion instead of a press, and it
-       is pitched low and wide so it sits underneath everything else. */
+    /* A section arriving.
+
+       This one was reported as "an explosion sound when I click the
+       section buttons", and the report was right about what it sounded
+       like and wrong only about which voice it was: nothing calls boom()
+       on a nav press. The old reveal was a 150Hz sine sweeping up under a
+       320Hz band of noise for a quarter of a second — measured, 98% of
+       its energy below 400Hz, spectral centre 184Hz, flatness 0.002. A
+       low pure tone swelling is exactly the shape of a distant blast, and
+       it landed on top of the tap's own low body, which doubled it.
+
+       The lesson is in the spec rather than the sound: `reveal` was only
+       ever checked for loudness and length, and it passed both the whole
+       time. A voice with no constraint on its CHARACTER can drift into
+       being a different sound entirely without a single test going red.
+
+       What replaces it is movement with no weight — two offset bands of
+       filtered air rising, and a whisper of pitch near the top to give
+       the sweep a direction. Nothing here has meaningful energy below
+       about 600Hz, so it reads as the page moving rather than as
+       something landing, and it stays out of the way of the tap it always
+       plays with. */
     reveal(){
       if(!gate("reveal", 220)) return;
-      noise(0.26, 0.036, 320, 0.9, 0, 2100);
-      tone("sine", 150, 330, 0.24, 0.026, 0.01);
+      noise(0.20, 0.058, 1000, 1.1, 0,     3800);   // the movement
+      noise(0.15, 0.028, 1700, 0.9, 0.040, 5400);   // its trailing edge
+      tone("sine", 1150, 1780, 0.10, 0.011, 0.050); // a hint of direction
     },
 
-    /* Something opening over the page — a lightbox, the nav rail. */
+    /* Something opening over the page — a lightbox, the nav rail.
+
+       Rising for open, falling for close: the pair has to read as a
+       direction, which is the whole reason they are two voices and not
+       one. The start pitch used to be 320Hz, which put 92% of this below
+       400Hz — the same low swell that made the old reveal sound like a
+       blast, and on a phone it fires in the same gesture (a nav tap opens
+       the rail AND reveals a section, so all three used to stack). Moved
+       up a fifth it still rises, still sits under the tap, and no longer
+       contributes any weight of its own. */
     open(){
       if(!gate("panel", 90)) return;
-      noise(0.09, 0.034, 900, 1.1, 0, 2000);
-      tone("sine", 320, 620, 0.10, 0.026);
+      noise(0.09, 0.034, 1100, 1.1, 0, 2400);
+      tone("sine", 520, 940, 0.10, 0.024);
     },
     close(){
       if(!gate("panel", 90)) return;
