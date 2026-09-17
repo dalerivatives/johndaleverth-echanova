@@ -3426,3 +3426,13 @@ a.btn:active{
 /* Anything that can be dragged keeps its own cursor and must not move
    under the finger while being dragged. */
 .carousel-track:active{ transform:none }
+
+/* v66: single count; guests are plain circular profile placeholders. */
+.pv-face.is-anon{border:1px solid var(--accent);border-radius:50%;background:var(--panel,#101920)}
+.pv-rest{letter-spacing:0;font-size:clamp(9px,2.5vw,13px)}
+.whoami-speech{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);z-index:90;max-width:min(90vw,540px);padding:14px 20px;border:1px solid var(--accent);border-radius:16px;background:var(--panel,#101920);color:var(--text,#eee);font:12px/1.7 ui-monospace,monospace;box-shadow:0 12px 50px #0005;pointer-events:none}
+.whoami-speech[hidden]{display:none}
+.whoami-speech i{color:var(--accent);margin-right:12px;font-style:normal}
+body:has(.human-backdrop.is-speaking) .whoami-speech i{animation:voice-wave .5s ease-in-out infinite alternate}
+@keyframes voice-wave{to{opacity:.35}}
+@media(prefers-reduced-motion:reduce){.whoami-speech i{animation:none!important}}

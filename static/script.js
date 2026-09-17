@@ -120,6 +120,7 @@ async function applySiteSettings(){
 /* Kicked off immediately; the GitHub sync below awaits it so it can use the
    configured username rather than racing it. */
 const settingsReady = applySiteSettings();
+if(window.PortfolioBoot) window.PortfolioBoot.track(settingsReady.then(value=>{if(!value) throw new Error("Site settings unavailable");}), "Site content");
 
 const app=document.getElementById("app");
 const stack=document.getElementById("stack");
@@ -527,7 +528,8 @@ if(osLight){
   if(!el) return;
   const PING_MS=20000;
 
-  let viewerId=sessionStorage.getItem("portfolio-viewer-id");
+  let viewerId;
+  try{viewerId=sessionStorage.getItem("portfolio-viewer-id");}catch(e){}
   if(!viewerId){
     viewerId=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now());
     try{ sessionStorage.setItem("portfolio-viewer-id", viewerId); }catch(e){}
@@ -537,60 +539,27 @@ if(osLight){
   const stackEl = document.getElementById("presenceFaces");
   let last = null, lastFaces = [];
 
-  /* ---- the face stack ----------------------------------------------
-     ONLY people who registered a name in world chat get a face. Everyone
-     else is counted in a single "+N others" chip and is never drawn.
-
-     The silhouette that used to stand in for an anonymous visitor is
-     gone. It looked like a person who was there but unidentified, which
-     is a slightly different and slightly false claim — the server knows
-     nothing about that visitor at all, not even that they are one person
-     rather than three tabs. A count is the honest shape for them, and it
-     is also what the chip already says.
-
-     Real avatars come from the same generator the chat draws with, so a
-     face here and the face on that person's messages match. Yours goes
-     first when you are in the chat: the stack is a mirror of the room and
-     you are in it, which is what makes the trailing count read as "and
-     these others". */
-  const ANON_GLYPH =
-    '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-      '<circle cx="12" cy="9" r="3.4"/>' +
-      '<path d="M5 20.6c0-4 3.2-6.5 7-6.5s7 2.5 7 6.5z"/>' +
-    '</svg>';
-
+  /* Registered visitors show their chat avatar; guests show a plain circle.
+     The total appears once in the text. At most three faces occupy the header. */
+  const ANON_GLYPH = '';
   function myName(){
-    try{ return localStorage.getItem("portfolio-chat-name") || ""; }catch(e){ return ""; }
+    try{return localStorage.getItem('portfolio-chat-name') || '';}catch(e){return '';}
   }
-
   let lastSig = null;
   function paintFaces(faces, online){
     if(!stackEl) return;
     const mine = myName();
-    const list = [];
-    if(mine) list.push(mine);
-    for(const n of (faces || [])){
-      if(n && n !== mine && list.length < 3) list.push(n);
-    }
-
-    const others = Math.max(0, online - list.length);
-    const sig = list.join("\u0000") + "|" + others;
-    if(sig === lastSig) return;          // nothing moved; don't rebuild the SVGs
+    const list = [...new Set((faces || []).filter(Boolean))];
+    if(mine && list.includes(mine)){list.splice(list.indexOf(mine),1);list.unshift(mine);}
+    const visible = list.slice(0, Math.min(3,online));
+    const guests = Math.min(Math.max(0,online-list.length), 3-visible.length);
+    const sig = visible.join('\u0000')+'|'+guests;
+    if(sig===lastSig) return;
     lastSig = sig;
-
-    /* escapeAttr, not the chat module's private escapeHtml — a name is
-       user-supplied and goes straight into an attribute here. */
-    const faceHtml = list.map(n =>
-      '<span class="pv-face" title="' + escapeAttr(n) + '">' +
-      (window.ChatAvatar ? window.ChatAvatar.svg(n) : ANON_GLYPH) + '</span>').join("");
-
-    const chip = others > 0
-      ? '<span class="pv-more" title="' + others + ' other' + (others === 1 ? '' : 's') +
-        ' not in the chat">' + ANON_GLYPH + '<b>+' + others + '</b></span>'
-      : '';
-
-    stackEl.innerHTML = faceHtml + chip;
-    stackEl.classList.toggle("is-empty", !list.length && !chip);
+    stackEl.innerHTML = visible.map(n=>'<span class="pv-face" title="'+escapeAttr(n)+'">'+
+      (window.ChatAvatar ? window.ChatAvatar.svg(n) : '')+'</span>').join('') +
+      '<span class="pv-face is-anon" title="Unregistered visitor" aria-label="Unregistered visitor"></span>'.repeat(guests);
+    stackEl.classList.toggle('is-empty',online===0);
   }
 
   /* A name claimed mid-session should show up at once, not at the next
@@ -614,18 +583,7 @@ if(osLight){
     if(faces) lastFaces = faces;
     paintFaces(lastFaces, n);
 
-    /* Longest first; the first tail that fits wins. */
-    const tails = [
-      n + (n === 1 ? " person viewing now" : " people viewing now"),
-      n + " viewing",
-      String(n)
-    ];
-    let chosen = tails[tails.length - 1];
-    for(const t of tails){
-      el.textContent = t;
-      if(fits()){ chosen = t; break; }
-    }
-    el.textContent = chosen;
+    el.textContent = n + (n === 1 ? " person viewing now" : " people viewing now");
 
     /* The visible text abbreviates; the announced text never does. */
     host.setAttribute("aria-label",
@@ -812,6 +770,9 @@ if(osLight){
     }
 
     function showCode(){
+      if(window.Speech) window.Speech.stop();
+      const caption=document.getElementById('whoamiSpeech');
+      if(caption) caption.hidden=true;
       revealed=false; backdrop.classList.add("crossfade");
       backdrop.classList.remove("revealed");
       window.setTimeout(()=>backdrop.classList.remove("crossfade"), 760);
@@ -845,6 +806,16 @@ if(osLight){
 
       if(!revealed && command==="whoami"){
         showPhoto();
+        const message = "Identity confirmed. Meet Dale, the mind behind the code. Welcome to my world.";
+        const caption = document.getElementById('whoamiSpeech');
+        if(caption){caption.hidden=false;caption.querySelector('span').textContent=message;}
+        let voiceEnabled=true;
+        try{voiceEnabled=localStorage.getItem('portfolio-chat-voice') !== 'off';}catch(e){}
+        const done=()=>{backdrop.classList.remove('is-speaking');};
+        if(voiceEnabled && window.Speech){
+          backdrop.classList.add('is-speaking');
+          if(!window.Speech.robot(message,true,done)) done();
+        }
         return;
       }
 
@@ -1378,12 +1349,16 @@ if(osLight){
       container.innerHTML = "";
       withItems.forEach(cat => container.appendChild(renderCategory(cat)));
     }catch(err){
-      container.innerHTML = `<p class="cms-empty">Couldn't load this section right now — is the backend server running? (Static previews without the FastAPI backend won't have live content.)</p>`;
+      container.innerHTML = `<p class="cms-empty">This section is temporarily unavailable. Please refresh to try again.</p>`;
+      if(window.PortfolioBoot) window.PortfolioBoot.fail(section);
     }
   }
 
   function init(){
-    document.querySelectorAll(".cms-section[data-section]").forEach(loadCmsSection);
+    document.querySelectorAll(".cms-section[data-section]").forEach(container=>{
+      const task=loadCmsSection(container);
+      if(window.PortfolioBoot) window.PortfolioBoot.track(task,container.dataset.section);
+    });
   }
 
   if(document.readyState==="loading"){

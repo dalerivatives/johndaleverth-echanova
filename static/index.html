@@ -63,10 +63,25 @@
 }
 </script>
 
+<link rel="stylesheet" href="loader.css?v=66">
+<script src="loader.js?v=66"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
-<link rel="stylesheet" href="style.css?v=50">
+<link rel="stylesheet" href="style.css?v=66">
 </head>
 <body>
+<div id="bootScreen" role="dialog" aria-modal="true" aria-labelledby="bootBrand" hidden>
+  <div class="boot-grid" aria-hidden="true"></div>
+  <div class="boot-card">
+    <div class="boot-orbit" aria-hidden="true"><span>T</span></div>
+    <p class="boot-eyebrow">A DIGITAL EXPERIENCE BY</p>
+    <h1 id="bootBrand">TREVELADE<span>COMPANY</span></h1>
+    <p class="boot-credit">Developed by Trevelade Company.</p>
+    <div class="boot-track"><span id="bootBar"></span></div>
+    <p id="bootStatus" role="status">Preparing your experience…</p>
+    <div id="bootActions" hidden><button id="bootRetry" type="button">Retry</button><button id="bootContinue" type="button">Continue with available content</button></div>
+  </div>
+</div>
+<noscript><p>This portfolio needs JavaScript for navigation and live features. Please enable JavaScript and reload.</p></noscript>
 <!-- Keyboard users land here first: one Tab press, one Enter, straight past
      the theme picker and social icons into the actual page content. -->
 <a class="skip-link" href="#mainContent">Skip to content</a>
@@ -95,12 +110,6 @@
            The tail collapses on narrow screens: "+3 others" -> "+3" -> the
            bare count, whichever still fits. -->
       <span class="online" id="presence">
-        <!-- A stack of the REAL faces of people in world chat, overlapping
-             the way a shared-document avatar stack does, then a "+N" chip
-             for everyone who did not fit, then the count in plain words.
-             Anyone who has not claimed a name is counted but never drawn —
-             there is no face to draw, and inventing one would be inventing
-             a person. -->
         <span class="pv-stack" id="presenceFaces" aria-hidden="true"></span>
         <span class="pv-rest" id="viewerCount" aria-live="polite">LINKING…</span>
       </span>
@@ -498,13 +507,14 @@
     <span id="footerZone">LOADING ZONE</span>
 </time>
 </footer>
-<script src="sfx.js?v=50"></script>
-<script src="background.js?v=50"></script>
-<script src="avatar.js?v=50"></script>
-<script src="speech.js?v=50"></script>
-<script src="vendor/three.min.js?v=50"></script>
-<script src="robot3d.js?v=50"></script>
-<script src="script.js?v=50"></script>
-<script src="uisound.js?v=50"></script>
+<div id="whoamiSpeech" class="whoami-speech" role="status" hidden><i aria-hidden="true">▂ ▅ ▃ ▇ ▂</i><span></span></div>
+<script src="sfx.js?v=66"></script>
+<script src="background.js?v=66"></script>
+<script src="avatar.js?v=66"></script>
+<script src="speech.js?v=66"></script>
+<script src="vendor/three.min.js?v=66"></script>
+<script src="robot3d.js?v=66"></script>
+<script src="script.js?v=66"></script>
+<script src="uisound.js?v=66"></script>
 </body>
 </html>

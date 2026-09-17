@@ -261,6 +261,44 @@ def dev_version():
     return {"enabled": True, "version": _static_fingerprint(), "pid": os.getpid()}
 
 
+# Bounded voice endpoint. Per-process state matches the single-worker deployment.
+from collections import deque
+from pydantic import BaseModel, Field
+from .speech import synthesize
+
+class SpeechRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+
+_speech_hits = {}
+_speech_rate_lock = threading.Lock()
+
+@app.post("/api/speech")
+def robot_speech(payload: SpeechRequest, request: Request):
+    text = payload.text.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="Text is required")
+    ip = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    with _speech_rate_lock:
+        # Delete expired buckets and bound even a flood of unique addresses.
+        for key in list(_speech_hits):
+            if not _speech_hits[key] or now-_speech_hits[key][-1] > 60:
+                del _speech_hits[key]
+        if ip not in _speech_hits and len(_speech_hits) >= 2048:
+            raise HTTPException(status_code=429, detail="Voice is busy")
+        hits = _speech_hits.setdefault(ip, deque())
+        while hits and now-hits[0] > 60:
+            hits.popleft()
+        if len(hits) >= 60:
+            raise HTTPException(status_code=429, detail="Please wait before requesting more speech")
+        hits.append(now)
+    try:
+        data = synthesize(text)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Robot voice is temporarily unavailable")
+    return Response(data, media_type="audio/wav", headers={"Cache-Control":"no-store"})
+
+
 @app.get("/api/health")
 def health():
     """Liveness only. Returns a constant and opens no database connection, so
@@ -1666,7 +1704,7 @@ _ASSET_QS = re.compile(r"(\.(?:css|js))\?v=[A-Za-z0-9._-]*")
 def _stamp_assets(html: str) -> str:
     """Rewrite every `?v=...` on a local asset to the current fingerprint.
 
-    NOT a lookbehind. `(?<=\.(?:css|js))` is variable width — three characters
+    NOT a lookbehind. `(?<=\\.(?:css|js))` is variable width — three characters
     for .css, two for .js — and Python's `re` refuses to compile that, which
     took down the whole page with a 500 rather than failing quietly. Capturing
     the extension and putting it back is both legal and clearer."""

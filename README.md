@@ -1,3 +1,7 @@
+# v66 update
+
+Start with **UPDATE_v66.md**, **KEEP_AWAKE.md** and **TEST_REPORT.md** for this release.
+
 # Johndaleverth "Dale" Echanova — Portfolio
 
 A full-stack version of the portfolio: a FastAPI + SQLite backend serves both
