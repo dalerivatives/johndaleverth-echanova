@@ -79,13 +79,30 @@
 
   <header class="topbar">
     <div class="brand">
-      <!-- Presence. The beacon says the feed is live — something the number
-           alone cannot say. The four-bar meter that briefly lived here was
-           removed: it encoded the same count printed 8px to its right, so it
-           carried no information, only decoration. -->
+      <!-- PRESENCE — "VIEWERS (face) +3 others"
+
+           The face is not decoration and it is not a stranger: it is YOU,
+           drawn from your chat name when you have claimed one and a plain
+           silhouette when you have not. That is what makes "+3 others"
+           mean something — one of the viewers is the person reading, and
+           the rest are other people.
+
+           The live ring pulses around the face rather than sitting beside
+           it as a separate dot. It says the feed is live, which the number
+           alone cannot; folding it into the face costs one element and
+           reads as "this is you, and you are connected".
+
+           The tail collapses on narrow screens: "+3 others" -> "+3" -> the
+           bare count, whichever still fits. -->
       <span class="online" id="presence">
-        <i class="beacon" aria-hidden="true"></i>
-        <span id="viewerCount" aria-live="polite">LINKING…</span>
+        <!-- A stack of the REAL faces of people in world chat, overlapping
+             the way a shared-document avatar stack does, then a "+N" chip
+             for everyone who did not fit, then the count in plain words.
+             Anyone who has not claimed a name is counted but never drawn —
+             there is no face to draw, and inventing one would be inventing
+             a person. -->
+        <span class="pv-stack" id="presenceFaces" aria-hidden="true"></span>
+        <span class="pv-rest" id="viewerCount" aria-live="polite">LINKING…</span>
       </span>
     </div>
     <div class="top-actions">
@@ -96,47 +113,51 @@
   </header>
 
   <aside class="stack-shell" aria-label="Portfolio navigation">
-    <nav class="stack" id="stack"></nav>
+    <nav class="stack" id="stack">
+      <!-- ============================================================
+           THE TOOLS, IN THE RAIL
+           ------------------------------------------------------------
+           The theme dial and the sound switch live in the same stack as
+           the five sections. It is already the one control on the page
+           everyone finds: a circle in the corner that opens on hover or a
+           tap, within easy reach of a thumb, and it is where a visitor
+           looks when they want to change something about the site.
+
+           They sit ABOVE the sections, not below. When the rail is shut,
+           the bottom of it is the circle you tap to open it — put a tool
+           there and the thing that appears under your finger after that
+           tap is the theme dial, which is a mis-tap waiting to happen.
+           Above the sections, the bottom of the rail stays what it was.
+
+           renderStack() rebuilds the .nav-item children and leaves these
+           alone, so they survive every re-render.
+           ============================================================ -->
+      <div class="nav-tool nav-tool-dial">
+          <!-- Five-position ROTARY selector seen from directly above. The
+               dial turns in the plane of the screen and its pointer aims at
+               one of five detents on the bezel. Discrete stops, so this is a
+               button that steps between them rather than a slider. -->
+          <button class="knob" id="themeLever" type="button" data-mode="auto"
+                  aria-label="Theme: auto, following your device"
+                  data-tooltip="Theme: Auto">
+            <span class="kb-ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="kb-dial" aria-hidden="true"></span>
+          </button>
+          <!-- Names the detent just chosen. AUTO paints the same page as
+               DARK on a device that is already dark, so without this that
+               position looks like it does nothing. -->
+          <span class="kb-readout" id="leverReadout" aria-hidden="true"></span>
+      </div>
+      <div class="nav-tool nav-tool-sound">
+          <!-- The master switch for every sound the site makes. -->
+          <button class="sound-toggle" id="soundToggle" type="button" aria-pressed="true"
+                  aria-label="Turn sound off" data-tooltip="Sound: on">
+            <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
+          </button>
+      </div>
+    </nav>
   </aside>
 
-  <!-- ============================================================
-       CONTROL DOCK — bottom corner, opposite the navigation circle
-       ------------------------------------------------------------
-       These two lived in the top-right of the header. On a phone that
-       corner is the single hardest place on the screen to reach: it is
-       the far diagonal from a thumb on either hand, and the dial in
-       particular is not a tap but a small aimed gesture, which is the
-       worst possible thing to ask for up there.
-
-       So they sit at the bottom instead — the same side of the screen,
-       mirrored across the horizontal axis — where the navigation circle
-       already proves the position works. The two dock in opposite
-       corners so neither is ever under the thumb that is reaching for
-       the other.
-       ============================================================ -->
-  <div class="control-dock" id="controlDock">
-    <!-- Says out loud which detent was just chosen. AUTO and the dark
-         positions paint the same page on a device that is already dark, so
-         without this those positions look like they do nothing. -->
-    <span class="kb-readout" id="leverReadout" aria-hidden="true"></span>
-    <!-- Five-position ROTARY selector seen from directly above. The dial
-         turns in the plane of the screen and its pointer aims at one of
-         five detents on the bezel. Discrete stops, so this is a button
-         that steps between them rather than a slider. aria-label is
-         rewritten on every change so a screen reader announces the
-         position, not just "button". -->
-    <button class="knob" id="themeLever" type="button" data-mode="auto"
-            aria-label="Theme: auto, following your device"
-            data-tooltip="Theme: Auto">
-      <span class="kb-ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-      <span class="kb-dial" aria-hidden="true"></span>
-    </button>
-    <!-- The master switch for every sound the site makes. -->
-    <button class="sound-toggle" id="soundToggle" type="button" aria-pressed="true"
-            aria-label="Turn sound off" data-tooltip="Sound: on">
-      <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
-    </button>
-  </div>
 
   <main class="workspace" id="mainContent" tabindex="-1">
     <div class="page-view active" id="profileView" data-view="profile">
@@ -156,8 +177,16 @@
       </div>
 
       <div class="human-backdrop" aria-hidden="true">
-        <img id="asciiArt" class="coded-human-outline" src="assets/human-coded-exact-contour.png" alt="" aria-hidden="true" draggable="false">
-        <img id="realPortrait" class="real-portrait" src="assets/profile-transparent.png" alt="Johndaleverth Pastorfide Echanova">
+        <!-- width/height are here so the browser can reserve the right box
+             BEFORE the image arrives. Both files are 883x883; without the
+             attributes the backdrop has no size until it loads, and the
+             hero text reflows around it when it does — a visible jump on
+             the slow connections this matters most on. The CSS still
+             controls the drawn size; these only give the aspect ratio. -->
+        <img id="asciiArt" class="coded-human-outline" src="assets/human-coded-exact-contour.png"
+             width="883" height="883" alt="" aria-hidden="true" draggable="false" decoding="async">
+        <img id="realPortrait" class="real-portrait" src="assets/profile-transparent.png"
+             width="883" height="883" alt="Johndaleverth Pastorfide Echanova" decoding="async">
       </div>
     </section>
 
@@ -166,10 +195,16 @@
         <div class="dots"><b></b><b></b><b></b></div>
       </div>
       <div class="terminal-body">
+        <!-- The gutter numbers are RENUMBERED from the DOM on load (see
+             script.js). They were hand-typed and had drifted to
+             01, 02, 02, 03, 05 — a repeat and a skip — which is what
+             hand-typed line numbers always eventually do, especially when
+             the lines beside them are editable from the CMS. These values
+             are the no-JS fallback; the script is what guarantees them. -->
         <div class="line"><span>01</span></div>
         <div class="line"><span>02</span><span data-setting="terminal_line_1">“Hello World.” I’m Dale — a Computer Engineer,</span></div>
-        <div class="line"><span>02</span><span data-setting="terminal_line_2">Full Stack Developer, Inventor, who enjoys building codes</span></div>
-        <div class="line"><span>03</span><span data-setting="terminal_line_3">and turning out of the “blue” ideas into Output</span></div>
+        <div class="line"><span>03</span><span data-setting="terminal_line_2">Full Stack Developer, Inventor, who enjoys building codes</span></div>
+        <div class="line"><span>04</span><span data-setting="terminal_line_3">and turning out of the “blue” ideas into Output</span></div>
         <div class="line"><span>05</span></div>
       </div>
       <div class="terminal-footer">PS C:\whoami&gt; <input id="whoamiField" class="whoami-field" type="text" placeholder="Type “whoami” to see the man behind the code" aria-label="Type whoami to reveal the man behind the code" autocomplete="off" autocapitalize="off" spellcheck="false">

@@ -324,30 +324,65 @@ def login(payload: schemas.LoginIn):
 # several workers, move _presence into Redis and the rest of this stays put.
 # ---------------------------------------------------------------------------
 PRESENCE_TTL_SECONDS = 45
-_presence: dict[str, float] = {}
+
+# viewer_id -> (last_seen, claimed_name_or_empty). The name is carried so the
+# badge can show the FACES of the people here, not just a number. Only names
+# already claimed in world chat appear — that is public information on this
+# site by definition, and a visitor who never joins is counted without ever
+# being named.
+_presence: dict[str, tuple[float, str]] = {}
 _presence_lock = threading.Lock()
 
+# How many faces the badge shows before it starts counting "+N".
+PRESENCE_FACES = 3
 
-def _count_present() -> int:
+
+def _sweep_present() -> list[tuple[float, str]]:
+    """Drop the stale heartbeats and return what is left. The caller holds
+    the lock; every reader needs the same expiry, so it lives in one place."""
     cutoff = time.time() - PRESENCE_TTL_SECONDS
+    for viewer_id in [k for k, v in _presence.items() if v[0] < cutoff]:
+        _presence.pop(viewer_id, None)
+    return list(_presence.values())
+
+
+def _presence_state() -> dict:
     with _presence_lock:
-        for viewer_id in [k for k, seen in _presence.items() if seen < cutoff]:
-            _presence.pop(viewer_id, None)
-        return len(_presence)
+        rows = _sweep_present()
+
+    # Most recently seen first, so the faces shown are the people who are
+    # actually active rather than whoever happened to load the page first.
+    named = sorted(
+        ((seen, name) for seen, name in rows if name),
+        key=lambda r: r[0],
+        reverse=True,
+    )
+
+    # One face per PERSON, not per tab: someone with the site open twice
+    # should not appear twice in the stack.
+    faces: list[str] = []
+    for _, name in named:
+        if name not in faces:
+            faces.append(name)
+        if len(faces) >= PRESENCE_FACES:
+            break
+
+    return {"online": len(rows), "faces": faces, "named": len({n for _, n in named})}
 
 
 @app.post("/api/presence")
 def presence_ping(payload: schemas.PresenceIn):
     viewer_id = (payload.viewer_id or "").strip()[:64]
+    name = (payload.name or "").strip()[:40]
     if viewer_id:
         with _presence_lock:
-            _presence[viewer_id] = time.time()
-    return {"online": _count_present()}
+            _presence[viewer_id] = (time.time(), name)
+    return _presence_state()
 
 
 @app.get("/api/presence")
 def presence_count():
-    return {"online": _count_present()}
+    return _presence_state()
 
 
 # ---------------------------------------------------------------------------

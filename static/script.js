@@ -178,7 +178,11 @@ const items=[
 ];
 
 function renderStack(){
- stack.innerHTML="";
+ /* Remove only the SECTION items. The theme dial and the sound switch live
+    in this same rail and are not sections — `stack.innerHTML=""` would take
+    them out with everything else and they would never come back, since this
+    is the only place the rail is built. */
+ stack.querySelectorAll(".nav-item").forEach(el => el.remove());
  items.forEach((item,index)=>{
    const wrap=document.createElement("div");
    wrap.className="nav-item"+(index===0?" active":"");
@@ -530,17 +534,106 @@ if(osLight){
   }
 
   const host = el.closest(".online");
-  let last = null;
+  const stackEl = document.getElementById("presenceFaces");
+  let last = null, lastFaces = [];
 
-  function paint(n){
-    /* The word stays for screen readers via aria-live; the eye gets the
-       instrument. Tabular numerals in the CSS stop the row jogging when the
-       count crosses 9 -> 10. */
-    el.textContent = `${n} ONLINE`;
-    el.setAttribute("aria-label", `${n} viewer${n === 1 ? "" : "s"} online`);
+  /* ---- the face stack ----------------------------------------------
+     ONLY people who registered a name in world chat get a face. Everyone
+     else is counted in a single "+N others" chip and is never drawn.
 
-    /* Flash only on a real change, never on the 20s heartbeat that returns
-       the same figure — a light that blinks every time says nothing. */
+     The silhouette that used to stand in for an anonymous visitor is
+     gone. It looked like a person who was there but unidentified, which
+     is a slightly different and slightly false claim — the server knows
+     nothing about that visitor at all, not even that they are one person
+     rather than three tabs. A count is the honest shape for them, and it
+     is also what the chip already says.
+
+     Real avatars come from the same generator the chat draws with, so a
+     face here and the face on that person's messages match. Yours goes
+     first when you are in the chat: the stack is a mirror of the room and
+     you are in it, which is what makes the trailing count read as "and
+     these others". */
+  const ANON_GLYPH =
+    '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+      '<circle cx="12" cy="9" r="3.4"/>' +
+      '<path d="M5 20.6c0-4 3.2-6.5 7-6.5s7 2.5 7 6.5z"/>' +
+    '</svg>';
+
+  function myName(){
+    try{ return localStorage.getItem("portfolio-chat-name") || ""; }catch(e){ return ""; }
+  }
+
+  let lastSig = null;
+  function paintFaces(faces, online){
+    if(!stackEl) return;
+    const mine = myName();
+    const list = [];
+    if(mine) list.push(mine);
+    for(const n of (faces || [])){
+      if(n && n !== mine && list.length < 3) list.push(n);
+    }
+
+    const others = Math.max(0, online - list.length);
+    const sig = list.join("\u0000") + "|" + others;
+    if(sig === lastSig) return;          // nothing moved; don't rebuild the SVGs
+    lastSig = sig;
+
+    /* escapeAttr, not the chat module's private escapeHtml — a name is
+       user-supplied and goes straight into an attribute here. */
+    const faceHtml = list.map(n =>
+      '<span class="pv-face" title="' + escapeAttr(n) + '">' +
+      (window.ChatAvatar ? window.ChatAvatar.svg(n) : ANON_GLYPH) + '</span>').join("");
+
+    const chip = others > 0
+      ? '<span class="pv-more" title="' + others + ' other' + (others === 1 ? '' : 's') +
+        ' not in the chat">' + ANON_GLYPH + '<b>+' + others + '</b></span>'
+      : '';
+
+    stackEl.innerHTML = faceHtml + chip;
+    stackEl.classList.toggle("is-empty", !list.length && !chip);
+  }
+
+  /* A name claimed mid-session should show up at once, not at the next
+     20-second heartbeat. */
+  window.addEventListener("chat-named", ()=>{ lastSig = null; ping(); });
+
+  /* Does the row still sit inside the space the header gives it?
+     Measured, because the label, the stack and the tail are all
+     variable, and so is whatever sits on the other side of the bar. */
+  function fits(){
+    if(!host) return true;
+    const bar = host.closest(".topbar");
+    if(!bar) return true;
+    const actions = bar.querySelector(".top-actions");
+    const room = (actions ? actions.getBoundingClientRect().left : bar.getBoundingClientRect().right)
+               - host.getBoundingClientRect().left - 14;
+    return host.scrollWidth <= room;
+  }
+
+  function paint(n, faces){
+    if(faces) lastFaces = faces;
+    paintFaces(lastFaces, n);
+
+    /* Longest first; the first tail that fits wins. */
+    const tails = [
+      n + (n === 1 ? " person viewing now" : " people viewing now"),
+      n + " viewing",
+      String(n)
+    ];
+    let chosen = tails[tails.length - 1];
+    for(const t of tails){
+      el.textContent = t;
+      if(fits()){ chosen = t; break; }
+    }
+    el.textContent = chosen;
+
+    /* The visible text abbreviates; the announced text never does. */
+    host.setAttribute("aria-label",
+      n === 1 ? "1 person viewing now" : n + " people viewing now");
+
+    /* Flash only on a real change, never on the 20s heartbeat that
+       returns the same figure — a light that blinks every time says
+       nothing. */
     if(host && last !== null && n !== last){
       host.classList.remove("tick");
       void host.offsetWidth;            // restart the animation
@@ -549,16 +642,27 @@ if(osLight){
     last = n;
   }
 
+  /* Re-fit when the bar changes width, so a rotation does not leave the
+     long form overlapping the controls until the next heartbeat. */
+  let refit = null;
+  window.addEventListener("resize", ()=>{
+    clearTimeout(refit);
+    refit = setTimeout(()=>{ if(last !== null) paint(last); }, 150);
+  });
+
   async function ping(){
     try{
       const res=await fetch("/api/presence",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({viewer_id:viewerId})
+        /* The name goes up with the heartbeat so the server can tell the
+           badge WHO is here, not just how many. Empty for anyone who
+           has not joined the chat — they are counted, never named. */
+        body:JSON.stringify({viewer_id:viewerId, name:myName()})
       });
       if(!res.ok) throw new Error("presence unavailable");
       const data=await res.json();
-      paint(Math.max(1, Number(data.online)||1));
+      paint(Math.max(1, Number(data.online)||1), Array.isArray(data.faces) ? data.faces : []);
     }catch(err){
       // No backend (or it's down): say nothing rather than invent a number.
       if(host) host.style.display="none";
@@ -570,6 +674,96 @@ if(osLight){
   document.addEventListener("visibilitychange",()=>{ if(!document.hidden) ping(); });
 })();
 
+
+/* ============================================================
+   HEADER RESERVATION — a number that cannot disagree with itself
+   ------------------------------------------------------------
+   `.topbar` is fixed and uses `min-height`, so it GROWS with its
+   contents. `--header-h` is what reserves space for it at the top
+   of the page. They were two hand-maintained numbers that had to
+   match, and they did not: measured on a phone the bar is 75px
+   against a reservation of 68px, so the fixed header had been
+   covering the first 7px of every page — the top of a heading,
+   the first line of the terminal — on every phone, in every
+   version, for as long as the social links have been that size.
+
+   It is not the sort of thing anyone notices directly. It looks
+   like the page just starts a little tight.
+
+   So the reservation is measured from the bar rather than typed
+   next to it. A ResizeObserver keeps it true through font loading,
+   a rotation, the social links arriving from the API, and anything
+   added to the bar later. The CSS value stays as the pre-script
+   fallback.
+   ============================================================ */
+(() => {
+  const bar = document.querySelector(".topbar");
+  if(!bar) return;
+
+  let applied = 0;
+  function sync(){
+    const h = Math.ceil(bar.getBoundingClientRect().height);
+    /* A tenth of a pixel of jitter must not thrash the layout. */
+    if(!h || Math.abs(h - applied) < 1) return;
+    applied = h;
+    document.documentElement.style.setProperty("--header-h", h + "px");
+  }
+  sync();
+
+  if(window.ResizeObserver){
+    new ResizeObserver(sync).observe(bar);
+  }else{
+    window.addEventListener("resize", sync);
+  }
+  /* Web fonts land after first paint and change the bar's height. */
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(sync).catch(()=>{});
+  window.addEventListener("load", sync);
+})();
+
+/* ============================================================
+   TERMINAL GUTTER — numbers that cannot drift
+   ------------------------------------------------------------
+   The numbers down the left of the profile terminal were typed by
+   hand and had drifted to 01, 02, 02, 03, 05: one repeated, one
+   skipped. That is what hand-typed line numbers always do in the
+   end, and these are worse than most, because the lines beside
+   them are editable from the CMS — add a line in the editor and
+   the gutter silently goes wrong again.
+
+   So the gutter is generated from however many lines are actually
+   there. Zero-padded to two digits to match the monospace column,
+   and marked aria-hidden: a screen reader reading "zero one" before
+   every sentence is noise, and the numbers carry no meaning beyond
+   making the block look like a listing.
+   ============================================================ */
+(() => {
+  const body = document.querySelector(".terminal-body");
+  if(!body) return;
+
+  function renumber(){
+    const lines = body.querySelectorAll(".line");
+    lines.forEach((line, i) => {
+      const gutter = line.firstElementChild;
+      if(!gutter) return;
+      gutter.textContent = String(i + 1).padStart(2, "0");
+      gutter.setAttribute("aria-hidden", "true");
+    });
+  }
+  renumber();
+
+  /* Site settings arrive after load and can add or remove lines, so
+     renumber whenever the block's children change. Guarded against its
+     own writes: textContent changes fire childList too, and without the
+     flag this would loop. */
+  let busy = false;
+  const mo = new MutationObserver(() => {
+    if(busy) return;
+    busy = true;
+    renumber();
+    busy = false;
+  });
+  mo.observe(body, {childList:true});
+})();
 
 /* ============================================================
    WHOAMI — SAME HUMAN CONTOUR REVEAL
@@ -1298,6 +1492,7 @@ if(osLight){
      nobody had touched. The flag is cleared here so an upgraded browser
      doesn't keep believing it. */
   let verified = false;
+  let gateWasOpen = null;
   try{ localStorage.removeItem("portfolio-robot-beaten"); }catch(e){}
   function beaten(){ return verified; }
   function applyGate(){
@@ -1314,6 +1509,15 @@ if(osLight){
       }
     }
     if(lockedEl && !lockedEl.hidden) lockedEl.dataset.wasLocked = "1";
+
+    /* The moment the chat becomes usable. Sounded once per transition,
+       not on every re-check — applyGate() runs on a heartbeat and on
+       every stream event, and a latch that keeps re-latching is noise.
+       `gateWasOpen` starts null so arriving at an already-open chat is
+       silent; nothing just happened. */
+    const nowOpen = open && named;
+    if(gateWasOpen !== null && nowOpen && !gateWasOpen && window.SFX) window.SFX.unlock();
+    gateWasOpen = nowOpen;
   }
   /* The robot module fires this when a kill lands. It doesn't decide anything
      — it just prompts a re-check, because only the server knows whether THIS
@@ -1606,7 +1810,8 @@ if(osLight){
      The fallback object is not defensive padding: if sfx.js ever fails to
      load, the robot must still take hits silently rather than throwing on
      every tap. */
-  const sfx = window.SFX || { hit(){}, boom(){}, revive(){},
+  const sfx = window.SFX || { hit(){}, farHit(){}, boom(){}, revive(){},
+                              join(){}, unlock(){}, crown(){}, victory(){},
                               prime(){}, toggle(){ return true; },
                               get muted(){ return true; }, set muted(v){} };
 
@@ -1623,6 +1828,7 @@ if(osLight){
   const champRound  = document.getElementById("boardChampRound");
   const champDmg    = document.getElementById("boardChampDmg");
   let boardTimer = null;
+  let lastChamp = null, champSeeded = false;
 
   function boardFace(name){
     return window.ChatAvatar ? window.ChatAvatar.svg(name || "?") : "";
@@ -1663,6 +1869,31 @@ if(osLight){
           champRound.textContent = data.kills || 1;
           champDmg.title = `${champ.damage.toFixed(1)}% across ${champ.blows} hits`;
         }
+
+        /* A NEW round winner has been crowned.
+
+           Keyed on the name AND the round number, because the same person
+           can win twice running and that is still a new crown. The first
+           board load only records who is already champion — arriving at a
+           page should not congratulate you for something that happened
+           before you got there. */
+        const key = champ ? `${champ.name}#${data.kills || 0}` : "";
+        if(champSeeded && key && key !== lastChamp){
+          /* chatName(), not myName(): myName() falls back to the string
+             "you" for a visitor who has not joined, and a champion who
+             happened to be called "you" would then get the personal
+             fanfare played at a stranger. */
+          const me = chatName();
+          const mine = !!me && champ.name === me;
+          if(mine) sfx.victory(); else sfx.crown();
+          if(boardChamp){
+            boardChamp.classList.remove("crowned");
+            void boardChamp.offsetWidth;
+            boardChamp.classList.add("crowned");
+          }
+        }
+        lastChamp = key;
+        champSeeded = true;
       }
     }catch(e){/* the board is decoration; a failed poll is not worth a message */}
   }
@@ -1855,8 +2086,12 @@ if(osLight){
     }
   }
 
-  function reactToHit(nx, ny){
-    sfx.hit();
+  function reactToHit(nx, ny, mine){
+    /* Your own blow lands on your hand; everyone else's lands across the
+       room. Playing every visitor's tap at full strength made a busy
+       arena sound like hail. `mine` defaults to true so the local call
+       sites that never passed it keep the loud clank. */
+    if(mine === false) sfx.farHit(); else sfx.hit();
     if(use3d && window.Robot3D){
       window.Robot3D.hit(nx, ny);
     }else if(fallbackBody){
@@ -1943,7 +2178,7 @@ if(osLight){
       else {
         // Someone else's tap: play it exactly where they hit.
         floatHit(event.name, event.damage, event.x, event.y, false);
-        reactToHit(event.x, event.y);
+        reactToHit(event.x, event.y, false);     // someone else's
       }
       noteAttacker(event.name, event.damage);
       refreshBoard();

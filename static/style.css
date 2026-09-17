@@ -2950,102 +2950,383 @@ body.lightbox-open{overflow:hidden}
   box-shadow:0 20px 40px rgba(0,0,0,.2)}
 
 /* ============================================================
-   PHASE 58 — THE CONTROL DOCK
+   PHASE 59 — THE TOOLS MOVED INTO THE RAIL
    ------------------------------------------------------------
-   The theme dial and the sound switch used to live in the header's
-   top-right corner. That is the worst corner on a phone: it is the
-   far diagonal from a thumb on either hand, and the dial is not a
-   tap but a small AIMED gesture — the one kind of interaction that
-   most needs a comfortable reach.
+   Phase 58 put the theme dial and the sound switch in their own
+   dock in the opposite bottom corner. They are now in the
+   NAVIGATION rail instead, with the five sections.
 
-   They now sit in the bottom-right instead. Same side of the screen,
-   mirrored across the horizontal axis, opposite the navigation
-   circle that has been proving that position works since phase 29.
-   Two docks in opposite bottom corners, so neither is ever under the
-   thumb reaching for the other.
+   Why that is better than a second dock: the rail is already the
+   one control everyone finds — a circle in the corner that opens
+   on hover or a tap — and it is where a visitor looks when they
+   want to change something about the site. Two docks meant two
+   places to learn and two things floating over the content.
 
-   Fixed, not sticky: these are controls for the whole site, not part
-   of any one page, and they should not scroll away mid-gesture.
+   They sit ABOVE the sections. The bottom of a shut rail is the
+   circle you press to open it; put a tool there and the thing
+   that lands under your finger after that press is the theme
+   dial. `order` does the placing: the rail is column-reverse, so
+   the lowest order sits at the bottom, the sections hold 0-4, and
+   these take 98 and 99.
    ============================================================ */
-.control-dock{
-  position:fixed;
-  z-index:10;
-  right:28px;
-  bottom:calc(var(--footer-h) + 28px);
+.nav-tool{
+  position:relative;
+  flex:0 0 auto;
   display:flex;
-  flex-direction:column;
   align-items:center;
-  gap:8px;
-  padding:9px 8px;
-  border:1px solid var(--nav-border);
-  border-radius:34px;
-  background:var(--nav-bg);
-  backdrop-filter:blur(16px);
-  box-shadow:0 18px 60px var(--nav-shadow);
+  justify-content:center;
+}
+.nav-tool-dial { order:98 }
+.nav-tool-sound{ order:99 }
+
+/* A hairline between the tools and the sections, so the rail reads as
+   two groups rather than seven unrelated circles. It hangs off the
+   BOTTOM of the dial — the tool nearest the sections — and only exists
+   while the rail is open, or a shut rail would show a stray line. */
+.nav-tool-dial::after{
+  content:"";
+  position:absolute;
+  left:50%; bottom:-3px;
+  width:24px; height:1px;
+  transform:translateX(-50%);
+  background:var(--line);
+  opacity:0;
+  transition:opacity .2s;
 }
 
-/* The readout sat BELOW the dial when the dial was in the header. Down
-   here there is nothing below but the footer and the edge of the screen,
-   so it flips above — and anchors to the dock's right edge so a long
-   label like "MONOCHROME DARK" grows inward across the page rather than
-   off the side of it. */
-.control-dock .kb-readout{
-  top:auto;
-  bottom:calc(100% + 7px);
-  right:0;
-  transform:translateY(4px);
-}
-.control-dock .kb-readout.show{ transform:translateY(0) }
+/* ---- collapsed / open ----------------------------------------------
+   Exactly what .nav-item does, with one difference: a section can be
+   `.active` and stay visible in a shut rail, and a tool never can. So
+   there is no `.active` case here — shut means gone. */
+.nav-tool{
+  /* `display:none`, not a 0px-tall box.
 
-/* The master sound switch. Deliberately the same diameter as the dial's
-   bezel so the two read as one instrument stacked in a housing, rather
-   than two unrelated widgets that happen to be near each other. */
+     A shut tool used to be height:0 with `align-items:center`, so the
+     44px button inside overflowed 22px above and below the line it
+     collapsed to — clipped from view, but still LAID OUT there, right on
+     top of the circle you press to open the rail. Chromium's touch
+     adjustment re-hit-tests a tap with a slop radius when it synthesises
+     the mouse events, picks the nearest clickable candidate, and was
+     picking the sound switch. The first tap on the rail muted the site.
+
+     It ignored `visibility:hidden` and `pointer-events:none` alike; the
+     event trace is unambiguous — touchstart and touchend both target the
+     section button, and the mousedown and click that follow target the
+     switch. The only thing that reliably stops it is having no layout box
+     at all. Note that `elementFromPoint` said the section button was on
+     top and was right: this is only reachable through a real touchscreen
+     tap, so a hit-test probe would have declared it fine.
+
+     Opening animates with a keyframe rather than a transition, because a
+     transition cannot start from `display:none`. Closing snaps, which is
+     the safe direction — out of the way immediately. */
+  display:none;
+}
+/* `.open` is the TOUCH path and applies everywhere. Hover and focus-within
+   are the POINTER path and must stay behind the same media query the rest
+   of this rail uses — a tap synthesises a hover, and an unscoped :hover
+   rule expanded the tools mid-gesture, moving the section button out from
+   under the finger between touchend and click. The tap then landed on
+   whatever had slid into that spot. Same class of bug as the nav flicker
+   in phase 45: a rail that rearranges itself during the gesture that is
+   still in progress. */
+.stack.open .nav-tool{
+  display:flex;
+  height:52px;
+  animation:tool-in .3s cubic-bezier(.2,.9,.2,1) both;
+}
+@media(hover:hover) and (pointer:fine){
+  .stack:hover .nav-tool,
+  .stack:focus-within .nav-tool{
+    display:flex;
+    height:52px;
+    animation:tool-in .3s cubic-bezier(.2,.9,.2,1) both;
+  }
+}
+@keyframes tool-in{
+  from{ opacity:0; transform:translateY(8px) }
+  to  { opacity:1; transform:none }
+}
+@media(prefers-reduced-motion:reduce){
+  .stack .nav-tool{ animation:none !important }
+}
+.stack.open .nav-tool-dial::after{ opacity:1 }
+@media(hover:hover) and (pointer:fine){
+  .stack:hover .nav-tool-dial::after,
+  .stack:focus-within .nav-tool-dial::after{ opacity:1 }
+}
+
+/* The master sound switch. Sized to the rail's own buttons so the two
+   tools and the five sections read as one column of controls rather
+   than a column with two odd ones bolted on. */
 .sound-toggle{
-  width:38px; height:38px;
+  width:48px; height:48px;
   display:grid; place-items:center;
-  border:1px solid var(--line);
+  border:1px solid transparent;
   border-radius:50%;
-  background:var(--tile-bg);
+  background:transparent;
   color:var(--control-text);
-  font-size:14px;
+  font-size:17px;
   cursor:pointer;
-  transition:color .2s, border-color .2s, box-shadow .2s, opacity .2s;
+  transition:color .25s, border-color .25s, background .25s, box-shadow .25s, opacity .25s;
 }
 .sound-toggle:hover,
 .sound-toggle:focus-visible{
   color:var(--accent);
   border-color:var(--accent);
+  background:var(--tile-bg);
   box-shadow:0 0 18px var(--glow);
 }
-/* Muted is shown by the icon, which is unambiguous. The dimming is a
+/* Muted is carried by the icon, which is unambiguous. The dimming is a
    second, redundant signal for anyone who cannot tell a crossed-out
-   speaker from a plain one at 14px — it is not the only one. */
+   speaker from a plain one at this size — it is never the only one. */
 .sound-toggle.off{ opacity:.5 }
-.sound-toggle.off:hover{ opacity:.8 }
+.sound-toggle.off:hover{ opacity:.85 }
 
-/* On touch the drawn size stays 38px but the hit area grows to the 44px
-   the platform guidelines ask for, the same trick the header controls
-   have used since phase 42. */
+/* ---- one size for the pair ------------------------------------------
+   The dial defaults to 38px and the rail's section buttons are 48px, so
+   left alone the column was 48, 38, 48 — a dent in the middle that reads
+   as a mistake. Both tools are 44px instead: matched to each other,
+   deliberately a step down from the sections, which together with the
+   divider says "these two are a different kind of thing" rather than
+   "one of these is the wrong size". */
+.nav-tool .knob{ --kb-size:44px }
+.sound-toggle{ width:44px; height:44px; font-size:16px }
+
+/* ---- the readout ----------------------------------------------------
+   It used to sit above the dial in the corner dock. In the rail it goes
+   where every other label in this rail goes: out to the right, on the
+   same line as the control it belongs to. That is the pattern a visitor
+   has already learned from the section names. */
+.nav-tool .kb-readout{
+  position:absolute;
+  left:58px; top:50%;
+  right:auto; bottom:auto;
+  transform:translateY(-50%) translateX(-8px);
+  z-index:3;
+}
+.nav-tool .kb-readout.show{ transform:translateY(-50%) translateX(0) }
+
+@media (prefers-reduced-motion:reduce){
+  .nav-tool{ transition:opacity .2s }
+  .nav-tool .kb-readout{ transform:translateY(-50%) }
+  .nav-tool .kb-readout.show{ transform:translateY(-50%) }
+}
+
+/* Dragging the dial must turn it, not scroll the page under your finger. */
+.knob{ touch-action:none }
+
+/* On touch the drawn size stays as it is but the hit area grows to the
+   44px the platform guidelines ask for — the same trick the rest of the
+   rail has used since phase 42. */
 @media(hover:none),(pointer:coarse){
-  .control-dock .knob, .sound-toggle{ position:relative }
-  .control-dock .knob::before, .sound-toggle::before{
+  .nav-tool .knob, .sound-toggle{ position:relative }
+  .nav-tool .knob::before, .sound-toggle::before{
     content:""; position:absolute; left:50%; top:50%;
     width:46px; height:46px; transform:translate(-50%,-50%);
   }
+  /* The rail is narrower on a phone, so the label follows it in. */
+  .nav-tool .kb-readout{ left:52px }
 }
 
-/* Track the navigation rail's own inset at each breakpoint, so the two
-   docks stay symmetrical instead of drifting apart as the screen
-   narrows. */
-@media(max-width:850px){ .control-dock{ right:12px; bottom:calc(var(--footer-h) + 14px) } }
-@media(max-width:560px){ .control-dock{ right:7px } }
+/* The rail shrinks at these widths and the tools shrink with it, so the
+   column stays a column instead of one wide circle and two narrow ones. */
+@media(max-width:850px){
+  .stack.open .nav-tool{ height:52px }
+  .sound-toggle{ width:44px; height:44px; font-size:16px }
+}
+@media(max-width:560px){
+  /* Both, or the pair goes back to being mismatched one breakpoint down. */
+  .sound-toggle{ width:40px; height:40px; font-size:15px }
+  .nav-tool .knob{ --kb-size:40px }
+  .stack.open .nav-tool{ height:48px }
+}
 @media(max-width:380px){
-  .control-dock{ right:4px; padding:7px 6px; gap:6px }
-  .control-dock .knob{ --kb-size:34px }
-  .sound-toggle{ width:34px; height:34px; font-size:13px }
+  .sound-toggle{ width:34px; height:34px; font-size:14px }
+  .nav-tool .knob{ --kb-size:34px }
+  .stack.open .nav-tool{ height:44px }
 }
 
-/* The header lost both controls, so on a narrow screen the social links
-   are all that is left on the right. Without this the row keeps the gap
-   that used to separate them from the dial. */
+/* The header lost both controls back in phase 58; if the social links are
+   ever empty too, the row should not keep the gap that separated them. */
 .top-actions:empty{ display:none }
+
+/* ============================================================
+   PHASE 61 — PRESENCE AS A STACK OF REAL FACES
+   ------------------------------------------------------------
+   "(o)(o)(o) +7  10 people viewing now".
+
+   The faces are the ACTUAL avatars of people who have claimed a
+   name in world chat — the same generator the chat draws with, so
+   a face here and the face on that person's messages match. Anyone
+   who has not joined is counted but never drawn: there is no face
+   to draw, and inventing one would be inventing a person.
+
+   They overlap, the way a shared-document avatar stack does. The
+   overlap is what makes it read as "a group" at a glance rather
+   than as three unrelated icons, and it buys back about a third of
+   the width, which matters in a header this tight.
+   ============================================================ */
+/* TWO ROWS: the faces, and the count underneath them.
+
+   Side by side the badge was one long line competing with the theme
+   controls across the bar; stacked it takes about half the width, which
+   is what lets the full sentence survive on a phone instead of
+   collapsing to "10 viewing".
+
+   The constraint is the header's own height. `.topbar` has a min-height
+   of 82px (68px on a phone) and `--header-h` reserves exactly that much
+   padding at the top of the page — so if this badge grows the bar past
+   it, the bar starts covering the content underneath. Two rows come to
+   about 39px against 46px of room, and the sizes below keep it that way
+   at every width. There is a test for it. */
+.online{
+  display:inline-flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  gap:3px;
+  font:13px ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.06em;
+  line-height:1.15;
+  color:var(--muted);
+  min-width:0;
+  position:relative;
+}
+.pv-rest{
+  color:var(--control-text);
+  white-space:nowrap;
+  font-variant-numeric:tabular-nums;   /* 9 -> 10 must not jog the row */
+}
+.pv-rest::first-letter{ color:var(--accent) }
+
+/* ---- the stack ----
+   Faces left to right, the +N chip at the right-hand end, and each face
+   painting ON TOP of the one after it.
+
+   `row-reverse` was the first attempt and it was wrong: reversing the box
+   order does put the first face on top, but it also puts the chip on the
+   LEFT, so the row read backwards. Normal order with an explicit paint
+   order gets both. Four rungs covers three faces and the chip, which is
+   everything the stack can hold. */
+.pv-stack{
+  display:inline-flex;
+  flex-direction:row;
+  align-items:center;
+  flex:0 0 auto;
+}
+.pv-stack > *{ margin-left:-7px }         /* the overlap */
+.pv-stack > *:first-child{ margin-left:0 }
+.pv-stack > *:nth-child(1){ z-index:4 }
+.pv-stack > *:nth-child(2){ z-index:3 }
+.pv-stack > *:nth-child(3){ z-index:2 }
+.pv-stack > *:nth-child(4){ z-index:1 }
+/* The chip does NOT tuck under the face before it. Faces overlap because
+   they are interchangeable shapes and the overlap reads as a group; the
+   chip carries a NUMBER, and half a number is worse than no chip. */
+.pv-stack > .pv-more{ margin-left:4px; z-index:5 }
+
+.pv-face{
+  position:relative;
+  width:22px; height:22px;
+  flex:0 0 auto;
+  display:grid; place-items:center;
+  border-radius:50%;
+  overflow:hidden;
+  background:var(--tile-bg);
+  /* A ring in the PAGE colour, not a border: it is what separates one
+     face from the one it overlaps, and it has to read as a gap rather
+     than as an outline drawn around each head. */
+  box-shadow:0 0 0 2px var(--bg), inset 0 0 0 1px var(--line);
+}
+.pv-face svg{ width:100%; height:100%; display:block }
+.pv-face.is-anon svg{ fill:var(--accent); opacity:.62; width:74%; height:74% }
+
+/* The "+N others" chip — a silhouette and a number, together.
+
+   It is the ONLY place an anonymous viewer appears. A stand-in face in
+   the stack implied someone identified-but-not-shown; a silhouette
+   beside a count says what is actually known: some number of people are
+   here and none of them have told us who they are. */
+.pv-more{
+  position:relative;
+  height:22px;
+  padding:0 7px 0 4px;
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+  border-radius:999px;
+  background:var(--tile-bg);
+  box-shadow:0 0 0 2px var(--bg), inset 0 0 0 1px var(--line);
+  color:var(--accent);
+  font:10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:0;
+}
+.pv-more svg{ width:13px; height:13px; fill:currentColor; opacity:.7; flex:0 0 auto }
+.pv-more b{ font-weight:600 }
+
+/* With nobody registered there are no faces at all, only the chip. It
+   should not then look like a lonely badge floating on its own. */
+.pv-stack.is-empty{ display:none }
+
+/* ---- the live ring ----
+   A pulsing box-shadow on the first face only. Rings around every face at
+   once looks like an error state, and the badge only needs to say "this
+   feed is live" once.
+
+   It is a box-shadow rather than a pseudo-element because the face needs
+   `overflow:hidden` to keep a generated avatar inside its circle, and a
+   pseudo-element is a descendant — it gets clipped. An element's own
+   box-shadow is painted outside its border box and survives. */
+.pv-stack > .pv-face:first-child{
+  animation:pv-ring 2.8s ease-out infinite;
+}
+@keyframes pv-ring{
+  0%   { box-shadow:0 0 0 2px var(--bg), inset 0 0 0 1px var(--line), 0 0 0 0 var(--glow) }
+  55%  { box-shadow:0 0 0 2px var(--bg), inset 0 0 0 1px var(--line), 0 0 0 5px transparent }
+  100% { box-shadow:0 0 0 2px var(--bg), inset 0 0 0 1px var(--line), 0 0 0 5px transparent }
+}
+@media(prefers-reduced-motion:reduce){
+  .pv-stack > .pv-face:first-child{
+    animation:none;
+    box-shadow:0 0 0 2px var(--bg), inset 0 0 0 1px var(--line), 0 0 0 2px var(--glow);
+  }
+}
+
+/* A real change in the number flashes the text once. */
+.online.tick .pv-rest{ animation:presence-tick .5s ease }
+
+/* Narrow screens: the tail shortens itself in JS by measuring the room it
+   has; these only shrink the furniture. The row never wraps, because a
+   wrapping header pushes the whole page down by a line. */
+@media(max-width:560px){
+  .online{ gap:2px; font-size:11px }
+  .pv-face{ width:19px; height:19px }
+  .pv-more{ height:19px; font-size:9px; padding:0 6px 0 3px }
+  .pv-more svg{ width:11px; height:11px }
+  .pv-stack > *{ margin-left:-6px }
+}
+@media(max-width:380px){
+  .online{ gap:2px; font-size:10px }
+  .pv-face{ width:17px; height:17px }
+  .pv-more{ height:17px; font-size:8px; padding:0 5px 0 3px }
+  .pv-more svg{ width:10px; height:10px }
+  .pv-stack > *{ margin-left:-5px }
+}
+
+/* A physical backstop under the JS ladder: if anything ever gets past the
+   measured fit — a font loading late, a longer language — the badge clips
+   itself rather than climbing over the controls. */
+.brand{ min-width:0; overflow:hidden }
+.online{ max-width:100%; overflow:hidden }
+
+/* The crown lands with the fanfare — a single pulse, so the eye is told
+   the same thing the ear is. Without it the sound has no referent and
+   reads as the page beeping at you for no reason. */
+@keyframes crowned{
+  0%   { transform:scale(1);    box-shadow:0 0 0 0 var(--glow) }
+  35%  { transform:scale(1.035); box-shadow:0 0 0 7px transparent }
+  100% { transform:scale(1);    box-shadow:0 0 0 0 transparent }
+}
+.board-champ.crowned{ animation:crowned .75s cubic-bezier(.2,.9,.2,1) }
+@media(prefers-reduced-motion:reduce){ .board-champ.crowned{ animation:none } }

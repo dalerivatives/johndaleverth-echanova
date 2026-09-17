@@ -65,6 +65,10 @@ class ChatMessageOut(BaseModel):
 
 class PresenceIn(BaseModel):
     viewer_id: str
+    # The chat name this tab has claimed, if any. Optional on purpose: a
+    # visitor who never joins the chat stays anonymous and is counted
+    # without ever being named.
+    name: str = ""
 
 
 class RobotHitIn(BaseModel):
