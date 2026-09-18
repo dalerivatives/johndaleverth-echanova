@@ -3463,29 +3463,3 @@ a.btn:active{
 #presenceFaces .fa-circle-user::before{content:"\f2bd"}
 @media(max-width:560px){#presenceFaces .fa-circle-user{font-size:19px}}
 @media(max-width:380px){#presenceFaces .fa-circle-user{font-size:17px}}
-
-/* v71: an opaque quiet zone stops the fixed code/graph field showing
-   through either transparent figure. It follows the hero across themes. */
-.hero::before{content:"";position:absolute;inset:-90px -20px -100px;z-index:0;background:var(--bg);pointer-events:none}
-.hero .identity{min-width:0;overflow-wrap:anywhere}
-.human-backdrop .real-portrait{mix-blend-mode:normal!important}
-@media(min-width:851px){.hero .identity{max-width:calc(100% - 390px)}}
-@media(max-width:650px){
- .hero{grid-template-columns:minmax(0,1fr);gap:12px;min-height:0}
- .hero .identity{max-width:100%;width:100%}
- .hero h1{font-size:clamp(24px,6vw,34px)}
- .hero .sub{font-size:14px}
- .human-backdrop{position:relative;right:auto;bottom:auto;top:auto;width:100%;height:280px;transform:none;margin:0 auto;opacity:.65}
- .human-backdrop #asciiArt,.human-backdrop .real-portrait{width:300px!important;height:300px!important}
-}
-/* Reserve the entire figure box, including shoulders, beside the identity. */
-@media(min-width:651px){
- .hero{grid-template-columns:minmax(0,1fr) minmax(0,.9fr);gap:24px}
- .hero .identity{max-width:100%}
- .human-backdrop{position:relative;right:auto;top:auto;bottom:auto;width:100%;height:auto;aspect-ratio:1;transform:none}
- .human-backdrop #asciiArt,.human-backdrop .real-portrait{width:100%!important;height:auto!important;aspect-ratio:1}
-}
-@media(max-width:650px){
- .human-backdrop{max-width:300px;height:auto;aspect-ratio:1}
- .human-backdrop #asciiArt,.human-backdrop .real-portrait{width:100%!important;height:auto!important;aspect-ratio:1}
-}

@@ -236,7 +236,6 @@ SEED_DATA = {
 # live site entirely, so there's never a dead link that goes nowhere.
 # ---------------------------------------------------------------------------
 DEFAULT_SETTINGS = {
-    "favicon_url": "",
     # --- identity (profile hero) ---
     "hero_eyebrow": "// COMPUTER ENGINEER",
     "hero_name_first": "Johndaleverth",

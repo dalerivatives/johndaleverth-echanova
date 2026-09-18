@@ -2,9 +2,6 @@ import asyncio
 import base64
 import hashlib
 import hmac
-import io
-import warnings
-from PIL import Image, ImageOps, UnidentifiedImageError
 import json
 import mimetypes
 import os
@@ -464,37 +461,14 @@ def upload_setting_file(
 ):
     """Admin: upload a file and store its URL in the matching setting,
     replacing whatever was there before."""
-    if key not in ("resume_url", "favicon_url"):
+    if key not in ("resume_url",):
         raise HTTPException(status_code=400, detail="That setting doesn't take a file")
 
-    if key == "favicon_url":
-        # Decode and re-encode: never serve arbitrary uploaded SVG/HTML as an icon.
-        raw = file.file.read(5 * 1024 * 1024 + 1)
-        if len(raw) > 5 * 1024 * 1024:
-            raise HTTPException(status_code=413, detail="Logo must be 5 MB or smaller")
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("error", Image.DecompressionBombWarning)
-                with Image.open(io.BytesIO(raw)) as source:
-                    if source.format not in {"PNG", "JPEG", "WEBP", "ICO"}:
-                        raise ValueError("Unsupported image")
-                    if source.width * source.height > 16000000:
-                        raise ValueError("Image too large")
-                    icon = ImageOps.exif_transpose(source).convert("RGBA")
-                    icon.thumbnail((128, 128), Image.Resampling.LANCZOS)
-                    canvas = Image.new("RGBA", (128, 128))
-                    canvas.alpha_composite(icon, ((128-icon.width)//2, (128-icon.height)//2))
-                    output = io.BytesIO()
-                    canvas.save(output, format="PNG", optimize=True)
-        except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError, Image.DecompressionBombWarning):
-            raise HTTPException(status_code=400, detail="Choose a valid PNG, JPG, WebP or ICO image (up to 16 megapixels)")
-        # Keep the small icon with the settings, including on ephemeral hosts.
-        media_url = "data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii")
-    else:
-        content_type = file.content_type or ""
-        if content_type != "application/pdf" and not (file.filename or "").lower().endswith(".pdf"):
-            raise HTTPException(status_code=400, detail="The resume must be a PDF")
-        _, media_url = _save_upload(file, allow_pdf=True)
+    content_type = file.content_type or ""
+    if content_type != "application/pdf" and not (file.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="The resume must be a PDF")
+
+    _, media_url = _save_upload(file, allow_pdf=True)
 
     setting = db.get(models.Setting, key)
     if setting:
@@ -1744,13 +1718,6 @@ def _settings_map(db: Session) -> dict:
     return {**seed.DEFAULT_SETTINGS, **stored}
 
 
-def _apply_favicon(html: str, settings: dict) -> str:
-    icon = settings.get("favicon_url", "")
-    if re.fullmatch(r"data:image/png;base64,[A-Za-z0-9+/=]+", icon or ""):
-        return re.sub(r'<link rel="icon"[^>]*>', lambda _: '<link rel="icon" type="image/png" href="' + icon + '">', html, count=1)
-    return html
-
-
 def _render_index(db: Session, request: Request) -> HTMLResponse:
     html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
     settings = _settings_map(db)
@@ -1778,7 +1745,6 @@ def _render_index(db: Session, request: Request) -> HTMLResponse:
         html = set_meta(html, r'(<meta property="og:description" content=")[^"]*"', safe)
         html = set_meta(html, r'(<meta name="twitter:description" content=")[^"]*"', safe)
 
-    html = _apply_favicon(html, settings)
     html = _stamp_assets(_inject_livereload(html))
     return HTMLResponse(html, headers={"Cache-Control": "no-cache, must-revalidate"})
 
@@ -1806,13 +1772,12 @@ def serve_index(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/editor.html", include_in_schema=False)
-def serve_editor(db: Session = Depends(get_db)):
+def serve_editor():
     """Served by hand only so live reload can be injected into it too — the
     editor is where most of the editing happens, so it's the page that most
     wants to refresh itself. In production this is the same bytes the static
     mount would have returned."""
     html = (STATIC_DIR / "editor.html").read_text(encoding="utf-8")
-    html = _apply_favicon(html, _settings_map(db))
     return HTMLResponse(_stamp_assets(_inject_livereload(html)),
                         headers={"Cache-Control": "no-cache, must-revalidate"})
 

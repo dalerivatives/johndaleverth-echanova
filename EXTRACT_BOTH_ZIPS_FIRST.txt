@@ -1,13 +1,13 @@
-PORTFOLIO V71 — LOGO & EDITOR UPDATE
+PORTFOLIO V70 — REPAIRED DOWNLOAD
 
 Download BOTH files:
-Johndaleverth_Portfolio_v71_Package_1_of_2.zip
-Johndaleverth_Portfolio_v71_Package_2_of_2.zip
+Johndaleverth_Portfolio_v70_Package_1_of_2.zip
+Johndaleverth_Portfolio_v70_Package_2_of_2.zip
 
 These are two normal, independently extractable ZIP files.
 They are NOT split volumes: do not concatenate or rename them.
 
-1. Create an empty folder, for example Portfolio_v71.
+1. Create an empty folder, for example Portfolio_v70.
 2. Extract Package 1 into that folder.
 3. Extract Package 2 into that SAME folder. Merge the
    Johndaleverth_Portfolio folders if prompted.
@@ -17,5 +17,5 @@ They are NOT split volumes: do not concatenate or rename them.
 
 No voice or application features were removed in this repair.
 The app assembles the four voice model files automatically.
-Both packages are required for the bundled voice model.
-See UPDATE_v71.md for deployment requirements.
+The original v70 ZIP was incomplete; these replace that download.
+See UPDATE_v70.md for deployment requirements.
