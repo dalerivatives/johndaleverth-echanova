@@ -417,3 +417,27 @@
   .add-category-form input{ flex:1 1 100% }
   .add-category-form button{ flex:1 1 100%; padding:12px 16px }
 }
+
+/* v71: dedicated hacker console palette; independent of the public theme. */
+.app.editor-body{
+ --bg:#030a07;--panel:#08150f;--panel2:#06110c;--card-bg:#091b12;
+ --text:#defce9;--muted:#9db8a7;--accent:#5bff98;--accent2:#a4ffc4;
+ --line:rgba(91,255,152,.22);--glow:rgba(91,255,152,.13);--menu-bg:#08150f;
+ --tile-bg:#08170f;--tile-hover:#102b1b;--control-bg:#102b1b;
+ color-scheme:dark;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+ background-color:var(--bg);
+ background-image:linear-gradient(rgba(91,255,152,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(91,255,152,.025) 1px,transparent 1px);
+ background-size:32px 32px;
+}
+.editor-body::after{content:none}
+.editor-body .editor-topbar{border-bottom:1px solid var(--accent);padding-bottom:22px}
+.editor-body .editor-topbar strong::before{content:">_ ";color:var(--accent)}
+.editor-body .editor-topbar strong,.editor-body .settings-group h3,.editor-body .login-card h1{color:var(--accent);font-family:inherit}
+.editor-body .settings-group,.editor-body .login-card,.editor-body .modal-card{border:1px solid var(--line);box-shadow:0 12px 40px #0005;border-radius:8px}
+.editor-body input,.editor-body textarea,.editor-body select,.editor-body button{font-family:inherit}
+.editor-body :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.editor-body .editor-tab.active{background:#153720;color:var(--accent);border-color:var(--accent)}
+.logo-upload{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.logo-preview{width:88px;height:88px;flex:0 0 88px;display:grid;place-items:center;border:1px solid var(--line);border-radius:16px;background:#05080b}
+.logo-preview img{object-fit:contain}.logo-preview span{font-size:36px;color:#4dff91}
+#faviconState{font-size:13px;color:var(--muted);overflow-wrap:anywhere}

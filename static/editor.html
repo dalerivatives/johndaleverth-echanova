@@ -84,6 +84,21 @@
       <p class="editor-hint">Everything on the site that isn't a card lives here. Changes appear on the site the next time it loads.</p>
 
       <section class="settings-group">
+        <h3><i class="fa-solid fa-image" aria-hidden="true"></i> Website logo</h3>
+        <p class="settings-note">Replace the default D in the browser tab. Upload a square PNG, JPG, WebP or ICO, up to 5 MB. Saved immediately.</p>
+        <div class="logo-upload">
+          <div class="logo-preview"><img id="faviconPreview" alt="Website logo preview" width="64" height="64" hidden><span id="faviconDefault" aria-label="Default D logo">D</span></div>
+          <div>
+            <p id="faviconState" role="status">Using the default D logo</p>
+            <div class="upload-row-actions">
+              <button type="button" class="file-btn" data-upload="favicon_url" data-accept="image/png,image/jpeg,image/webp,image/x-icon,image/vnd.microsoft.icon"><i class="fa-solid fa-upload" aria-hidden="true"></i> Upload photo</button>
+              <button type="button" class="text-btn" data-clear="favicon_url" hidden>Restore default</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-group">
         <h3><i class="fa-solid fa-id-badge" aria-hidden="true"></i> Who you are</h3>
         <p class="settings-note">The heading block at the top of the profile page.</p>
         <label class="field">Small label above your name

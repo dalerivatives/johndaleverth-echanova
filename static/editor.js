@@ -221,6 +221,17 @@ function setSettingsStatus(text, isError){
 /* Shows whether the resume slot is filled, and offers "Remove" only when
    there's something to remove. */
 function renderUploadStates(){
+  const logo = settingsSnapshot.favicon_url || "";
+  const safeLogo = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(logo);
+  const preview = $("#faviconPreview");
+  preview.hidden = !safeLogo;
+  if(safeLogo) preview.src = logo; else preview.removeAttribute("src");
+  $("#faviconDefault").hidden = safeLogo;
+  $("#faviconState").textContent = safeLogo ? "Custom logo saved" : "Using the default D logo";
+  document.querySelector('[data-clear="favicon_url"]').hidden = !logo;
+  const tabIcon = document.querySelector('link[rel="icon"]');
+  tabIcon.type = safeLogo ? "image/png" : "image/svg+xml";
+  tabIcon.href = safeLogo ? logo : "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#05080b"/><text x="32" y="43" font-family="monospace" font-size="30" fill="#4dff91" text-anchor="middle">D</text></svg>');
   const rows = {
     resume_url: {el:$("#resumeState"), empty:"Not uploaded yet — the download button stays hidden"}
   };
