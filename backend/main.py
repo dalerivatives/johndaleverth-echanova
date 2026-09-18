@@ -385,6 +385,16 @@ PRESENCE_TTL_SECONDS = 30
 _presence: dict[str, tuple[float, str]] = {}
 _presence_lock = threading.Lock()
 
+# Presence changes are pushed over SSE so every open page sees joins/leaves
+# immediately instead of waiting for its own next heartbeat. The tiny ring
+# buffer is in-memory for the same reason the presence table is: these are
+# ephemeral "right now" events, not history.
+PRESENCE_EVENT_BUFFER = 32
+_presence_events: list[dict] = []
+_presence_event_seq = 0
+_presence_event_signature = None
+_presence_event_lock = threading.Lock()
+
 # How many faces the badge shows before it starts counting "+N".
 PRESENCE_FACES = 3
 
@@ -419,7 +429,28 @@ def _presence_state() -> dict:
         if len(faces) >= PRESENCE_FACES:
             break
 
-    return {"online": len(rows), "faces": faces, "named": len({n for _, n in named})}
+    state = {"online": len(rows), "faces": faces, "named": len({n for _, n in named})}
+    _record_presence_event(state)
+    return state
+
+
+def _record_presence_event(state: dict):
+    global _presence_event_seq, _presence_event_signature
+    signature = (state.get("online", 0), tuple(state.get("faces", [])), state.get("named", 0))
+    with _presence_event_lock:
+        if signature == _presence_event_signature:
+            return
+        _presence_event_signature = signature
+        _presence_event_seq += 1
+        event = {"id": _presence_event_seq, **state, "ts": time.time()}
+        _presence_events.append(event)
+        if len(_presence_events) > PRESENCE_EVENT_BUFFER:
+            del _presence_events[:-PRESENCE_EVENT_BUFFER]
+
+
+def _presence_events_since(since: int) -> list[dict]:
+    with _presence_event_lock:
+        return [event for event in _presence_events if event["id"] > since]
 
 
 @app.post("/api/presence")
@@ -439,12 +470,6 @@ def presence_count():
 
 @app.post("/api/presence/leave")
 def presence_leave(payload: schemas.PresenceIn):
-    """Remove a tab immediately when the browser is closing/navigation starts.
-
-    The normal TTL remains the safety net for crashes, dead connections and
-    browsers that suppress pagehide beacons. This endpoint makes the visible
-    count feel live instead of waiting for that timeout on a normal close.
-    """
     viewer_id = (payload.viewer_id or "").strip()[:64]
     if viewer_id:
         with _presence_lock:
@@ -454,29 +479,33 @@ def presence_leave(payload: schemas.PresenceIn):
 
 @app.get("/api/presence/stream")
 async def presence_stream(request: Request):
-    """Server-Sent Events for the live viewer badge.
+    """Push viewer-count changes to every connected page in near real time.
 
-    Every stream independently compares the compact presence snapshot and only
-    sends when it changes. That means a new visitor, a claimed chat name, a
-    normal tab close, or TTL expiry reaches every open page in well under a
-    second without clients hammering the endpoint with count polls.
+    Heartbeats still prove a tab is alive; this stream only distributes the
+    resulting state. A one-second sweep also lets crashed/stale tabs disappear
+    without waiting for some other browser to happen to POST.
     """
     async def gen():
-        last_sig = None
+        state = _presence_state()
+        with _presence_event_lock:
+            cursor = _presence_event_seq
+        yield f"event: hello\ndata: {json.dumps(state)}\n\n"
         last_ping = time.time()
         while True:
             if await request.is_disconnected():
                 break
-            state = _presence_state()
-            sig = json.dumps(state, sort_keys=True, separators=(",", ":"))
-            if sig != last_sig:
-                last_sig = sig
-                yield f"data: {json.dumps(state)}\n\n"
+            # Also performs TTL cleanup and records an event if the count fell.
+            _presence_state()
+            events = _presence_events_since(cursor)
+            if events:
+                cursor = events[-1]["id"]
+                for event in events:
+                    yield f"id: {event['id']}\ndata: {json.dumps(event)}\n\n"
                 last_ping = time.time()
             elif time.time() - last_ping > 15:
                 yield ": keep-alive\n\n"
                 last_ping = time.time()
-            await asyncio.sleep(0.35)
+            await asyncio.sleep(1.0)
 
     return StreamingResponse(
         gen(),
@@ -595,31 +624,31 @@ _chat_history: dict[str, list[float]] = {}
 _chat_ip_history: dict[str, list[float]] = {}
 _chat_lock = threading.Lock()
 
-# A tiny in-memory notification buffer makes chat delivery truly live without
-# keeping a database connection open per viewer. The database remains the
-# source of truth; SSE only says "the room changed, fetch the current log".
+# Tiny in-memory event feed for instant World Chat updates. Messages remain in
+# the database; the event only tells connected browsers that the log changed.
+CHAT_EVENT_BUFFER = 64
+_chat_events: list[dict] = []
 _chat_event_seq = 0
-_chat_events = deque(maxlen=256)
 _chat_event_lock = threading.Lock()
 
 
-def _emit_chat_event(kind: str, message_id: int = 0):
+def _push_chat_event(kind: str, message_id: int = 0):
     global _chat_event_seq
     with _chat_event_lock:
         _chat_event_seq += 1
-        event = {
+        _chat_events.append({
             "id": _chat_event_seq,
             "type": kind,
             "message_id": int(message_id or 0),
-            "at": time.time(),
-        }
-        _chat_events.append(event)
-        return event
+            "ts": time.time(),
+        })
+        if len(_chat_events) > CHAT_EVENT_BUFFER:
+            del _chat_events[:-CHAT_EVENT_BUFFER]
 
 
-def _chat_events_since(cursor: int) -> list[dict]:
+def _chat_events_since(since: int) -> list[dict]:
     with _chat_event_lock:
-        return [dict(event) for event in _chat_events if event["id"] > cursor]
+        return [event for event in _chat_events if event["id"] > since]
 
 
 def _prune(store: dict, now: float):
@@ -875,6 +904,7 @@ def post_chat(payload: schemas.ChatMessageIn, request: Request, db: Session = De
     db.add(message)
     db.commit()
     db.refresh(message)
+    _push_chat_event("message", message.id)
 
     # trim the backlog so an open endpoint can't fill the disk
     total = db.query(models.ChatMessage).count()
@@ -889,50 +919,7 @@ def post_chat(payload: schemas.ChatMessageIn, request: Request, db: Session = De
             db.query(models.ChatMessage).filter(models.ChatMessage.id <= cutoff[0]).delete()
             db.commit()
 
-    _emit_chat_event("message", message.id)
     return message
-
-
-@app.get("/api/chat/stream")
-async def chat_stream(request: Request, since: int = -1):
-    """Live room-change feed. The normal GET endpoint still owns the data.
-
-    New clients start at the current head so opening the page never replays old
-    notifications. EventSource reconnects with a cursor supplied by the client;
-    a five-second polling fallback remains in the browser for hosts/proxies that
-    cannot keep an SSE connection open.
-    """
-    async def gen():
-        header_cursor = request.headers.get("last-event-id", "").strip()
-        if since < 0 and header_cursor.isdigit():
-            cursor = int(header_cursor)
-        else:
-            cursor = _chat_event_seq if since < 0 else since
-        last_ping = time.time()
-        yield f"event: hello\ndata: {json.dumps({'latest': _chat_event_seq})}\n\n"
-        while True:
-            if await request.is_disconnected():
-                break
-            events = _chat_events_since(cursor)
-            if events:
-                cursor = events[-1]["id"]
-                for event in events:
-                    yield f"id: {event['id']}\ndata: {json.dumps(event)}\n\n"
-                last_ping = time.time()
-            elif time.time() - last_ping > 15:
-                yield ": keep-alive\n\n"
-                last_ping = time.time()
-            await asyncio.sleep(0.25)
-
-    return StreamingResponse(
-        gen(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache, no-transform",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive",
-        },
-    )
 
 
 @app.delete("/api/chat/{message_id}", dependencies=[Depends(require_admin)])
@@ -942,7 +929,7 @@ def delete_chat(message_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Message not found")
     db.delete(message)
     db.commit()
-    _emit_chat_event("delete", message_id)
+    _push_chat_event("reset")
     return {"deleted": True}
 
 
@@ -955,8 +942,46 @@ def clear_chat(db: Session = Depends(get_db)):
     deleted = db.query(models.ChatMessage).delete()
     names = db.query(models.ChatName).delete()
     db.commit()
-    _emit_chat_event("clear", 0)
+    _push_chat_event("reset")
     return {"deleted": deleted, "names_released": names}
+
+
+@app.get("/api/chat/stream")
+async def chat_stream(request: Request, since: int = -1):
+    """Lightweight SSE notification feed for instant chat refreshes.
+
+    The event contains no authoritative message body; clients still fetch the
+    normal chat endpoint, so the database remains the single source of truth.
+    """
+    async def gen():
+        with _chat_event_lock:
+            cursor = _chat_event_seq if since < 0 else since
+            latest = _chat_event_seq
+        yield f"event: hello\ndata: {json.dumps({'latest': latest})}\n\n"
+        last_ping = time.time()
+        while True:
+            if await request.is_disconnected():
+                break
+            events = _chat_events_since(cursor)
+            if events:
+                cursor = events[-1]["id"]
+                for event in events:
+                    yield f"id: {event['id']}\ndata: {json.dumps(event)}\n\n"
+                last_ping = time.time()
+            elif time.time() - last_ping > 15:
+                yield ": keep-alive\n\n"
+                last_ping = time.time()
+            await asyncio.sleep(0.35)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

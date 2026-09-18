@@ -66,26 +66,15 @@
       const el = document.createElement("pre");
       // Every third one takes the formula colour, so the field reads as a
       // mix of code and maths rather than one flat wall of text.
-      el.className = "code" + (i % 3 === 0 ? " formula" : "") + (i < 8 ? " profile-code" : "");
+      el.className = "code" + (i % 3 === 0 ? " formula" : "");
       const a = snippets[Math.floor(Math.random()*snippets.length)];
       const b = snippets[Math.floor(Math.random()*snippets.length)];
       el.textContent = a + "\n" + b;
-      if(i < 8){
-        // Keep a purposeful cluster behind the hero portrait. These remain
-        // part of the global background layer (never over the human), but
-        // profile-active CSS reveals them more strongly around the figure.
-        el.style.left = (wide ? 58 + Math.random()*36 : 46 + Math.random()*49) + "%";
-        el.style.top  = (wide ? 10 + Math.random()*39 : 8 + Math.random()*38) + "%";
-        el.style.setProperty("--rot", (-18 + Math.random()*36) + "deg");
-        el.style.setProperty("--dx", (-36 + Math.random()*72) + "px");
-        el.style.setProperty("--dy", (-24 + Math.random()*48) + "px");
-      }else{
-        el.style.left = (Math.random()*100) + "%";
-        el.style.top  = (5 + Math.random()*90) + "%";
-        el.style.setProperty("--rot", (-32 + Math.random()*64) + "deg");
-        el.style.setProperty("--dx", (-55 + Math.random()*110) + "px");
-        el.style.setProperty("--dy", (-35 + Math.random()*70) + "px");
-      }
+      el.style.left = (Math.random()*100) + "%";
+      el.style.top  = (5 + Math.random()*90) + "%";
+      el.style.setProperty("--rot", (-32 + Math.random()*64) + "deg");
+      el.style.setProperty("--dx", (-55 + Math.random()*110) + "px");
+      el.style.setProperty("--dy", (-35 + Math.random()*70) + "px");
       const base = 11 + Math.random()*17;
       el.style.animationDuration = (base / Math.max(0.15, config.speed)) + "s";
       el.style.animationDelay = (-Math.random()*15) + "s";
@@ -304,18 +293,13 @@
 
     for(let g=0; g<count; g++){
       const rng = seeded(Date.now() + g * 7919);
-      // The first graph is intentionally a tree whenever that shape is
-      // enabled, so the profile always has the requested algorithm-tree
-      // backdrop instead of leaving it to chance.
-      const kind = (g === 0 && kinds.includes("tree")) ? "tree" : kinds[Math.floor(rng()*kinds.length)];
+      const kind = kinds[Math.floor(rng()*kinds.length)];
       const {nodes, edges} = SHAPES[kind](rng);
       const order = walk(nodes, edges);
 
       const wrap = document.createElement("div");
-      wrap.className = "bg-graph" + (g === 0 ? " profile-graph" : "");
-      const size = g === 0
-        ? (wide ? 330 : 245)
-        : 200 + Math.round(rng()*180);
+      wrap.className = "bg-graph";
+      const size = 200 + Math.round(rng()*180);
       wrap.style.width = size + "px";
       wrap.style.height = size + "px";
       /* Bias the graphs into the side gutters. The workspace panel is opaque
@@ -323,20 +307,13 @@
          entirely behind it — with only a handful on screen, that means the
          layer looks like it isn't there. The snippets get away with random
          placement because there are twenty-odd of them. */
-      if(g === 0){
-        // Anchor one tree behind the human rather than in the far gutter.
-        // It is still z-index:0, so both the coded silhouette and the real
-        // photo remain physically in front of it.
-        wrap.style.left = (wide ? 61 : 40) + "%";
-        wrap.style.top = (wide ? 8 : 7) + "%";
-      }else if(wide){
+      if(wide){
         const gutter = rng() < 0.5 ? 1 + rng()*12 : 71 + rng()*17;
         wrap.style.left = gutter.toFixed(1) + "%";
-        wrap.style.top = (5 + rng()*80) + "%";
       }else{
         wrap.style.left = (rng()*70).toFixed(1) + "%";
-        wrap.style.top = (5 + rng()*80) + "%";
       }
+      wrap.style.top = (5 + rng()*80) + "%";
       wrap.style.animationDuration = ((30 + rng()*24) / Math.max(0.15, config.speed)) + "s";
       wrap.style.animationDelay = (-rng()*20) + "s";
 

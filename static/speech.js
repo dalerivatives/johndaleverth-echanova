@@ -7,6 +7,74 @@
   const warmed = new Set();
   const warming = new Set();
   let unlocked = false, timer = null, dynamicAvailable = false;
+
+  /* Low-memory hosting keeps Piper in static mode. Dynamic phrases (notably
+     World Chat's "NAME says ..." lines and CODE TRANSFORM) fall back to one
+     browser voice instead of silently doing nothing. This uses no Render RAM. */
+  const browserSynth = window.speechSynthesis || null;
+  const BrowserUtterance = window.SpeechSynthesisUtterance || null;
+  const browserDynamic = !!(browserSynth && BrowserUtterance);
+  const browserJobs = new Set();
+  let cachedBrowserVoice = null;
+
+  function chooseBrowserVoice(){
+    if(!browserDynamic) return null;
+    const voices = browserSynth.getVoices ? browserSynth.getVoices() : [];
+    if(!voices.length) return null;
+    if(cachedBrowserVoice && voices.includes(cachedBrowserVoice)) return cachedBrowserVoice;
+    const preferred = [
+      /Microsoft Guy/i, /Microsoft David/i, /Google UK English Male/i,
+      /Daniel/i, /Alex/i, /English.*Male/i
+    ];
+    cachedBrowserVoice = preferred.map(rx=>voices.find(v=>rx.test(v.name || ''))).find(Boolean)
+      || voices.find(v=>/^en(-|_)/i.test(v.lang || ''))
+      || voices[0];
+    return cachedBrowserVoice;
+  }
+
+  function finishBrowser(job, ok){
+    if(!job || job.doneFlag) return;
+    job.doneFlag = true;
+    browserJobs.delete(job);
+    emit('portfolio-speech-end', {text:job.text, ok});
+    if(typeof job.done === 'function'){ try{ job.done(ok); }catch(e){ console.warn(e); } }
+  }
+
+  function stopBrowser(){
+    if(!browserDynamic) return;
+    const jobs = [...browserJobs];
+    try{ browserSynth.cancel(); }catch(e){}
+    jobs.forEach(job=>finishBrowser(job, false));
+  }
+
+  function speakBrowser(clean, interrupt, done, profile='robot'){
+    if(!browserDynamic) return false;
+    if(interrupt) stopBrowser();
+    if(browserJobs.size >= 8) return false;
+    try{
+      const utter = new BrowserUtterance(clean);
+      const voice = chooseBrowserVoice();
+      if(voice) utter.voice = voice;
+      utter.lang = (voice && voice.lang) || 'en-US';
+      /* One fixed tempo/pitch for the whole utterance. Keeping the sentence in
+         one utterance is what prevents the word-to-word speed changes the old
+         fragmented fallback could produce. */
+      utter.rate = profile === 'narration' ? 0.96 : 0.93;
+      utter.pitch = profile === 'narration' ? 0.92 : 0.84;
+      utter.volume = 1;
+      const job = {utter, text:clean, done, doneFlag:false};
+      browserJobs.add(job);
+      utter.onstart = ()=>emit('portfolio-speech-start', {text:clean, fallback:true});
+      utter.onend = ()=>finishBrowser(job, true);
+      utter.onerror = ()=>finishBrowser(job, false);
+      browserSynth.speak(utter);
+      return true;
+    }catch(e){ return false; }
+  }
+
+  if(browserDynamic && browserSynth.addEventListener){
+    browserSynth.addEventListener('voiceschanged', ()=>{ cachedBrowserVoice = null; });
+  }
   const emit = (type, detail) => window.dispatchEvent(new CustomEvent(type, {detail}));
   function finish(ok){
     if(!current) return;
@@ -67,7 +135,7 @@
   }
   function prepareWorker(){
     if(worker) return;
-    worker = new Worker('/speech-worker.js?v=81');
+    worker = new Worker('/speech-worker.js?v=80');
     worker.onmessage = async ({data}) => {
       if(data && (data.warmed || data.prefetch)){
         if(data.key && data.warmed) warmed.add(data.key);
@@ -129,6 +197,7 @@
   }
   function stop(){
     queue = [];
+    stopBrowser();
     clearTimeout(timer);
     // Starting a new utterance calls stop(), even when idle. Preserve an
     // idle worker's prefetched/cached WAV instead of throwing that cache away.
@@ -148,7 +217,7 @@
   }
   function isStatic(text, profile="robot"){
     const clean=normalizeText(text);
-    return clean==='Welcome to my world!' || clean==='Code transform' ||
+    return clean==='Welcome to my world!' ||
       (profile==='narration' && clean===DEFAULT_TERMINAL);
   }
   function splitParts(clean){
@@ -185,10 +254,18 @@
     }
   }
   function speak(text, interrupt, done, profile="robot"){
-    if(!supported) return false;
     const clean = normalizeText(text);
     if(!clean) return false;
-    if(!dynamicAvailable && !isStatic(clean, profile)) return false;
+
+    /* Dynamic Piper is best when the host has room for it. On the normal
+       low-memory Render deployment, use the browser's one selected voice for
+       dynamic text instead of returning false. Static bundled WAVs still go
+       through the original AudioContext path so the signature welcome and
+       terminal narration sound exactly as authored. */
+    if(!dynamicAvailable && !isStatic(clean, profile)){
+      return speakBrowser(clean, interrupt, done, profile);
+    }
+    if(!supported) return false;
     prime();
     if(!context) return false;
     if(interrupt) stop();
@@ -205,8 +282,10 @@
     robot:(text,interrupt,done)=>speak(text,interrupt,done,"robot"),
     plain:(text,interrupt,done)=>speak(text,interrupt,done,"narration"),
     warm, stop, isStatic,
-    get dynamicSupported(){return dynamicAvailable;},
-    get speaking(){return !!current || queue.length > 0;},
+    get dynamicSupported(){return dynamicAvailable || browserDynamic;},
+    get backendDynamicSupported(){return dynamicAvailable;},
+    get browserFallbackSupported(){return browserDynamic;},
+    get speaking(){return !!current || queue.length > 0 || browserJobs.size > 0;},
     get primed(){return unlocked;}
   };
   const statusController=new AbortController();
