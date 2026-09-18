@@ -117,6 +117,20 @@ async function applySiteSettings(){
     }
   }
 
+  // 5c. Public website logo — the uploaded logo is not only a browser-tab
+  //     icon. When present, it also appears visibly in the public header.
+  const siteLogo = document.getElementById("siteLogo");
+  const siteLogoImg = document.getElementById("siteLogoImg");
+  if(siteLogo && siteLogoImg){
+    if(logo){
+      siteLogoImg.src = logo;
+      siteLogo.hidden = false;
+    }else{
+      siteLogo.hidden = true;
+      siteLogoImg.removeAttribute("src");
+    }
+  }
+
   /* 7. Link-preview URLs. Facebook and friends read these tags from the raw
         HTML before any JavaScript runs, so rewriting them here does NOT make
         previews work on its own — the real fix is setting the site URL in
