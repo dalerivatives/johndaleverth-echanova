@@ -40,7 +40,7 @@ let browser;
     assert.equal(state.overflow,false,`${width}/${theme}: horizontal overflow`);
     assert.equal(state.parentOpacity,'1');
     assert.equal(state.photoOpacity,revealed?'1':'0');assert.equal(state.codeOpacity,revealed?'0':'1');
-    assert.match(state.glow,/radial-gradient/);
+    assert.equal(state.glow,'none','circular portrait backlight is removed');
     const faceLeft=state.photo.x+state.photo.width*.303;
     assert(state.text.right<=faceLeft,`${width}/${theme}: identity clears the face`);
     assert(state.photo.y+state.photo.height*.114>=state.hero.y,`${width}/${theme}: hair is not clipped`);

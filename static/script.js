@@ -2068,6 +2068,11 @@ if(osLight){
           const me = chatName();
           const mine = !!me && champ.name === me;
           if(mine) sfx.victory(); else sfx.crown();
+          let voiceEnabled=true;
+          try{voiceEnabled=localStorage.getItem('portfolio-chat-voice')!=='off';}catch(e){}
+          if(voiceEnabled && !sfx.muted && window.Speech && window.Speech.dynamicSupported){
+            window.Speech.robot(`${champ.name} won this round by defeating the robot!`);
+          }
           if(boardChamp){
             boardChamp.classList.remove("crowned");
             void boardChamp.offsetWidth;

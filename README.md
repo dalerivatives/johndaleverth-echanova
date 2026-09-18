@@ -1,3 +1,13 @@
+# v84 — requested finishing changes
+
+Removed only the circular gradient behind the portraits, retaining their
+alignment, backdrop protection and contour highlight. A newly crowned robot
+round winner is announced: "[Name] won this round by defeating the robot!"
+The announcement uses the existing male voice engine and respects mute/voice
+preferences. It does not replay an old win on page load or repeat the same round.
+Dynamic voice availability has the same limitations as v83. Deployment steps
+remain in DEPLOY_v83.md. See UPDATE_v84.md for this patch's verification.
+
 # v83 update — profile layers and male voices
 
 Start with **DEPLOY_v83.md** and **UPDATE_v83.md**. This release builds on the

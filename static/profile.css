@@ -29,16 +29,7 @@
   will-change:auto;
   pointer-events:none;
 }
-/* Soft, theme-coloured light behind the head and shoulders. */
-.app .hero .human-backdrop::before {
-  content:"";
-  position:absolute;
-  inset:0;
-  z-index:0;
-  background:radial-gradient(ellipse 45% 48% at 48% 43%,
-    var(--glow) 0%, var(--glow) 35%, transparent 100%);
-  pointer-events:none;
-}
+/* v84: circular backlight removed; the existing contour highlight remains. */
 /* Solid silhouette fills the gaps BETWEEN code glyphs. Even at the
    midpoint of a crossfade, neither tree lines nor snippets bleed through. */
 .app .hero .portrait-shield {
