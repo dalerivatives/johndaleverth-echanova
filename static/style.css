@@ -3538,3 +3538,115 @@ a.btn:active{
 .human-backdrop.revealed:not(.crossfade) .real-portrait{
   filter:none!important;
 }
+
+
+/* ============================================================
+   V82 — HUMAN FOREGROUND GUARANTEE + CLEAN HALO EMPHASIS
+   ------------------------------------------------------------
+   The user asked for two things at once:
+   1) floating code / trees must never sit in front of either the coded
+      human or the revealed portrait in any dial theme
+   2) both human states need a visible emphasis halo
+
+   The safest way is not to glow the photo's own edge again (that caused the
+   old cropped backlight artefact), but to put a soft, theme-aware halo BEHIND
+   the figure container itself. The figure then stays crisp, while a blurred
+   radial light lifts it off the busy backdrop.
+
+   This final block is intentionally late in the file so it overrides the
+   earlier portrait-cleanup rules without reintroducing edge glow on the
+   image itself.
+   ============================================================ */
+.hero{
+  isolation:isolate;
+}
+
+/* The decorative backdrop already lives at z=0. Lift the whole human stage
+   above it as one isolated island so no theme variant can let code/trees
+   paint over the coded or real figure. */
+.human-backdrop{
+  z-index:3!important;
+  isolation:isolate;
+}
+.hero .identity{
+  z-index:4;
+}
+.terminal{
+  z-index:5;
+}
+
+/* Theme-aware halo that sits behind the figure, not on its edges. */
+.human-backdrop::before{
+  content:"";
+  position:absolute;
+  left:12%;
+  right:12%;
+  top:6%;
+  bottom:2%;
+  border-radius:50%;
+  pointer-events:none;
+  z-index:1;
+  background:
+    radial-gradient(ellipse at 50% 40%, color-mix(in srgb,var(--accent) 22%, transparent) 0%, color-mix(in srgb,var(--accent) 14%, transparent) 22%, transparent 62%),
+    radial-gradient(ellipse at 52% 58%, color-mix(in srgb,var(--accent2) 14%, transparent) 0%, transparent 58%);
+  filter:blur(22px);
+  opacity:.70;
+  transform:translateY(8px) scale(.90,1.02);
+}
+
+/* Figure pixels always sit above the halo and above the decorative world. */
+.human-backdrop #asciiArt,
+.human-backdrop .real-portrait{
+  position:relative!important;
+  z-index:2!important;
+  mix-blend-mode:normal!important;
+  backface-visibility:hidden;
+}
+
+/* Coded-human emphasis: keep the existing coded look, but add a slightly
+   richer outer aura so it reads clearly in every dial theme. */
+.human-backdrop:not(.revealed) #asciiArt{
+  filter:
+    drop-shadow(0 0 2px rgba(255,255,255,.08))
+    drop-shadow(0 0 8px color-mix(in srgb,var(--accent) 48%, transparent))
+    drop-shadow(0 0 20px color-mix(in srgb,var(--accent) 26%, transparent))!important;
+}
+
+/* Real portrait emphasis: the photo itself stays clean (no edge backlight),
+   but gets a subtle depth shadow so it separates from the moving backdrop. */
+.human-backdrop.revealed .real-portrait,
+.human-backdrop.crossfade .real-portrait,
+.human-backdrop.revealed:not(.crossfade) .real-portrait{
+  filter:
+    drop-shadow(0 10px 24px rgba(0,0,0,.22))
+    drop-shadow(0 0 10px color-mix(in srgb,var(--accent) 10%, transparent))!important;
+}
+
+/* Slightly stronger halo while the real photo is shown, since the user asked
+   to emphasise both the coded and real-human states. */
+.human-backdrop.revealed::before,
+.human-backdrop.crossfade::before{
+  opacity:.82;
+  filter:blur(24px);
+}
+
+/* Small screens need a tighter halo so it never reads as a cropped light rim. */
+@media (max-width: 560px){
+  .human-backdrop::before{
+    left:15%;
+    right:15%;
+    top:8%;
+    bottom:5%;
+    filter:blur(18px);
+    opacity:.62;
+  }
+  .human-backdrop.revealed::before,
+  .human-backdrop.crossfade::before{
+    opacity:.72;
+  }
+  .human-backdrop.revealed .real-portrait,
+  .human-backdrop.crossfade .real-portrait,
+  .human-backdrop.revealed:not(.crossfade) .real-portrait{
+    filter:drop-shadow(0 8px 18px rgba(0,0,0,.18))!important;
+  }
+}
