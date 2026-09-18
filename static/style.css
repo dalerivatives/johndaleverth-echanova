@@ -3650,3 +3650,61 @@ a.btn:active{
     filter:drop-shadow(0 8px 18px rgba(0,0,0,.18))!important;
   }
 }
+
+
+/* ============================================================
+   V83 — HALO CORRECTION
+   ------------------------------------------------------------
+   V82's halo sat too wide and read as a blurred patch in the middle of the
+   hero. Tighten the effect so it hugs the figure itself and stays off the
+   main text area.
+   ============================================================ */
+.human-backdrop::before{
+  left:50%!important;
+  right:auto!important;
+  top:20px!important;
+  bottom:auto!important;
+  width:250px!important;
+  height:300px!important;
+  border-radius:50%!important;
+  transform:translateX(-50%)!important;
+  background:
+    radial-gradient(ellipse at 50% 36%, color-mix(in srgb,var(--accent) 16%, transparent) 0%, color-mix(in srgb,var(--accent) 10%, transparent) 34%, transparent 72%),
+    radial-gradient(ellipse at 50% 74%, color-mix(in srgb,var(--accent2) 7%, transparent) 0%, transparent 62%)!important;
+  filter:blur(16px)!important;
+  opacity:.46!important;
+}
+
+/* Keep the coded human luminous, but without a giant aura cloud. */
+.human-backdrop:not(.revealed)::before{
+  opacity:.42!important;
+}
+
+/* The photo state can be a little stronger, still localized to the figure. */
+.human-backdrop.revealed::before,
+.human-backdrop.crossfade::before{
+  opacity:.54!important;
+  filter:blur(18px)!important;
+}
+
+@media (max-width: 850px){
+  .human-backdrop::before{
+    width:228px!important;
+    height:276px!important;
+    top:18px!important;
+  }
+}
+
+@media (max-width: 560px){
+  .human-backdrop::before{
+    width:182px!important;
+    height:224px!important;
+    top:14px!important;
+    filter:blur(13px)!important;
+    opacity:.40!important;
+  }
+  .human-backdrop.revealed::before,
+  .human-backdrop.crossfade::before{
+    opacity:.48!important;
+  }
+}
