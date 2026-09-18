@@ -2856,19 +2856,37 @@ if(osLight){
     }
   });
 
+  function collectText(){
+    // The line-number spans would be read as "zero one, zero two…", so only
+    // the text spans are collected.
+    return Array.from(body.querySelectorAll(".line"))
+      .map(line => Array.from(line.querySelectorAll("span")).slice(1).map(s=>s.textContent).join(" "))
+      .filter(t => t.trim())
+      .join(" ")
+      .trim();
+  }
+
+  function warmTerminalVoice(){
+    if(!window.Speech || typeof window.Speech.warm !== 'function') return;
+    const text = collectText();
+    if(text) window.Speech.warm(text, "narration");
+  }
+
+  // Pre-generate the terminal narration so the click feels immediate.
+  window.addEventListener('load', ()=>setTimeout(warmTerminalVoice, 900), {once:true});
+  window.addEventListener('portfolio-section-change', ()=>setTimeout(warmTerminalVoice, 120));
+  btn.addEventListener('pointerenter', warmTerminalVoice, {passive:true});
+  btn.addEventListener('focus', warmTerminalVoice);
+  btn.addEventListener('touchstart', warmTerminalVoice, {passive:true});
+
   btn.addEventListener("click", ()=>{
     if(window.Speech.speaking){
       window.Speech.stop();
       idle();
       return;
     }
-    // The line-number spans would be read as "zero one, zero two…", so only
-    // the text spans are collected.
-    const text = Array.from(body.querySelectorAll(".line"))
-      .map(line => Array.from(line.querySelectorAll("span")).slice(1).map(s=>s.textContent).join(" "))
-      .filter(t => t.trim())
-      .join(" ");
-    if(!text.trim()) return;
+    const text = collectText();
+    if(!text) return;
     busy();
     /* Driven by the queue draining, not by polling `speaking`. The poll used
        to catch the gap between two chunks and reset the button a second in,

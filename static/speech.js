@@ -3,6 +3,8 @@
   const AudioEngine = window.AudioContext || window.webkitAudioContext;
   const supported = !!AudioEngine && typeof Worker === 'function';
   let context, worker, source, current = null, queue = [], serial = 0;
+  const warmed = new Set();
+  const warming = new Set();
   let unlocked = false, timer = null;
   const emit = (type, detail) => window.dispatchEvent(new CustomEvent(type, {detail}));
   function finish(ok){
@@ -60,6 +62,11 @@
     if(worker) return;
     worker = new Worker('speech-worker.js?v=70');
     worker.onmessage = async ({data}) => {
+      if(data && data.warmed){
+        if(data.key) warmed.add(data.key);
+        if(data.key) warming.delete(data.key);
+        return;
+      }
       if(!current || data.id !== current.id) return;
       if(data.error){ finish(false); return; }
       clearTimeout(timer);
@@ -76,7 +83,7 @@
           let offset=0;
           for(const item of decoded){buffer.copyToChannel(item.getChannelData(0),0,offset);offset+=item.length;}
         }
-        if(!current || data.id !== current.id) return;
+        if(!current || current.id !== data.id) return;
         source = context.createBufferSource();
         source.buffer = buffer;
         source.connect(context.destination);
@@ -124,20 +131,13 @@
       if(typeof job.done==='function'){try{job.done(false);}catch(e){console.warn(e);}}
     }
   }
-  function speak(text, interrupt, done, profile="robot"){
-    if(!supported) return false;
-    // Keep sentence punctuation and accented names. Remove emoji, not words.
-    const clean = String(text || '').normalize('NFKC')
+  function normalizeText(text){
+    return String(text || '').normalize('NFKC')
       .replace(/[’‘]/g,"'").replace(/[“”]/g,'').replace(/[—–]/g,', ')
       .replace(/\p{Extended_Pictographic}/gu,' ').replace(/[\u200d\ufe0f]/g,'')
       .replace(/\s+/g,' ').trim().slice(0,4000);
-    if(!clean) return false;
-    prime();
-    if(!context) return false;
-    if(interrupt) stop();
-    if(queue.length >= 8) return false; // no unbounded public-chat backlog
-    // Keep ordinary paragraphs together. Split long text at sentence boundaries
-    // instead of resetting the voice halfway through a 120-character clause.
+  }
+  function splitParts(clean){
     const parts=[];
     let rest=clean;
     while(rest.length>440){
@@ -146,9 +146,37 @@
       let cut=endings.length ? endings[endings.length-1].index+1 : -1;
       if(cut<160) cut=prefix.lastIndexOf(' ');
       if(cut<1) cut=440;
-      parts.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();
+      parts.push(rest.slice(0,cut).trim());
+      rest=rest.slice(cut).trim();
     }
     if(rest) parts.push(rest);
+    return parts;
+  }
+  function warm(text, profile="robot"){
+    if(!supported) return false;
+    const clean = normalizeText(text);
+    if(!clean) return false;
+    const key = profile + '|' + clean;
+    if(warmed.has(key) || warming.has(key)) return true;
+    prepareWorker();
+    warming.add(key);
+    try{
+      worker.postMessage({id:++serial, parts:splitParts(clean), profile, prefetch:true, key});
+      return true;
+    }catch(e){
+      warming.delete(key);
+      return false;
+    }
+  }
+  function speak(text, interrupt, done, profile="robot"){
+    if(!supported) return false;
+    const clean = normalizeText(text);
+    if(!clean) return false;
+    prime();
+    if(!context) return false;
+    if(interrupt) stop();
+    if(queue.length >= 8) return false; // no unbounded public-chat backlog
+    const parts = splitParts(clean);
     queue.push({id:++serial, original:clean, parts, done, profile});
     // Resume in the initiating gesture; generation finishes after that resume.
     context.resume().then(()=>{unlocked=context.state==='running';}).catch(()=>{});
@@ -156,8 +184,10 @@
     return true;
   }
   window.Speech = {
-    supported, robot:(text,interrupt,done)=>speak(text,interrupt,done,"robot"),
-    plain:(text,interrupt,done)=>speak(text,interrupt,done,"narration"), stop,
+    supported,
+    robot:(text,interrupt,done)=>speak(text,interrupt,done,"robot"),
+    plain:(text,interrupt,done)=>speak(text,interrupt,done,"narration"),
+    warm, stop,
     get speaking(){return !!current || queue.length > 0;},
     get primed(){return unlocked;}
   };

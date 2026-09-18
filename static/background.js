@@ -20,54 +20,15 @@
   const graphField = document.getElementById("graphField");
   if(!codeField && !graphField) return;
 
-  const human = document.querySelector(".human-backdrop");
   const safeLayers = [codeField, graphField].filter(Boolean);
 
-  /* Decorative code and graph lines should frame the person, never cross the
-     person. Measure the actual coded-human image (not a hard-coded viewport
-     region) and cut an elliptical hole in both fixed backdrop layers. */
-  function updateHumanSafeZone(){
-    if(!human || !human.offsetParent){
-      safeLayers.forEach(layer=>layer.classList.remove("human-safe-mask"));
-      return;
-    }
-    const coded = human.querySelector("#asciiArt");
-    const portrait = human.querySelector(".real-portrait");
-    const candidates = [coded, portrait, human]
-      .filter(Boolean)
-      .map(el=>el.getBoundingClientRect())
-      .filter(r=>r.width > 8 && r.height > 8);
-    if(!candidates.length){
-      safeLayers.forEach(layer=>layer.classList.remove("human-safe-mask"));
-      return;
-    }
-    const left = Math.min(...candidates.map(r=>r.left));
-    const right = Math.max(...candidates.map(r=>r.right));
-    const top = Math.min(...candidates.map(r=>r.top));
-    const bottom = Math.max(...candidates.map(r=>r.bottom));
-    const pad = Math.max(24, Math.min(52, (right-left)*0.10));
-    const x = (left + right) / 2;
-    const y = (top + bottom) / 2;
-    const rx = (right-left) / 2 + pad;
-    const ry = (bottom-top) / 2 + pad;
-    safeLayers.forEach(layer=>{
-      layer.style.setProperty("--human-safe-x", `${x.toFixed(1)}px`);
-      layer.style.setProperty("--human-safe-y", `${y.toFixed(1)}px`);
-      layer.style.setProperty("--human-safe-rx", `${rx.toFixed(1)}px`);
-      layer.style.setProperty("--human-safe-ry", `${ry.toFixed(1)}px`);
-      layer.classList.add("human-safe-mask");
-    });
-  }
-
-  let safeZoneFrame = 0;
-  function queueHumanSafeZone(){
-    cancelAnimationFrame(safeZoneFrame);
-    safeZoneFrame = requestAnimationFrame(updateHumanSafeZone);
-  }
-  window.addEventListener("resize", queueHumanSafeZone, {passive:true});
-  window.addEventListener("portfolio-section-change", queueHumanSafeZone);
-  window.addEventListener("load", queueHumanSafeZone, {once:true});
-  queueHumanSafeZone();
+  /* The previous build punched a circular/elliptical hole around the person.
+     That did keep code and graph marks away from the portrait, but it also
+     made the protection itself visible. The requested effect is simpler:
+     leave the decorative layers whole and place them BEHIND the human, so the
+     person reads like a foreground silhouette with the code world as a true
+     backdrop. If an older stylesheet still adds the mask class, strip it. */
+  safeLayers.forEach(layer=>layer.classList.remove("human-safe-mask"));
 
   const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
