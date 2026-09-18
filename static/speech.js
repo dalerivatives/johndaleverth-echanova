@@ -67,7 +67,7 @@
   }
   function prepareWorker(){
     if(worker) return;
-    worker = new Worker('/speech-worker.js?v=80');
+    worker = new Worker('/speech-worker.js?v=81');
     worker.onmessage = async ({data}) => {
       if(data && (data.warmed || data.prefetch)){
         if(data.key && data.warmed) warmed.add(data.key);
@@ -148,7 +148,7 @@
   }
   function isStatic(text, profile="robot"){
     const clean=normalizeText(text);
-    return clean==='Welcome to my world!' ||
+    return clean==='Welcome to my world!' || clean==='Code transform' ||
       (profile==='narration' && clean===DEFAULT_TERMINAL);
   }
   function splitParts(clean){

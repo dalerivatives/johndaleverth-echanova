@@ -1,3 +1,22 @@
+# v82 verification
+
+- `python -m pytest -q`: **9 passed, 3 skipped**.
+- `python -m unittest discover -s tests -v`: **9 passed, 3 skipped**.
+- New regression coverage verifies live-presence join/leave behavior.
+- `backend/main.py` compiled successfully and `static/script.js` passed `node --check`.
+- `loader-regressions.cjs`, `site-reliability-regressions.cjs`, `speech-regressions.cjs`, and `speech-worker-regressions.cjs`: **PASS**.
+- The optional Playwright browser suite could not run because Playwright is not installed in this build environment.
+- Live Render traffic, physical-phone browser speech behavior, and production SSE proxy behavior remain deployment checks rather than local test claims.
+
+# v81 verification
+
+- `python -m pytest -q`: **8 passed, 3 skipped**.
+- JavaScript syntax checks passed for `script.js`, `background.js`, `speech.js`, and `speech-worker.js`.
+- `speech-worker-regressions.cjs`: **PASS**, including the bundled `Code transform` WAV route.
+- `loader-regressions.cjs`, `site-reliability-regressions.cjs`, and `speech-regressions.cjs`: **PASS**.
+- Browser/canvas regression scripts could not run in this build environment because Playwright and `@napi-rs/canvas` are not installed here.
+- Bundled `code-transform.wav` validated as mono, 16-bit, 22.05 kHz WAV.
+
 # v80 verification
 
 Passed in the build environment:

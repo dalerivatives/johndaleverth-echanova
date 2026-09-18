@@ -375,7 +375,7 @@ def login(payload: schemas.LoginIn):
 # a single free-tier instance that's the right trade; if it ever runs on
 # several workers, move _presence into Redis and the rest of this stays put.
 # ---------------------------------------------------------------------------
-PRESENCE_TTL_SECONDS = 45
+PRESENCE_TTL_SECONDS = 30
 
 # viewer_id -> (last_seen, claimed_name_or_empty). The name is carried so the
 # badge can show the FACES of the people here, not just a number. Only names
@@ -435,6 +435,58 @@ def presence_ping(payload: schemas.PresenceIn):
 @app.get("/api/presence")
 def presence_count():
     return _presence_state()
+
+
+@app.post("/api/presence/leave")
+def presence_leave(payload: schemas.PresenceIn):
+    """Remove a tab immediately when the browser is closing/navigation starts.
+
+    The normal TTL remains the safety net for crashes, dead connections and
+    browsers that suppress pagehide beacons. This endpoint makes the visible
+    count feel live instead of waiting for that timeout on a normal close.
+    """
+    viewer_id = (payload.viewer_id or "").strip()[:64]
+    if viewer_id:
+        with _presence_lock:
+            _presence.pop(viewer_id, None)
+    return _presence_state()
+
+
+@app.get("/api/presence/stream")
+async def presence_stream(request: Request):
+    """Server-Sent Events for the live viewer badge.
+
+    Every stream independently compares the compact presence snapshot and only
+    sends when it changes. That means a new visitor, a claimed chat name, a
+    normal tab close, or TTL expiry reaches every open page in well under a
+    second without clients hammering the endpoint with count polls.
+    """
+    async def gen():
+        last_sig = None
+        last_ping = time.time()
+        while True:
+            if await request.is_disconnected():
+                break
+            state = _presence_state()
+            sig = json.dumps(state, sort_keys=True, separators=(",", ":"))
+            if sig != last_sig:
+                last_sig = sig
+                yield f"data: {json.dumps(state)}\n\n"
+                last_ping = time.time()
+            elif time.time() - last_ping > 15:
+                yield ": keep-alive\n\n"
+                last_ping = time.time()
+            await asyncio.sleep(0.35)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -542,6 +594,32 @@ CHAT_KEEP_ROWS = 500                # oldest trimmed beyond this
 _chat_history: dict[str, list[float]] = {}
 _chat_ip_history: dict[str, list[float]] = {}
 _chat_lock = threading.Lock()
+
+# A tiny in-memory notification buffer makes chat delivery truly live without
+# keeping a database connection open per viewer. The database remains the
+# source of truth; SSE only says "the room changed, fetch the current log".
+_chat_event_seq = 0
+_chat_events = deque(maxlen=256)
+_chat_event_lock = threading.Lock()
+
+
+def _emit_chat_event(kind: str, message_id: int = 0):
+    global _chat_event_seq
+    with _chat_event_lock:
+        _chat_event_seq += 1
+        event = {
+            "id": _chat_event_seq,
+            "type": kind,
+            "message_id": int(message_id or 0),
+            "at": time.time(),
+        }
+        _chat_events.append(event)
+        return event
+
+
+def _chat_events_since(cursor: int) -> list[dict]:
+    with _chat_event_lock:
+        return [dict(event) for event in _chat_events if event["id"] > cursor]
 
 
 def _prune(store: dict, now: float):
@@ -811,7 +889,50 @@ def post_chat(payload: schemas.ChatMessageIn, request: Request, db: Session = De
             db.query(models.ChatMessage).filter(models.ChatMessage.id <= cutoff[0]).delete()
             db.commit()
 
+    _emit_chat_event("message", message.id)
     return message
+
+
+@app.get("/api/chat/stream")
+async def chat_stream(request: Request, since: int = -1):
+    """Live room-change feed. The normal GET endpoint still owns the data.
+
+    New clients start at the current head so opening the page never replays old
+    notifications. EventSource reconnects with a cursor supplied by the client;
+    a five-second polling fallback remains in the browser for hosts/proxies that
+    cannot keep an SSE connection open.
+    """
+    async def gen():
+        header_cursor = request.headers.get("last-event-id", "").strip()
+        if since < 0 and header_cursor.isdigit():
+            cursor = int(header_cursor)
+        else:
+            cursor = _chat_event_seq if since < 0 else since
+        last_ping = time.time()
+        yield f"event: hello\ndata: {json.dumps({'latest': _chat_event_seq})}\n\n"
+        while True:
+            if await request.is_disconnected():
+                break
+            events = _chat_events_since(cursor)
+            if events:
+                cursor = events[-1]["id"]
+                for event in events:
+                    yield f"id: {event['id']}\ndata: {json.dumps(event)}\n\n"
+                last_ping = time.time()
+            elif time.time() - last_ping > 15:
+                yield ": keep-alive\n\n"
+                last_ping = time.time()
+            await asyncio.sleep(0.25)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @app.delete("/api/chat/{message_id}", dependencies=[Depends(require_admin)])
@@ -821,6 +942,7 @@ def delete_chat(message_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Message not found")
     db.delete(message)
     db.commit()
+    _emit_chat_event("delete", message_id)
     return {"deleted": True}
 
 
@@ -833,6 +955,7 @@ def clear_chat(db: Session = Depends(get_db)):
     deleted = db.query(models.ChatMessage).delete()
     names = db.query(models.ChatName).delete()
     db.commit()
+    _emit_chat_event("clear", 0)
     return {"deleted": deleted, "names_released": names}
 
 

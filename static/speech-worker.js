@@ -33,10 +33,12 @@ async function loadWav(text,profile){
     const timer=setTimeout(()=>controller.abort(),25000);
     try{
       const normalized=canonical(text);
-      const staticUrl=text==='Welcome to my world!'
-        ? '/assets/whoami-robot.wav?v=80'
-        : (profile==='narration' && normalized===DEFAULT_TERMINAL
-          ? '/assets/voice-preview.wav?v=80' : '');
+      const staticUrl=normalized==='Code transform'
+        ? '/assets/code-transform.wav?v=81'
+        : (text==='Welcome to my world!'
+          ? '/assets/whoami-robot.wav?v=81'
+          : (profile==='narration' && normalized===DEFAULT_TERMINAL
+            ? '/assets/voice-preview.wav?v=81' : ''));
       const response=staticUrl
         ? await fetch(staticUrl,{signal:controller.signal})
         : await fetch('/api/speech',{

@@ -266,6 +266,7 @@ function activate(id,{historyMode="push",scroll=true}={}){
    activeItem.querySelector('.nav-btn').setAttribute('aria-current','page');
  }
  views.forEach(view=>view.classList.toggle("active",view.dataset.view===id));
+ app.classList.toggle("profile-active", id === "profile");
  if(historyMode !== "none") syncSectionUrl(id,historyMode);
  window.dispatchEvent(new CustomEvent("portfolio-section-change",{detail:{id}}));
  if(scroll) window.scrollTo({top:0,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
@@ -604,17 +605,16 @@ if(osLight){
 }
 
 /* ============================================================
-   LIVE VIEWER COUNT
-   The top bar used to read a hardcoded "10 Viewers Online". This makes it
-   real: every open tab heartbeats to /api/presence with a random id it
-   generates once per tab, and the server counts the ids it heard from in
-   the last 45 seconds. Falls back to hiding the counter entirely if the
-   backend can't be reached, rather than showing a number that isn't true.
+   REAL-TIME VIEWER PRESENCE
+   Every open tab still heartbeats so the server knows it is alive, but the
+   visible count now arrives over Server-Sent Events. A new visitor, claimed
+   chat name, normal tab close, or timeout is reflected on every connected
+   page almost immediately instead of waiting for the next 20-second poll.
    ============================================================ */
 (() => {
   const el=document.getElementById("viewerCount");
   if(!el) return;
-  const PING_MS=20000;
+  const PING_MS=10000;
 
   let viewerId;
   try{viewerId=sessionStorage.getItem("portfolio-viewer-id");}catch(e){}
@@ -625,10 +625,8 @@ if(osLight){
 
   const host = el.closest(".online");
   const stackEl = document.getElementById("presenceFaces");
-  let last = null, lastFaces = [];
+  let last = null, lastFaces = [], stream = null;
 
-  /* Registered visitors show their chat avatar; guests show a circular human silhouette.
-     The total appears once in the text. At most three faces occupy the header. */
   const ANON_GLYPH = '<i class="fa-solid fa-circle-user" aria-hidden="true"></i>';
   function myName(){
     try{return localStorage.getItem('portfolio-chat-name') || '';}catch(e){return '';}
@@ -650,46 +648,32 @@ if(osLight){
     stackEl.classList.toggle('is-empty',online===0);
   }
 
-  /* A name claimed mid-session should show up at once, not at the next
-     20-second heartbeat. */
   window.addEventListener("chat-named", ()=>{ lastSig = null; ping(); });
 
-  /* Does the row still sit inside the space the header gives it?
-     Measured, because the label, the stack and the tail are all
-     variable, and so is whatever sits on the other side of the bar. */
-  function fits(){
-    if(!host) return true;
-    const bar = host.closest(".topbar");
-    if(!bar) return true;
-    const actions = bar.querySelector(".top-actions");
-    const room = (actions ? actions.getBoundingClientRect().left : bar.getBoundingClientRect().right)
-               - host.getBoundingClientRect().left - 14;
-    return host.scrollWidth <= room;
+  function presenceText(n){
+    if(window.innerWidth <= 380) return String(n);
+    if(window.innerWidth <= 560) return n + (n === 1 ? " viewing" : " viewing");
+    return n + (n === 1 ? " person viewing now" : " people viewing now");
   }
 
   function paint(n, faces){
+    n=Math.max(0,Number(n)||0);
+    if(host) host.style.removeProperty("display");
     if(faces) lastFaces = faces;
     paintFaces(lastFaces, n);
-
-    el.textContent = n + (n === 1 ? " person viewing now" : " people viewing now");
-
-    /* The visible text abbreviates; the announced text never does. */
-    host.setAttribute("aria-label",
-      n === 1 ? "1 person viewing now" : n + " people viewing now");
-
-    /* Flash only on a real change, never on the 20s heartbeat that
-       returns the same figure — a light that blinks every time says
-       nothing. */
-    if(host && last !== null && n !== last){
-      host.classList.remove("tick");
-      void host.offsetWidth;            // restart the animation
-      host.classList.add("tick");
+    el.textContent = presenceText(n);
+    if(host){
+      host.setAttribute("aria-label", n === 1 ? "1 person viewing now" : n + " people viewing now");
+      host.classList.add("live-connected");
+      if(last !== null && n !== last){
+        host.classList.remove("tick");
+        void host.offsetWidth;
+        host.classList.add("tick");
+      }
     }
     last = n;
   }
 
-  /* Re-fit when the bar changes width, so a rotation does not leave the
-     long form overlapping the controls until the next heartbeat. */
   let refit = null;
   window.addEventListener("resize", ()=>{
     clearTimeout(refit);
@@ -701,23 +685,58 @@ if(osLight){
       const res=await fetch("/api/presence",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        /* The name goes up with the heartbeat so the server can tell the
-           badge WHO is here, not just how many. Empty for anyone who
-           has not joined the chat — they are counted, never named. */
-        body:JSON.stringify({viewer_id:viewerId, name:myName()})
+        body:JSON.stringify({viewer_id:viewerId, name:myName()}),
+        cache:"no-store"
       });
       if(!res.ok) throw new Error("presence unavailable");
       const data=await res.json();
-      paint(Math.max(1, Number(data.online)||1), Array.isArray(data.faces) ? data.faces : []);
+      // Also paint the POST response. It is an instant fallback while the SSE
+      // stream is opening/reconnecting and never invents a count.
+      paint(Number(data.online)||0, Array.isArray(data.faces) ? data.faces : []);
     }catch(err){
-      // No backend (or it's down): say nothing rather than invent a number.
-      if(host) host.style.display="none";
+      if(host) host.classList.remove("live-connected");
     }
   }
 
+  function openPresenceStream(){
+    if(stream || typeof EventSource === "undefined") return false;
+    try{ stream = new EventSource("/api/presence/stream"); }
+    catch(e){ stream=null; return false; }
+    stream.onmessage = e=>{
+      try{
+        const data=JSON.parse(e.data);
+        paint(Number(data.online)||0, Array.isArray(data.faces) ? data.faces : []);
+      }catch(err){}
+    };
+    stream.onerror = ()=>{
+      if(host) host.classList.remove("live-connected");
+      // Native EventSource reconnects by itself. If a browser/proxy closes it
+      // permanently, heartbeats continue to keep the number accurate locally.
+      if(stream && stream.readyState === EventSource.CLOSED){
+        stream.close(); stream=null;
+        setTimeout(openPresenceStream, 2500);
+      }
+    };
+    return true;
+  }
+
+  function leave(){
+    const payload=JSON.stringify({viewer_id:viewerId,name:myName()});
+    try{
+      if(navigator.sendBeacon){
+        navigator.sendBeacon('/api/presence/leave', new Blob([payload],{type:'application/json'}));
+        return;
+      }
+    }catch(e){}
+    try{ fetch('/api/presence/leave',{method:'POST',headers:{'Content-Type':'application/json'},body:payload,keepalive:true}); }catch(e){}
+  }
+
   ping();
+  openPresenceStream();
   setInterval(ping, PING_MS);
   document.addEventListener("visibilitychange",()=>{ if(!document.hidden) ping(); });
+  window.addEventListener("pagehide", leave, {capture:true});
+  window.addEventListener("pageshow", ()=>{ ping(); openPresenceStream(); });
 })();
 
 
@@ -874,6 +893,12 @@ if(osLight){
        whoami/code toggle. */
     const EDITOR_COMMANDS=["edit portfolio","edit-portfolio","editportfolio","editor","edit"];
 
+    // Pre-cache the short transformation cue. It is bundled as a static WAV,
+    // so this stays reliable even on low-memory hosting where dynamic neural
+    // speech is intentionally disabled.
+    if(window.Speech && typeof window.Speech.warm === "function")
+      window.Speech.warm("Code transform","robot");
+
     function openEditor(){
       navigating=true;
       field.value="";
@@ -902,6 +927,11 @@ if(osLight){
 
       if(revealed && (command==="code" || command==="ascii")){
         showCode();
+        let voiceEnabled=true;
+        try{voiceEnabled=localStorage.getItem('portfolio-chat-voice') !== 'off';}catch(e){}
+        if(voiceEnabled && window.Speech){
+          window.Speech.robot("Code transform",true);
+        }
       }
     }
 
@@ -1507,8 +1537,11 @@ if(osLight){
   const POLL_MS = 5000;
   let displayName = "";
   let lastId = 0;
+  let lastMessageSignature = "";
   let painted = false;
   let pollTimer = null;
+  let chatStream = null;
+  let chatEventId = -1;
 
   try{ displayName = localStorage.getItem(NAME_KEY) || ""; }catch(e){}
 
@@ -1723,17 +1756,19 @@ if(osLight){
     }
   }
 
-  async function loadMessages(){
+  async function loadMessages(force=false){
     try{
       const res = await fetch("/api/chat?limit=60");
       if(!res.ok) throw new Error("chat unavailable");
       const messages = await res.json();
       const newest = messages.length ? messages[messages.length-1].id : 0;
-      // `newest !== lastId` alone never fires for an empty chat (0 === 0), so
-      // the "Loading messages…" placeholder would sit there forever on a quiet
-      // day. `painted` makes sure the first response always renders.
-      if(newest !== lastId || !painted){
+      const signature = messages.map(m=>m.id).join(",");
+      // Compare the whole visible id window, not just the newest id. That also
+      // reacts to admin deletes and 24-hour expiry when the newest message did
+      // not change.
+      if(signature !== lastMessageSignature || !painted || force){
         lastId = newest;
+        lastMessageSignature = signature;
         painted = true;
         render(messages);
       }
@@ -1825,7 +1860,7 @@ if(osLight){
         throw new Error(detail.detail || "Couldn't send that.");
       }
       bodyInput.value = "";
-      await loadMessages();
+      await loadMessages(true);
       log.scrollTop = log.scrollHeight;   // your own message always scrolls into view
     }catch(err){
       showError(err.message);
@@ -1851,6 +1886,35 @@ if(osLight){
     pollTimer = setInterval(tick, POLL_MS);
   }
 
+  /* Live room-change stream. The five-second poll above remains as a safety
+     net, but normal message delivery is now event-driven and usually appears
+     on every open client in a fraction of a second. */
+  function openChatStream(){
+    if(chatStream || typeof EventSource === "undefined") return false;
+    const since = Number.isFinite(chatEventId) ? chatEventId : -1;
+    try{ chatStream = new EventSource(`/api/chat/stream?since=${since}`); }
+    catch(e){ chatStream=null; return false; }
+
+    chatStream.addEventListener("hello", e=>{
+      try{
+        const data=JSON.parse(e.data);
+        if(chatEventId < 0 && Number.isFinite(Number(data.latest))) chatEventId=Number(data.latest);
+      }catch(err){}
+    });
+    chatStream.onmessage = e=>{
+      const id=Number(e.lastEventId);
+      if(Number.isFinite(id) && id>chatEventId) chatEventId=id;
+      if(chatVisible()) loadMessages(true);
+    };
+    chatStream.onerror = ()=>{
+      if(chatStream && chatStream.readyState === EventSource.CLOSED){
+        chatStream.close(); chatStream=null;
+        setTimeout(openChatStream, 1800);
+      }
+    };
+    return true;
+  }
+
   document.addEventListener("visibilitychange", ()=>{ if(chatVisible()) loadMessages(); });
 
   // Load as soon as the Chat page is opened, and once now in case it's the
@@ -1864,6 +1928,8 @@ if(osLight){
   setName(displayName);
   syncClaim();
   startPolling();
+  openChatStream();
+  window.addEventListener("pagehide", ()=>{ if(chatStream){ chatStream.close(); chatStream=null; } }, {capture:true});
 
   // A name can expire mid-session, so re-check whenever the page is re-opened.
   document.addEventListener("visibilitychange", ()=>{ if(chatVisible()) syncClaim(); });
@@ -2761,11 +2827,12 @@ if(osLight){
 })();
 
 /* ============================================================
-   THE ROBOT'S VOICE
-   UNIT-01 reads new chat messages aloud. It only ever speaks messages that
-   arrive while you are watching — the backlog you get on opening the page
-   is not read out, because arriving to twenty queued messages being recited
-   at you is the same mistake the hit-sound backlog was.
+   THE ROBOT'S VOICE — SERVER VOICE + LIGHTWEIGHT BROWSER FALLBACK
+   UNIT-01 reads only messages that ARRIVE while the page is open. Existing
+   history is seeded as already heard, so joining a busy room never creates a
+   spoken backlog. On larger/local deployments the bundled Piper voice still
+   handles arbitrary text. On Render's memory-safe static mode, World Chat
+   falls back to the browser's best English voice instead of going silent.
    ============================================================ */
 (() => {
   const log = document.getElementById("chatLog");
@@ -2776,41 +2843,111 @@ if(osLight){
   let on = true;
   try{ on = localStorage.getItem(KEY) !== "off"; }catch(e){}
 
-  /* Seeded by the chat module the first time it renders, so the messages
-     already on screen count as "seen" and are never spoken. */
+  const browserTTS = typeof window.speechSynthesis !== "undefined" &&
+                     typeof window.SpeechSynthesisUtterance === "function";
+  let preferredVoice = null;
+
+  function voiceScore(v){
+    const name=((v && v.name)||"").toLowerCase();
+    const lang=((v && v.lang)||"").toLowerCase();
+    let score=0;
+    if(lang.startsWith("en")) score+=50;
+    if(/natural|neural|enhanced|online/.test(name)) score+=35;
+    if(/aria|guy|davis|ryan|mark|samantha|daniel|alex|google.*english/.test(name)) score+=22;
+    if(v && v.localService) score+=5;
+    return score;
+  }
+
+  function refreshBrowserVoice(){
+    if(!browserTTS) return;
+    const voices=window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+    if(!voices.length) return;
+    preferredVoice=[...voices].sort((a,b)=>voiceScore(b)-voiceScore(a))[0] || null;
+  }
+  refreshBrowserVoice();
+  if(browserTTS && window.speechSynthesis.addEventListener){
+    window.speechSynthesis.addEventListener("voiceschanged", refreshBrowserVoice);
+  }
+
+  // A real pointer/key gesture helps Safari/iOS and a few Chromium builds
+  // unlock speech synthesis before the first remote message arrives.
+  function primeBrowserVoice(){
+    if(!browserTTS) return;
+    refreshBrowserVoice();
+    try{ window.speechSynthesis.resume(); }catch(e){}
+  }
+  window.addEventListener("pointerdown", primeBrowserVoice, {passive:true});
+  window.addEventListener("keydown", primeBrowserVoice);
+
+  function browserSpeak(text){
+    if(!browserTTS || !text) return false;
+    try{
+      const utterance=new window.SpeechSynthesisUtterance(String(text).slice(0,650));
+      if(preferredVoice) utterance.voice=preferredVoice;
+      utterance.rate=.94;
+      utterance.pitch=.92;
+      utterance.volume=1;
+      window.speechSynthesis.speak(utterance);
+      return true;
+    }catch(e){ return false; }
+  }
+
+  function dynamicServerVoice(){
+    return !!(window.Speech && window.Speech.supported && window.Speech.dynamicSupported);
+  }
+  function voiceCapable(){ return dynamicServerVoice() || browserTTS; }
+
   const spoken = new Set();
   let seeded = false;
 
   function paint(){
     toggle.classList.toggle("off", !on);
     toggle.setAttribute("aria-pressed", String(on));
-    toggle.setAttribute("aria-label", on ? "Turn the robot's voice off" : "Turn the robot's voice on");
+    toggle.setAttribute("aria-label", on ? "Turn World Chat read-aloud off" : "Turn World Chat read-aloud on");
+    toggle.setAttribute("title", on
+      ? "UNIT-01 reads each new sender name and message aloud"
+      : "World Chat read-aloud is off");
     toggle.innerHTML = on
       ? '<i class="fa-solid fa-comment-dots" aria-hidden="true"></i>'
       : '<i class="fa-solid fa-comment-slash" aria-hidden="true"></i>';
   }
 
   function applyCapability(){
-    const dynamic=!!(window.Speech && window.Speech.dynamicSupported);
-    toggle.hidden=!dynamic;
+    toggle.hidden=!voiceCapable();
     paint();
   }
 
   toggle.addEventListener("click", ()=>{
     on = !on;
     try{ localStorage.setItem(KEY, on ? "on" : "off"); }catch(e){}
-    if(!on && window.Speech) window.Speech.stop();
+    if(!on){
+      if(window.Speech) window.Speech.stop();
+      if(browserTTS) try{ window.speechSynthesis.cancel(); }catch(e){}
+    }else{
+      primeBrowserVoice();
+    }
     paint();
   });
 
-  if(!window.Speech || !window.Speech.supported){
-    toggle.hidden = true;                 // no engine on this device
+  if(!voiceCapable()){
+    toggle.hidden = true;
     return;
   }
   applyCapability();
   window.addEventListener('portfolio-speech-capability', applyCapability);
 
-  /* Called by the chat module for every message it renders. */
+  function sayMessage(m){
+    const name=String((m && m.name) || "Someone").trim() || "Someone";
+    const body=String((m && m.body) || "").trim();
+    if(!body) return;
+    const phrase=`${name} says, ${body}`;
+    if(dynamicServerVoice()){
+      window.Speech.robot(phrase);
+    }else{
+      browserSpeak(phrase);
+    }
+  }
+
   window.RobotVoice = {
     announce(messages){
       if(!Array.isArray(messages)) return;
@@ -2821,23 +2958,15 @@ if(osLight){
       }
       const fresh = messages.filter(m => !spoken.has(m.id));
       fresh.forEach(m => spoken.add(m.id));
-      if(!on || !fresh.length || !window.Speech.dynamicSupported) return;
-      /* The master switch outranks this one. Reading arriving messages
-         aloud is something the page does at you, unasked, once per
-         message — which is exactly what "mute" is for. The chat's own
-         voice button stays as the finer control for someone who wants
-         interface sounds but not narration; muting everything silences
-         both. Messages are still marked as spoken above, so un-muting
-         does not trigger a backlog of everything missed. */
+      if(!on || !fresh.length || !voiceCapable()) return;
+
+      // The global sound switch still outranks the per-chat voice switch.
       if(window.SFX && window.SFX.muted) return;
 
-      // Read at most the last few, so a burst doesn't become a monologue.
-      fresh.slice(-3).forEach(m=>{
-        window.Speech.robot(`${m.name} says. ${m.body}`);
-      });
+      // Name first, then message: "Ana says, hello". At most three are queued
+      // from a burst so a reconnect never becomes a long monologue.
+      fresh.slice(-3).forEach(sayMessage);
 
-      // The set is per-session and only holds ids; trim it anyway so a tab
-      // left open for a day doesn't accumulate forever.
       if(spoken.size > 400){
         const keep = new Set(messages.map(m=>m.id));
         spoken.forEach(id => { if(!keep.has(id)) spoken.delete(id); });

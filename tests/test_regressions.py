@@ -32,6 +32,18 @@ class RegressionTests(unittest.TestCase):
         status = self.client.get('/api/speech/status').json()
         self.assertEqual(status['dynamic'], SPEECH_MODE == 'dynamic')
 
+    def test_live_presence_join_and_leave(self):
+        # Presence is intentionally in-memory and per open tab. A normal close
+        # should disappear immediately instead of lingering for the TTL.
+        first = self.client.post('/api/presence', json={'viewer_id':'tab-a','name':''}).json()
+        self.assertGreaterEqual(first['online'], 1)
+        second = self.client.post('/api/presence', json={'viewer_id':'tab-b','name':'Dale'}).json()
+        self.assertGreaterEqual(second['online'], 2)
+        self.assertIn('Dale', second['faces'])
+        left = self.client.post('/api/presence/leave', json={'viewer_id':'tab-a','name':''}).json()
+        self.assertEqual(left['online'], second['online'] - 1)
+        self.client.post('/api/presence/leave', json={'viewer_id':'tab-b','name':'Dale'})
+
     @unittest.skipUnless(REAL_VOICE, 'Optional Piper synthesis: set RUN_DYNAMIC_VOICE_TESTS=1 with piper installed')
     def test_voice_returns_real_wav(self):
         with patch('backend.main.SPEECH_MODE','dynamic'):

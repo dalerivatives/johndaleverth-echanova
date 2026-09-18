@@ -1,3 +1,7 @@
+# v81 update
+
+Start with **UPDATE_v81.md**. The Profile hero now keeps floating code and a generated algorithm tree as a true backdrop behind both the coded-human and revealed-photo states, adds a soft non-cropped halo, and speaks **“Code transform”** when the `code` command returns to the coded human.
+
 # v80 update
 
 Start with **UPDATE_v80.md**. Uploaded branding is now a circular browser-tab
