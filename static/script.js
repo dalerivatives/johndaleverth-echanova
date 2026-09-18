@@ -883,30 +883,24 @@ if(osLight){
     let navigating=false;   // set while leaving for the editor, so the blur
                             // handler below doesn't wipe the "opening" message
 
-    function registerPhoto(){
-      const a=ascii.getBoundingClientRect();
-      const b=backdrop.getBoundingClientRect();
-      const gs=parseFloat(getComputedStyle(document.documentElement)
-        .getPropertyValue("--human-scale"))||1;
-
-      const localLeft=(a.left-b.left)/gs;
-      const localTop=(a.top-b.top)/gs;
-      const localW=a.width/gs;
-      const localH=a.height/gs;
-
-      photo.style.width=`${localW}px`;
-      photo.style.height=`${localH}px`;
-      photo.style.left=`${localLeft}px`;
-      photo.style.top=`${localTop}px`;
-      photo.style.bottom="auto";
-      photo.style.transform="none";
+    // Both original images share the same CSS frame, including after resize.
+    let transitionTimer;
+    function crossfade(){
+      clearTimeout(transitionTimer);
+      backdrop.classList.add("crossfade");
+      transitionTimer=setTimeout(()=>backdrop.classList.remove("crossfade"),760);
+    }
+    function commandVoice(text){
+      let enabled=true;
+      try{enabled=localStorage.getItem('portfolio-chat-voice')!=='off';}catch(e){}
+      if(enabled && !(window.SFX && window.SFX.muted) && window.Speech){
+        window.Speech.robot(text,true);
+      }
     }
 
     function showPhoto(){
-      registerPhoto();
-      revealed=true; backdrop.classList.add("crossfade");
+      revealed=true; crossfade();
       backdrop.classList.add("revealed");
-      window.setTimeout(()=>backdrop.classList.remove("crossfade"), 760);
       field.value="";
       field.placeholder=reverseHint;
       field.blur();
@@ -914,9 +908,8 @@ if(osLight){
 
     function showCode(){
       if(window.Speech) window.Speech.stop();
-      revealed=false; backdrop.classList.add("crossfade");
+      revealed=false; crossfade();
       backdrop.classList.remove("revealed");
-      window.setTimeout(()=>backdrop.classList.remove("crossfade"), 760);
       field.value="";
       field.placeholder=hint;
       field.focus();
@@ -947,16 +940,13 @@ if(osLight){
 
       if(!revealed && command==="whoami"){
         showPhoto();
-        let voiceEnabled=true;
-        try{voiceEnabled=localStorage.getItem('portfolio-chat-voice') !== 'off';}catch(e){}
-        if(voiceEnabled && window.Speech){
-          window.Speech.robot("Welcome to my world!",true);
-        }
+        commandVoice("Welcome to my world!");
         return;
       }
 
-      if(revealed && (command==="code" || command==="ascii")){
+      if(command==="code" || command==="ascii"){
         showCode();
+        commandVoice("Code transform.");
       }
     }
 
@@ -978,10 +968,6 @@ if(osLight){
       }
     });
 
-    window.addEventListener("resize",()=>{if(!revealed)registerPhoto()});
-    if(document.fonts&&document.fonts.ready){
-      document.fonts.ready.then(()=>requestAnimationFrame(registerPhoto));
-    }else requestAnimationFrame(registerPhoto);
   }
 
   if(document.readyState==="loading"){
@@ -2874,8 +2860,11 @@ if(osLight){
 
   function applyCapability(){
     const dynamic=!!(window.Speech && window.Speech.dynamicSupported);
-    toggle.hidden=!dynamic;
+    toggle.hidden=false;
     paint();
+    toggle.disabled=!dynamic;
+    toggle.title=dynamic ? 'Read new messages with a male voice' : 'No supported male voice is available on this device. Chat remains readable.';
+    if(!dynamic) toggle.setAttribute('aria-label',toggle.title);
   }
 
   toggle.addEventListener("click", ()=>{

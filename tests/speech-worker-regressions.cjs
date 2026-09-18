@@ -29,6 +29,8 @@ const send=data=>sandbox.self.onmessage({data});
   fail=false;
   await send({id:5,parts:['Welcome to my world!']});
   assert.equal(calls.at(-1).url,'/assets/whoami-robot.wav?v=80');
+  await send({id:7,parts:['Code transform.'],profile:'robot'});
+  assert.equal(calls.at(-1).url,'/assets/code-transform.wav?v=83','code command stays static on Render');
   await send({id:6,parts:['Manual dynamic speech'],profile:'robot'});
   assert.equal(calls.at(-1).url,'/api/speech');
   console.log('PASS: static WAV routing, prefetch deduplication, cache, failure retry, dynamic routing');

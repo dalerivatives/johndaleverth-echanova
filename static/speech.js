@@ -1,4 +1,5 @@
-/* v70: one bundled robot voice on every device; never select an OS voice. */
+/* v83: bundled male recordings; dynamic speech uses Piper or a known male voice.
+   All engines share one queue so announcements never overlap narration. */
 (() => {
   const AudioEngine = window.AudioContext || window.webkitAudioContext;
   const supported = !!AudioEngine && typeof Worker === 'function';
@@ -8,72 +9,75 @@
   const warming = new Set();
   let unlocked = false, timer = null, dynamicAvailable = false;
 
-  /* Low-memory hosting keeps Piper in static mode. Dynamic phrases (notably
-     World Chat's "NAME says ..." lines and CODE TRANSFORM) fall back to one
-     browser voice instead of silently doing nothing. This uses no Render RAM. */
+  /* Low-memory hosting keeps Piper in static mode. Dynamic chat phrases may
+     use an explicitly recognized male browser voice. Fixed commands are WAVs. */
   const browserSynth = window.speechSynthesis || null;
   const BrowserUtterance = window.SpeechSynthesisUtterance || null;
   const browserDynamic = !!(browserSynth && BrowserUtterance);
-  const browserJobs = new Set();
   let cachedBrowserVoice = null;
+  let browserUtterance = null;
 
   function chooseBrowserVoice(){
     if(!browserDynamic) return null;
     const voices = browserSynth.getVoices ? browserSynth.getVoices() : [];
     if(!voices.length) return null;
     if(cachedBrowserVoice && voices.includes(cachedBrowserVoice)) return cachedBrowserVoice;
+    // Web Speech has no gender property. Only accept names of known male
+    // English voices, never the system default or an arbitrary English voice.
     const preferred = [
-      /Microsoft Guy/i, /Microsoft David/i, /Google UK English Male/i,
-      /Daniel/i, /Alex/i, /English.*Male/i
+      /^Microsoft (Guy|David|Mark|Ryan|George|James|Christopher|Eric|Roger|Steffan)\b/i,
+      /^Google UK English Male$/i,
+      /^(Daniel|Alex|Fred)( \((Enhanced|Premium|English[^)]*)\))?$/i
     ];
-    cachedBrowserVoice = preferred.map(rx=>voices.find(v=>rx.test(v.name || ''))).find(Boolean)
-      || voices.find(v=>/^en(-|_)/i.test(v.lang || ''))
-      || voices[0];
+    cachedBrowserVoice = preferred.map(rx=>voices.find(v=>
+      /^en(?:-|_|$)/i.test(v.lang || '') && rx.test(v.name || '')
+    )).find(Boolean) || null;
     return cachedBrowserVoice;
   }
 
-  function finishBrowser(job, ok){
-    if(!job || job.doneFlag) return;
-    job.doneFlag = true;
-    browserJobs.delete(job);
-    emit('portfolio-speech-end', {text:job.text, ok});
-    if(typeof job.done === 'function'){ try{ job.done(ok); }catch(e){ console.warn(e); } }
-  }
-
   function stopBrowser(){
+    if(browserUtterance){
+      browserUtterance.onstart=browserUtterance.onend=browserUtterance.onerror=null;
+      browserUtterance=null;
+    }
     if(!browserDynamic) return;
-    const jobs = [...browserJobs];
     try{ browserSynth.cancel(); }catch(e){}
-    jobs.forEach(job=>finishBrowser(job, false));
   }
 
-  function speakBrowser(clean, interrupt, done, profile='robot'){
-    if(!browserDynamic) return false;
-    if(interrupt) stopBrowser();
-    if(browserJobs.size >= 8) return false;
+  function speakBrowser(job){
+    const voice=chooseBrowserVoice();
+    if(!voice) { finish(false); return; }
     try{
-      const utter = new BrowserUtterance(clean);
-      const voice = chooseBrowserVoice();
-      if(voice) utter.voice = voice;
-      utter.lang = (voice && voice.lang) || 'en-US';
+      const utter = new BrowserUtterance(job.original);
+      browserUtterance=utter;
+      utter.voice = voice;
+      utter.lang = voice.lang;
       /* One fixed tempo/pitch for the whole utterance. Keeping the sentence in
          one utterance is what prevents the word-to-word speed changes the old
          fragmented fallback could produce. */
-      utter.rate = profile === 'narration' ? 0.96 : 0.93;
-      utter.pitch = profile === 'narration' ? 0.92 : 0.84;
+      utter.rate = 0.96;
+      utter.pitch = 0.92;
       utter.volume = 1;
-      const job = {utter, text:clean, done, doneFlag:false};
-      browserJobs.add(job);
-      utter.onstart = ()=>emit('portfolio-speech-start', {text:clean, fallback:true});
-      utter.onend = ()=>finishBrowser(job, true);
-      utter.onerror = ()=>finishBrowser(job, false);
+      const complete=ok=>{
+        if(current!==job) return;
+        utter.onstart=utter.onend=utter.onerror=null;
+        browserUtterance=null;
+        finish(ok);
+      };
+      utter.onstart = ()=>{if(current===job)emit('portfolio-speech-start', {text:job.original, fallback:true});};
+      utter.onend = ()=>complete(true);
+      utter.onerror = ()=>complete(false);
+      timer=setTimeout(()=>{if(current===job){stopBrowser();finish(false);}},
+        Math.min(180000,15000+job.original.length*120));
       browserSynth.speak(utter);
-      return true;
-    }catch(e){ return false; }
+    }catch(e){stopBrowser();finish(false);}
   }
 
   if(browserDynamic && browserSynth.addEventListener){
-    browserSynth.addEventListener('voiceschanged', ()=>{ cachedBrowserVoice = null; });
+    browserSynth.addEventListener('voiceschanged', ()=>{
+      cachedBrowserVoice = null;
+      emit('portfolio-speech-capability',{dynamic:dynamicAvailable || !!chooseBrowserVoice()});
+    });
   }
   const emit = (type, detail) => window.dispatchEvent(new CustomEvent(type, {detail}));
   function finish(ok){
@@ -135,7 +139,7 @@
   }
   function prepareWorker(){
     if(worker) return;
-    worker = new Worker('/speech-worker.js?v=80');
+    worker = new Worker('/speech-worker.js?v=83');
     worker.onmessage = async ({data}) => {
       if(data && (data.warmed || data.prefetch)){
         if(data.key && data.warmed) warmed.add(data.key);
@@ -193,7 +197,8 @@
   function next(){
     if(current || !queue.length) return;
     current = queue.shift();
-    playPart();
+    if(current.browser) speakBrowser(current);
+    else playPart();
   }
   function stop(){
     queue = [];
@@ -217,7 +222,7 @@
   }
   function isStatic(text, profile="robot"){
     const clean=normalizeText(text);
-    return clean==='Welcome to my world!' ||
+    return clean==='Welcome to my world!' || /^code transform[.!]?$/i.test(clean) ||
       (profile==='narration' && clean===DEFAULT_TERMINAL);
   }
   function splitParts(clean){
@@ -262,30 +267,31 @@
        dynamic text instead of returning false. Static bundled WAVs still go
        through the original AudioContext path so the signature welcome and
        terminal narration sound exactly as authored. */
-    if(!dynamicAvailable && !isStatic(clean, profile)){
-      return speakBrowser(clean, interrupt, done, profile);
+    const useBrowser=!dynamicAvailable && !isStatic(clean,profile);
+    if(useBrowser && !chooseBrowserVoice()) return false;
+    if(!useBrowser){
+      if(!supported) return false;
+      prime();
+      if(!context) return false;
     }
-    if(!supported) return false;
-    prime();
-    if(!context) return false;
     if(interrupt) stop();
     if(queue.length >= 8) return false; // no unbounded public-chat backlog
     const parts = splitParts(clean);
-    queue.push({id:++serial, original:clean, parts, done, profile});
+    queue.push({id:++serial, original:clean, parts, done, profile, browser:useBrowser});
     // Resume in the initiating gesture; generation finishes after that resume.
-    context.resume().then(()=>{unlocked=context.state==='running';}).catch(()=>{});
+    if(context) context.resume().then(()=>{unlocked=context.state==='running';}).catch(()=>{});
     next();
     return true;
   }
   window.Speech = {
-    supported,
+    supported:supported || browserDynamic,
     robot:(text,interrupt,done)=>speak(text,interrupt,done,"robot"),
     plain:(text,interrupt,done)=>speak(text,interrupt,done,"narration"),
     warm, stop, isStatic,
-    get dynamicSupported(){return dynamicAvailable || browserDynamic;},
+    get dynamicSupported(){return (supported && dynamicAvailable) || !!chooseBrowserVoice();},
     get backendDynamicSupported(){return dynamicAvailable;},
-    get browserFallbackSupported(){return browserDynamic;},
-    get speaking(){return !!current || queue.length > 0 || browserJobs.size > 0;},
+    get browserFallbackSupported(){return !!chooseBrowserVoice();},
+    get speaking(){return !!current || queue.length > 0;},
     get primed(){return unlocked;}
   };
   const statusController=new AbortController();
@@ -299,4 +305,5 @@
     .catch(()=>emit('portfolio-speech-capability',{dynamic:false}))
     .finally(()=>clearTimeout(statusTimeout));
   document.addEventListener('visibilitychange', ()=>{if(document.hidden) stop();});
+  window.addEventListener('sfx-mute', event=>{if(event.detail && event.detail.muted)stop();});
 })();

@@ -33,7 +33,9 @@ async function loadWav(text,profile){
     const timer=setTimeout(()=>controller.abort(),25000);
     try{
       const normalized=canonical(text);
-      const staticUrl=text==='Welcome to my world!'
+      const staticUrl=/^code transform[.!]?$/i.test(normalized)
+        ? '/assets/code-transform.wav?v=83'
+        : text==='Welcome to my world!'
         ? '/assets/whoami-robot.wav?v=80'
         : (profile==='narration' && normalized===DEFAULT_TERMINAL
           ? '/assets/voice-preview.wav?v=80' : '');

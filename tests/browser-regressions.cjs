@@ -13,7 +13,7 @@ let browser;
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
   for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:8766/api/health')).ok)break;}catch{} await wait(100);}
-  browser=await chromium.launch({headless:true,args:['--autoplay-policy=no-user-gesture-required']});
+  browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH || undefined,args:['--autoplay-policy=no-user-gesture-required','--no-sandbox','--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
   for(const mobile of [false,true]){
     const context=await browser.newContext({viewport:mobile?{width:390,height:844}:{width:1440,height:1000},isMobile:mobile,hasTouch:mobile});
     // External fonts/icons are stubbed to isolate our startup path from internet availability.
@@ -52,10 +52,12 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
     assert.equal(await page.locator('#whoamiSpeech').count(),0);
     assert.equal(await page.evaluate(()=>window.speechEvents[0].text),'Welcome to my world!');
     await command.fill('code');await command.press('Enter');
-    assert.equal(await page.evaluate(()=>Speech.speaking),false);
+    await page.waitForFunction(()=>window.speechEvents.some(e=>e.text==='Code transform.'),{},{timeout:10000});
     assert.equal(await page.locator('#whoamiSpeech').count(),0);
     await page.locator('#termSpeak').click();
-    await page.waitForFunction(()=>window.speechEvents.length>1,{},{timeout:10000});
+    // The first click stops the command if it is still speaking; a second starts narration.
+    if(!await page.evaluate(()=>window.speechEvents.some(e=>e.text.startsWith('Hello World'))))await page.locator('#termSpeak').click();
+    await page.waitForFunction(()=>window.speechEvents.some(e=>e.text.startsWith('Hello World')),{},{timeout:10000});
     await page.evaluate(()=>{Speech.stop();Speech.robot('This should be cancelled.',true);Speech.stop();});
     await wait(800);
     assert.equal(await page.evaluate(()=>Speech.speaking),false);

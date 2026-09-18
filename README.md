@@ -1,3 +1,13 @@
+# v83 update — profile layers and male voices
+
+Start with **DEPLOY_v83.md** and **UPDATE_v83.md**. This release builds on the
+uploaded v81 realtime-chat project. Both portraits share one responsive frame,
+with a theme-aware halo and an opaque silhouette behind the code glyphs.
+Typing `code` says **Code transform** using a bundled male recording.
+Browser speech accepts only recognized male voices; an unavailable male voice
+is explained beside the chat voice control. Render stays in static speech mode.
+See **TEST_REPORT.md** for the checks performed and remaining deployment limits.
+
 # v80 update
 
 Start with **UPDATE_v80.md**. Uploaded branding is now a circular browser-tab

@@ -7,6 +7,8 @@ import secrets
 import tempfile
 import unittest
 import wave
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import patch
 from concurrent.futures import ThreadPoolExecutor
@@ -31,6 +33,41 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/health/db').json()['db'], 'ok')
         status = self.client.get('/api/speech/status').json()
         self.assertEqual(status['dynamic'], SPEECH_MODE == 'dynamic')
+
+    def test_blank_optional_database_url(self):
+        result = subprocess.run([sys.executable, '-c',
+            'from backend.database import DATABASE_URL; print(DATABASE_URL)'],
+            env={**os.environ, 'DATABASE_URL':'  '}, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), 'sqlite:///./portfolio.db')
+
+    def test_new_profile_and_recording_assets(self):
+        for path in ['/profile.css', '/assets/profile-shield.svg', '/assets/code-transform.wav']:
+            self.assertEqual(self.client.get(path).status_code, 200)
+        with wave.open(io.BytesIO(self.client.get('/assets/code-transform.wav').content)) as wav:
+            self.assertEqual(wav.getnchannels(), 1)
+            self.assertGreater(wav.getnframes(), wav.getframerate())
+
+    def test_static_startup_does_not_load_neural_runtime(self):
+        result = subprocess.run([sys.executable, '-c',
+            "import sys; import backend.main; assert 'onnxruntime' not in sys.modules; assert 'piper' not in sys.modules"],
+            env={**os.environ,'SPEECH_MODE':'static'}, capture_output=True,text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_presence_join_leave_and_expiry_events(self):
+        from backend import main
+        with main._presence_lock:
+            main._presence.clear()
+        a=self.client.post('/api/presence',json={'viewer_id':'test-a','name':''})
+        self.assertEqual(a.json()['online'],1)
+        b=self.client.post('/api/presence',json={'viewer_id':'test-b','name':''})
+        self.assertEqual(b.json()['online'],2)
+        c=self.client.post('/api/presence/leave',json={'viewer_id':'test-a','name':''})
+        self.assertEqual(c.json()['online'],1)
+        with main._presence_lock:
+            main._presence['test-b']=(0,'')
+        self.assertEqual(self.client.get('/api/presence').json()['online'],0)
+        self.assertEqual(main._presence_events[-1]['online'],0)
 
     @unittest.skipUnless(REAL_VOICE, 'Optional Piper synthesis: set RUN_DYNAMIC_VOICE_TESTS=1 with piper installed')
     def test_voice_returns_real_wav(self):

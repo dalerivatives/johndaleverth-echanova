@@ -1,13 +1,15 @@
-fastapi>=0.110
-uvicorn[standard]>=0.29
-SQLAlchemy>=2.0
-python-multipart>=0.0.9
-pydantic>=2.6
+# Direct dependencies pinned to the versions verified for v83 (Python 3.12).
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+SQLAlchemy==2.0.54
+python-multipart==0.0.32
+pydantic==2.13.5
 
 # Postgres driver. Only actually used when DATABASE_URL points at Postgres
 # (Supabase, Render, Neon…); with the default SQLite it is never imported, so
 # it costs a local run nothing but an install.
-psycopg2-binary>=2.9
+psycopg2-binary==2.9.13
 
 # Local neural male voice; model ships in voices/.
 piper-tts==1.3.0
+onnxruntime==1.30.0

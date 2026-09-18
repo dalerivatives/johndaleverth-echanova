@@ -23,7 +23,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-RAW_URL = os.environ.get("DATABASE_URL", "sqlite:///./portfolio.db").strip()
+RAW_URL = (os.environ.get("DATABASE_URL") or "").strip() or "sqlite:///./portfolio.db"
 
 
 def _normalise(url: str) -> str:

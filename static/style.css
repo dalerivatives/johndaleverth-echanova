@@ -1,16 +1,8 @@
-/* ============================================================
-   HUMAN POSITION CONTROLS — EDIT ONLY THESE VALUES
-   --human-shift-x: positive = right, negative = left
-   --human-shift-y: positive = down, negative = up
-   --human-scale: 1 = current size
-   ============================================================ */
 :root{
   --human-shift-x:0px;
   --human-shift-y:52px;
   --human-scale:1;
 }
-
-/* HUMAN SIZE & POSITION CONTROLS */
 :root{
 }
 :root{
@@ -238,9 +230,6 @@ pre{margin:0;color:var(--accent);font:8px/8px ui-monospace,monospace;opacity:.72
    graph layer sits on the same footing. */
 .code-field{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
 .code-field,.graph-field{z-index:0}
-/* Decorative code and graph layers now remain whole and simply sit behind
-   the human. The previous masked safe-zone created a visible circular hole,
-   which is not the desired effect. Keep any legacy class harmless. */
 .code-field.human-safe-mask,.graph-field.human-safe-mask{
   -webkit-mask-image:none;
   mask-image:none;
@@ -265,12 +254,6 @@ pre{margin:0;color:var(--accent);font:8px/8px ui-monospace,monospace;opacity:.72
 /* ============================================================
    ACCESSIBILITY
    ============================================================ */
-
-/* Reduced motion: for anyone whose OS says "minimise animation" — a real
-   accessibility need, not a preference (drifting code, floating silhouette
-   and sliding carousels can trigger motion sickness and vestibular
-   symptoms). Kills every animation and transition, and also the carousel's
-   smooth scrolling, which the animation rule alone doesn't cover. */
 @media(prefers-reduced-motion:reduce){
   *,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
   html{scroll-behavior:auto!important}
@@ -333,90 +316,15 @@ select:focus-visible,[tabindex]:focus-visible{
 @keyframes matrix-in{from{opacity:0;transform:scale(.97) translateY(-5px)}to{opacity:1;transform:none}}
 @keyframes ambient-shift{from{--ambient-x:70%;--ambient-y:30%}to{--ambient-x:25%;--ambient-y:72%}}
 @media(max-width:560px){.palette-menu{right:14px;top:64px}.theme-grid{grid-template-columns:1fr}.mode-pulse{display:none}.mode-readout{display:none}}
-
-/* HUMAN BEHIND THE CODE — intentionally static for reliable local/live preview */
 .hero{position:relative;display:grid;grid-template-columns:1fr;min-height:310px;align-items:center;overflow:hidden;margin-bottom:0}
 .hero .identity{position:relative;z-index:3;max-width:700px}
-.human-backdrop{
-  position:absolute;
-  z-index:1;
-  right:-8px;
-  top:auto;
-  bottom:0;
-  width:455px;
-  height:345px;
-  display:flex;
-  align-items:flex-end;
-  justify-content:center;
-  pointer-events:none;
-  overflow:visible;
-  opacity:.48;
-
-
-  transform-origin:center bottom;
-  transform:translate(var(--human-shift-x),var(--human-shift-y)) scale(var(--human-scale));
-  will-change:transform;
-}
-.human-backdrop pre{margin:0;color:var(--accent);font:7px/.82 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;letter-spacing:0;white-space:pre;text-align:left;opacity:.82;text-shadow:0 0 8px var(--glow),0 0 20px var(--glow);filter:drop-shadow(0 0 5px var(--glow));animation:human-float 7s ease-in-out infinite}
-@keyframes human-float{0%,100%{transform:translateY(0) scaleX(.88)}50%{transform:translateY(-5px) scaleX(.88)}}
-@media(max-width:850px){:root{--human-shift-y:62px}.hero{min-height:285px}.human-backdrop{right:-45px;top:auto;bottom:0;width:405px;height:310px;opacity:.34}}
-@media(max-width:560px){:root{--human-shift-y:52px}.hero{min-height:235px}.human-backdrop{right:-92px;top:auto;bottom:0;width:335px;height:260px;opacity:.24}.human-backdrop pre{font-size:5.3px}}
-
-/* Human is the background layer; the terminal stays in front. */
+@media(max-width:850px){:root{--human-shift-y:62px}.hero{min-height:285px}}
+@media(max-width:560px){:root{--human-shift-y:52px}.hero{min-height:235px}}
 .terminal{
   position:relative;
   z-index:4;
 }
-
-
-
-
-
-
-
-
-
-
-/* ============================================================
-   WHOAMI — TRUE HUMAN CONTOUR, NOT BOUNDING BOX
-   ============================================================ */
 :root{
-}
-
-.human-backdrop{
-  isolation:isolate;
-  transform-origin:top left;
-  transform:translate(var(--human-shift-x),var(--human-shift-y)) scale(var(--human-scale));
-}
-
-.human-backdrop .real-portrait{
-  position:absolute!important;
-  z-index:3!important;
-  display:block!important;
-  visibility:hidden!important;
-  opacity:0!important;
-  margin:0!important;
-  padding:0!important;
-  border:0!important;
-  pointer-events:none!important;
-  object-fit:contain!important;
-  object-position:center bottom!important;
-  mix-blend-mode:screen;
-  filter:drop-shadow(0 0 8px var(--glow)) saturate(.8) contrast(1.05) brightness(.76);
-  transition:opacity .95s cubic-bezier(.22,.61,.36,1),filter .95s cubic-bezier(.22,.61,.36,1);
-}
-
-.human-backdrop.revealed #asciiArt{
-  opacity:0!important;
-  filter:none;
-}
-
-.human-backdrop.revealed .real-portrait{
-  visibility:visible!important;
-  opacity:.92!important;
-  filter:drop-shadow(0 0 11px var(--glow))
-         drop-shadow(0 0 23px var(--glow))
-         saturate(.86) contrast(1.07) brightness(.82);
 }
 
 .whoami-field{
@@ -446,229 +354,18 @@ select:focus-visible,[tabindex]:focus-visible{
 
 .terminal{position:relative;z-index:4}
 
-@media(max-width:850px){
-  }
-@media(max-width:560px){
-  }
-
-/* EXACT PHOTO-CONTOUR CODE LAYER
-   The PNG is the same 883x883 coordinate canvas as the original photo.
-   Its alpha is the actual traced human silhouette. */
-.human-backdrop #asciiArt{
-  position:absolute!important;
-  z-index:2!important;
-  width:389px!important;
-  height:389px!important;
-  left:50%!important;
-  bottom:0!important;
-  top:auto!important;
-  margin:0!important;
-  padding:0!important;
-  display:block!important;
-  transform:translateX(-50%)!important;
-  transform-origin:center bottom!important;
-  object-fit:fill!important;
-  object-position:center bottom!important;
-  pointer-events:none!important;
-  user-select:none!important;
-  opacity:.82;
-  filter:drop-shadow(0 0 5px var(--glow));
-  transition:opacity .95s cubic-bezier(.22,.61,.36,1),filter .95s cubic-bezier(.22,.61,.36,1);
-}
-.human-backdrop .real-portrait{
-  width:389px!important;
-  height:389px!important;
-  left:50%!important;
-  bottom:0!important;
-  top:auto!important;
-  transform:translateX(-50%)!important;
-}
-.human-backdrop.revealed #asciiArt{
-  opacity:0!important;
-  filter:blur(.45px);
-}
-
-@media(max-width:850px){
-  .human-backdrop #asciiArt{
-    width:350px!important;
-    height:350px!important;
-  }
-  .human-backdrop .real-portrait{
-    width:350px!important;
-    height:350px!important;
-  }
-}
-@media(max-width:560px){
-  .human-backdrop #asciiArt{
-    width:294px!important;
-    height:294px!important;
-  }
-  .human-backdrop .real-portrait{
-    width:294px!important;
-    height:294px!important;
-  }
-}
-
-
-/* Coded human — visible in every portfolio theme */
-.human-backdrop #asciiArt{
-  color:#35ffb2!important;
-  opacity:1!important;
-  text-shadow:
-    0 0 3px rgba(53,255,178,.95),
-    0 0 8px rgba(53,255,178,.80),
-    0 0 16px rgba(53,255,178,.55)!important;
-  filter:drop-shadow(0 0 4px rgba(53,255,178,.65))!important;
-}
-
 /* Keep the real-photo reveal visually independent of theme text colors. */
-.human-backdrop .real-portrait{
-  opacity:var(--portrait-opacity, .92);
-}
-
-
-/* ============================================================
-   CODED HUMAN — LIGHT/DARK THEME VISIBILITY
-   The coded human is a transparent raster asset, so `color:` cannot
-   recolor it. This rule keeps the existing asset and makes it readable
-   on every theme, including the light theme.
-   ============================================================ */
-.human-backdrop #asciiArt{
-  opacity:1!important;
-  mix-blend-mode:normal!important;
-  filter:
-    drop-shadow(0 0 1px rgba(53,255,178,.70))
-    drop-shadow(0 0 3px rgba(53,255,178,.45))!important;
-}
 
 /* Light themes: darken the raster code enough to retain contrast against
    white/light backgrounds while preserving its green character. */
-html[data-theme="light"] .human-backdrop #asciiArt,
-body[data-theme="light"] .human-backdrop #asciiArt,
-.light .human-backdrop #asciiArt,
-.theme-light .human-backdrop #asciiArt{
-  filter:
-    brightness(.62)
-    contrast(1.9)
-    saturate(1.35)
-    drop-shadow(0 0 1px rgba(0,0,0,1))
-    drop-shadow(0 0 3px rgba(0,0,0,.95))
-    drop-shadow(0 0 7px rgba(25,160,105,.75))!important;
-}
 
 /* Explicit OS light mode fallback if the site follows system preference. */
-@media (prefers-color-scheme: light){
-  .human-backdrop #asciiArt{
-    filter:
-      brightness(.62)
-      contrast(1.9)
-      saturate(1.35)
-      drop-shadow(0 0 1px rgba(0,0,0,1))
-      drop-shadow(0 0 3px rgba(0,0,0,.95))
-      drop-shadow(0 0 7px rgba(25,160,105,.75))!important;
-  }
-}
-
-
-/* ============================================================
-   CODED HUMAN — ALL COLOR THEMES
-   The coded human is a transparent raster asset. Keep its geometry
-   unchanged and adapt contrast only so the green code remains visible
-   against every theme, especially STUDIO/LIGHT.
-   ============================================================ */
-
-/* Dark/system/cyber/ocean/violet/amber: preserve the luminous green look.
-   Scoped to :not(.revealed) — this is a resting-state contrast tweak, not
-   a say over whether the layer is showing, so it must not out-specificity
-   the whoami/code crossfade's own opacity control (see EXCLUSIVE CROSSFADE
-   below) while a reveal is in progress or settled. */
-.app:not(.light-mode) .human-backdrop:not(.revealed) #asciiArt{
-  opacity:1!important;
-  filter:
-    drop-shadow(0 0 1px rgba(38,255,166,.72))
-    drop-shadow(0 0 4px rgba(38,255,166,.42))!important;
-}
-
-/* Light/STUDIO: use the same coded human, but increase its raster contrast
-   and give it a dark green edge so it cannot disappear into the pale page. */
-.app.light-mode .human-backdrop{
-  opacity:.72!important;
-}
-.app.light-mode .human-backdrop:not(.revealed) #asciiArt{
-  opacity:1!important;
-  filter:
-    brightness(.48)
-    contrast(1.85)
-    saturate(1.45)
-    drop-shadow(0 0 1px rgba(0,70,45,.98))
-    drop-shadow(0 0 3px rgba(0,95,62,.78))
-    drop-shadow(0 0 8px rgba(7,138,82,.42))!important;
-}
 
 /* If the page follows the system light preference, use the same treatment. */
-@media (prefers-color-scheme:light){
-  .app:not(.dark-mode) .human-backdrop #asciiArt{
-    filter:
-      brightness(.48)
-      contrast(1.85)
-      saturate(1.45)
-      drop-shadow(0 0 1px rgba(0,70,45,.98))
-      drop-shadow(0 0 3px rgba(0,95,62,.78))
-      drop-shadow(0 0 8px rgba(7,138,82,.42))!important;
-  }
-}
-
-
-
-/* ============================================================
-   WHOAMI / CODE — EXCLUSIVE CROSSFADE
-   During the 720ms transition the layers crossfade. Once the
-   transition finishes, the outgoing layer is forced to zero
-   visibility and remains hidden until the reverse command.
-   ============================================================ */
-.human-backdrop.crossfade #asciiArt,
-.human-backdrop.crossfade .real-portrait{
-  transition:opacity .72s cubic-bezier(.45,0,.55,1)!important;
-  will-change:opacity;
-}
-
-/* Keep the photo layer visible for the full crossfade duration in BOTH
-   directions. Without this, typing "code" removes .revealed and the base
-   .real-portrait rule's visibility:hidden applies instantly, snapping the
-   photo away while the ascii layer is still fading in — not a crossfade.
-   Visibility only actually flips (via the final-state rules below) once
-   JS removes .crossfade after the transition completes. */
-.human-backdrop.crossfade .real-portrait{
-  visibility:visible!important;
-}
 
 /* Final coded state: photo is completely gone. */
-.human-backdrop:not(.revealed):not(.crossfade) .real-portrait{
-  opacity:0!important;
-  visibility:hidden!important;
-  pointer-events:none!important;
-}
-
-/* Final revealed state: coded human is completely gone. */
-.human-backdrop.revealed:not(.crossfade) #asciiArt{
-  opacity:0!important;
-  visibility:hidden!important;
-  pointer-events:none!important;
-}
-
-.human-backdrop.revealed:not(.crossfade) .real-portrait{
-  opacity:1!important;
-  visibility:visible!important;
-  pointer-events:none!important;
-}
 
 /* Respect reduced-motion without changing the final exclusive states. */
-@media (prefers-reduced-motion:reduce){
-  .human-backdrop.crossfade #asciiArt,
-  .human-backdrop.crossfade .real-portrait{
-    transition:none!important;
-  }
-}
 
 /* ============================================================
    WORLD CHAT
@@ -1322,10 +1019,7 @@ body.lightbox-open{overflow:hidden}
    the position it has and is only given a layer. */
 .portrait-stage,.terminal,.activity,.page-view{position:relative}
 .workspace,.portrait-stage,.terminal,.activity,.page-view{z-index:2}
-/* The portrait itself gets its own explicit foreground layer as a second line
-   of defence. The background fields are z-index:0; this guarantees neither
-   their text nor their SVG trees can ever paint over the coded or real human. */
-.hero,.human-backdrop,.human-backdrop #asciiArt,.human-backdrop .real-portrait{isolation:isolate}
+.hero{isolation:isolate}
 
 @media(max-width:560px){.bg-graph{opacity:.5}}
 @media(prefers-reduced-motion:reduce){
@@ -1727,11 +1421,6 @@ body.lightbox-open{overflow:hidden}
 @media(max-width:380px){
   :root{ --m-gut:14px; --device-bezel:8px }
 }
-
-/* The whoami prompt's placeholder is a full sentence. On a phone the
-   field is ~180px, so it was being cut mid-word ("...to see th|") right
-   against the read-aloud button, which reads as a broken input rather
-   than a truncated hint. An ellipsis makes the truncation deliberate. */
 @media(max-width:900px){
   .whoami-field{ text-overflow:ellipsis; min-width:0 }
 }
@@ -2019,45 +1708,6 @@ body.lightbox-open{overflow:hidden}
   }
 }
 
-
-/* ============================================================
-   PHASE 44 / 46 — THE CODED HUMAN ON SMALL SCREENS
-   ------------------------------------------------------------
-   Phase 44 stacked the composition on a phone: a head-sized band of
-   padding at the top of the hero, text underneath. It cleared the face,
-   but it threw away the arrangement desktop actually has — text on the
-   left, figure on the right, base cut off by the terminal panel — and
-   the result read as a different page at narrow widths.
-
-   Phase 46 puts the desktop arrangement back at EVERY width, and makes
-   it survive the squeeze by narrowing the text column and scaling the
-   headline with the viewport, rather than by moving anything.
-
-   THE MEASUREMENT EVERYTHING RESTS ON
-   The PNG is a square 883x883 canvas. Tracing its alpha, the drawn
-   content runs y=101..882 and the silhouette is narrowest (the neck) at
-   y=443; across those rows it spans x=268..568. As fractions of the box:
-
-        face   x 0.303 .. 0.643      y 0.114 .. 0.502
-
-   Only the LEFT edge matters here, because the text approaches from the
-   left. For a box of side S whose right edge sits `overhang` past the
-   hero's right edge, the face begins at
-
-        face_left = hero.right + overhang - 0.697 * S
-
-   so the text may be exactly that much narrower than the hero, less a
-   gutter. That is the max-width below - written as the formula, not as
-   a hand-tuned number, so it stays true when S changes.
-
-   THE TUCK
-   `--human-tuck` pushes the box down past the hero's bottom edge, which
-   is where the terminal panel begins. The panel is z-index 4 and the
-   figure z-index 1, so the overflow is covered: the bust emerges from
-   behind the panel exactly as it does on desktop. The hero keeps a
-   min-height of S - tuck so the head still has room above the text.
-   ============================================================ */
-
 :root{
   /* Where the neck and the left shoulder line are, as fractions of the
      square image box. Both the code layer and the photo use these. */
@@ -2086,24 +1736,6 @@ body.lightbox-open{overflow:hidden}
   .hero h1{ font-size:clamp(17px,4.6vw,34px); line-height:1.12 }
   .hero .sub{ font-size:clamp(11px,2.9vw,15px) }
   .hero .eyebrow{ font-size:clamp(8px,2.1vw,11px) }
-
-  .human-backdrop{
-    /* Bottom-anchored, and pushed past the hero's bottom edge so the
-       terminal covers the base. */
-    top:auto;
-    bottom:0;
-    right:-6px;
-    width:var(--human-size);
-    height:var(--human-size);
-    transform:translateY(var(--human-tuck));
-  }
-  .human-backdrop #asciiArt,
-  .human-backdrop .real-portrait{
-    width:var(--human-size)!important;
-    height:var(--human-size)!important;
-    top:auto!important;
-    bottom:0!important;
-  }
 }
 
 /* S is a share of the viewport so the figure keeps the same presence at
@@ -2113,41 +1745,6 @@ body.lightbox-open{overflow:hidden}
 @media(max-width:850px){
   :root{ --human-size:min(68vw,330px); --human-tuck:calc(var(--human-size) * .18) }
 }
-
-/* ------------------------------------------------------------
-   PHASE 44b — the laptop band, 851px to 1259px
-   ------------------------------------------------------------
-   Found by testing the fix above across every width rather than only
-   the two the screenshots showed. It is not a phone problem and it was
-   already there before Phase 44 — but it affects most laptops, so it
-   is worth fixing in the same pass.
-
-   Sweeping 860 -> 1440 shows one clean break:
-
-        860..1180   name on ONE line, ink reaches 606..802,
-                    face starts 423..743   -> overlaps, always
-        1260+       name WRAPS to two lines, ink falls back to ~640,
-                    face starts 823+       -> ~190px of clear air
-
-   So the headline only clears the figure on wide screens by accident:
-   the font grows with the viewport until the name is finally forced to
-   wrap. Below that the line just keeps getting longer and runs through
-   the jaw.
-
-   Rather than shrink the figure or retune the font, the text is given
-   the width it is actually allowed to use, so it wraps on purpose
-   instead of by luck. The figure's face begins at
-
-        art.x + 0.303 * art.width      (from the alpha trace)
-
-   and art is 389px anchored 8px past the hero's right edge, which puts
-   the face at hero.right - 264. Leaving a 24px gutter, the text may be
-   hero.width - 288 wide; 330 is that with room to spare at both ends.
-
-   Deliberately stops at 1259: from 1260 up the name already wraps on
-   its own and the desktop composition is the one being matched, so it
-   is left exactly as it is.
-   ------------------------------------------------------------ */
 @media (min-width:851px) and (max-width:1259px){
   .hero .identity{ max-width:calc(100% - 330px) }
 }
@@ -2272,9 +1869,6 @@ body.lightbox-open{overflow:hidden}
   .palette-btn i{ border-radius:5px }
   .palette-btn i::after{ width:10px; height:10px }
 }
-
-
-
 
 /* ============================================================
    PHASE 49 — THREE-POSITION ROTARY SELECTOR (TOP VIEW)
@@ -2570,12 +2164,6 @@ body.lightbox-open{overflow:hidden}
 
 /* The coded figure loses its bloom too, so it reads as etched rather than
    lit. Matches the !important the other palettes use, or it would not win. */
-.app.dark-mode .human-backdrop:not(.revealed) #asciiArt{
-  opacity:.92!important;
-  filter:
-    drop-shadow(0 0 1px rgba(60,224,164,.55))
-    drop-shadow(0 0 3px rgba(60,224,164,.22))!important;
-}
 
 
 /* ============================================================
@@ -2820,28 +2408,6 @@ body.lightbox-open{overflow:hidden}
    straight off the file. A monochrome page therefore has to desaturate the
    image itself, and the glows that the green palettes bolt on with
    !important have to be overridden in kind. */
-.app.mono-mode .human-backdrop #asciiArt{
-  color:#ffffff!important;
-  text-shadow:none!important;
-}
-.app.dark-mode.mono-mode .human-backdrop:not(.revealed) #asciiArt{
-  opacity:.9!important;
-  filter:
-    grayscale(1) brightness(1.08)
-    drop-shadow(0 0 1px rgba(255,255,255,.45))
-    drop-shadow(0 0 4px rgba(255,255,255,.16))!important;
-}
-.app.light-mode.mono-mode .human-backdrop:not(.revealed) #asciiArt{
-  opacity:1!important;
-  filter:
-    grayscale(1) brightness(.34) contrast(1.7)
-    drop-shadow(0 0 1px rgba(0,0,0,.55))
-    drop-shadow(0 0 4px rgba(0,0,0,.18))!important;
-}
-/* The whoami portrait is a colour photograph, so it goes grey too — a
-   colour face in a strictly black-and-white page is the one thing that
-   would give the theme away as half-done. */
-.app.mono-mode .human-backdrop .real-portrait{ filter:grayscale(1) contrast(1.04) }
 
 /* ---- controls that hardcoded the studio green --------------------------- */
 .app.light-mode.mono-mode .knob{
@@ -2923,8 +2489,6 @@ body.lightbox-open{overflow:hidden}
 .app.mono-mode .robot-stage{
   filter:grayscale(1);
 }
-/* On black, a fully desaturated robot loses too much separation from the
-   ground; a little extra contrast brings the silhouette back. */
 .app.dark-mode.mono-mode .robot-3d,
 .app.dark-mode.mono-mode .robot-3d canvas,
 .app.dark-mode.mono-mode .robot-stage canvas{
@@ -2952,8 +2516,6 @@ body.lightbox-open{overflow:hidden}
    ============================================================ */
 .online i.beacon{ transform:translateY(-0.075em) }
 .online i.beacon::after{ /* the ring is positioned from the dot, so it follows */ }
-
-
 
 /* ---- Phase 57: the last tinted pixels in monochrome light -------------
    A pixel scan of all five views found colour in exactly one place the DOM
@@ -3268,13 +2830,6 @@ body.lightbox-open{overflow:hidden}
 }
 .pv-face svg{ width:100%; height:100%; display:block }
 .pv-face.is-anon svg{ fill:var(--accent); opacity:.62; width:74%; height:74% }
-
-/* The "+N others" chip — a silhouette and a number, together.
-
-   It is the ONLY place an anonymous viewer appears. A stand-in face in
-   the stack implied someone identified-but-not-shown; a silhouette
-   beside a count says what is actually known: some number of people are
-   here and none of them have told us who they are. */
 .pv-more{
   position:relative;
   height:22px;
@@ -3478,8 +3033,6 @@ a.btn:active{
   object-fit:cover;
 }
 .pv-rest{letter-spacing:0;font-size:clamp(9px,2.5vw,13px)}
-
-/* Anonymous visitor: human silhouette on a true circular, theme-aware disc. */
 #presenceFaces > .pv-face.is-anon{background:var(--accent);color:var(--bg)}
 #presenceFaces > .pv-face.is-anon > svg{width:78%;height:78%;fill:currentColor;opacity:1;border-radius:0}
 
@@ -3490,51 +3043,3 @@ a.btn:active{
 #presenceFaces .fa-circle-user::before{content:"\f2bd"}
 @media(max-width:560px){#presenceFaces .fa-circle-user{font-size:19px}}
 @media(max-width:380px){#presenceFaces .fa-circle-user{font-size:17px}}
-
-/* ============================================================
-   V74 — TRUE BACKDROP OCCLUSION FOR THE REVEALED PORTRAIT
-   The background was already behind the human in z-order, but the parent
-   human layer used opacity below 1 and the photo used screen blending. That
-   let background code/graphs visually bleed through the face and clothing.
-   Once the real portrait is revealed, composite it as a normal opaque
-   foreground image so the decorative world is genuinely behind the person.
-   ============================================================ */
-.human-backdrop.revealed,
-.human-backdrop.crossfade{
-  opacity:1!important;
-}
-.human-backdrop.revealed .real-portrait,
-.human-backdrop.crossfade .real-portrait{
-  mix-blend-mode:normal!important;
-}
-.human-backdrop.revealed:not(.crossfade) .real-portrait{
-  opacity:1!important;
-  visibility:visible!important;
-}
-/* Trim the lowest edge of the revealed portrait so it does not peek through the semi-transparent terminal panel below. */
-.human-backdrop .real-portrait{
-  clip-path:inset(0 0 14px 0);
-}
-
-/* V76 — remove the visible halo/backlight around the revealed portrait,
-   especially on small/mobile layouts where the old glow looked like a
-   cropped green edge above the head and shoulder. Keep the reveal clean. */
-.human-backdrop.revealed .real-portrait,
-.human-backdrop.crossfade .real-portrait{
-  filter:saturate(.98) contrast(1.02) brightness(.98)!important;
-}
-@media (max-width: 560px){
-  .human-backdrop.revealed .real-portrait,
-  .human-backdrop.crossfade .real-portrait{
-    filter:none!important;
-  }
-}
-
-/* V77 — the revealed portrait should be clean, not glowing. The earlier
-   reveal shadow looked like a cropped green backlight above the head and
-   along the shoulder on smaller screens. */
-.human-backdrop.revealed .real-portrait,
-.human-backdrop.crossfade .real-portrait,
-.human-backdrop.revealed:not(.crossfade) .real-portrait{
-  filter:none!important;
-}
