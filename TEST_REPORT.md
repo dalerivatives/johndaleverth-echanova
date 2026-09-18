@@ -1,3 +1,51 @@
+# v80 verification
+
+Passed in the build environment:
+
+- All first-party JavaScript syntax checks and backend compilation.
+- Real Canvas PNG checks: transparent corner pixels, opaque centre, centre crop
+  without stretching, safe removal/error behavior, stale update protection,
+  cross-tab propagation, and absence of the header logo markup.
+- Loader checks: normal release, API/image fallback, hidden images remaining
+  lazy, seven-second overall budget, critical-file recovery, timer cleanup, and
+  exactly one readiness event.
+- Speech-controller and worker checks: playback/cancel/queue/first-tap behavior,
+  prefetched-cache reuse, static-only background preparation, duplicate-request
+  coalescing, and retry after prefetch failure.
+- Site checks: timeout while reading JSON, in-place content retry, concurrent
+  retry guard, and all nine existing editor-theme class mappings.
+- Python suite: 8 passed, 3 explicitly skipped. Routes, editor/public branding,
+  health, static-mode synthesis blocking, assets, speech validation and mocked
+  rate limiting passed. Tests use an isolated temporary SQLite database.
+- Archive CRC, duplicate-entry and path checks before delivery. Existing
+  portrait/voice assets and the bundled database are unchanged from v79.
+
+Not verified here:
+
+- Real desktop/mobile browser layout and physical audio playback. The Chrome
+  installation repeatedly timed out; no successful Playwright run is claimed.
+- Three optional real Piper synthesis tests (not installed or needed for the
+  default static deployment). Enable with RUN_DYNAMIC_VOICE_TESTS=1 only in a
+  suitably provisioned local environment with piper-tts installed.
+- Live Render deployment, RAM under production traffic, or existing hosted
+  logo/database persistence.
+
+Run from the project root:
+
+    pip install -r requirements.txt httpx
+    python -m unittest discover -s tests -v
+    node tests/loader-regressions.cjs
+    node tests/speech-regressions.cjs
+    node tests/speech-worker-regressions.cjs
+    node tests/site-reliability-regressions.cjs
+
+Optional test-only dependencies (not required by the hosted portfolio):
+
+    npm install --no-save @napi-rs/canvas playwright
+    node tests/favicon-regressions.cjs
+    npx playwright install chromium
+    node tests/browser-regressions.cjs
+
 # v79 verification
 
 - JavaScript syntax checks passed for the loader, speech controller, speech

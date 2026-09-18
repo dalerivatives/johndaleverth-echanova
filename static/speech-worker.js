@@ -1,5 +1,6 @@
 /* Prepare and cache voice audio so playback can start immediately once asked. */
 const cache=new Map();
+const pending=new Map();
 
 /* The default narration already exists as a Piper-generated WAV. Using it
    avoids loading the neural runtime in the web service during page visits. */
@@ -14,14 +15,28 @@ async function getWav(text, profile){
   const key=(profile || 'robot')+'|'+text;
   let wav=cache.get(key);
   if(!wav){
+    if(!pending.has(key)){
+      pending.set(key,loadWav(text,profile).then(buffer=>{
+        cache.set(key,buffer);
+        if(cache.size>12) cache.delete(cache.keys().next().value);
+        return buffer;
+      }).finally(()=>pending.delete(key)));
+    }
+    // Hover-prefetch and click can overlap; only fetch the WAV once.
+    wav=await pending.get(key);
+  }
+  return {key,wav:wav.slice(0)};
+}
+
+async function loadWav(text,profile){
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),25000);
     try{
       const normalized=canonical(text);
       const staticUrl=text==='Welcome to my world!'
-        ? 'assets/whoami-robot.wav?v=79'
+        ? '/assets/whoami-robot.wav?v=80'
         : (profile==='narration' && normalized===DEFAULT_TERMINAL
-          ? 'assets/voice-preview.wav?v=79' : '');
+          ? '/assets/voice-preview.wav?v=80' : '');
       const response=staticUrl
         ? await fetch(staticUrl,{signal:controller.signal})
         : await fetch('/api/speech',{
@@ -31,12 +46,8 @@ async function getWav(text, profile){
             signal:controller.signal
           });
       if(!response.ok) throw new Error('Voice temporarily unavailable');
-      wav=await response.arrayBuffer();
-      cache.set(key,wav.slice(0));
-      if(cache.size>12) cache.delete(cache.keys().next().value);
+      return await response.arrayBuffer();
     } finally { clearTimeout(timer); }
-  }
-  return {key,wav:wav.slice(0)};
 }
 
 self.onmessage=async ({data})=>{
@@ -53,6 +64,6 @@ self.onmessage=async ({data})=>{
     }
     self.postMessage({id:data.id,wavs},wavs);
   }catch(error){
-    self.postMessage({id:data.id,error:String(error.message || error)});
+    self.postMessage({id:data.id,error:String(error.message || error),prefetch:!!data.prefetch,key:data.key || null});
   }
 };

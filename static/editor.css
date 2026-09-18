@@ -439,6 +439,6 @@
 .editor-body :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .editor-body .editor-tab.active{background:var(--tile-hover);color:var(--accent);border-color:var(--accent)}
 .logo-upload{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
-.logo-preview{width:88px;height:88px;flex:0 0 88px;display:grid;place-items:center;border:1px solid var(--line);border-radius:16px;background:var(--panel2)}
-.logo-preview img{object-fit:contain}.logo-preview span{font-size:28px;color:var(--accent);display:grid;place-items:center;width:100%;height:100%}
+.logo-preview{width:88px;height:88px;flex:0 0 88px;display:grid;place-items:center;border:1px solid var(--line);border-radius:50%;background:var(--panel2);overflow:hidden}
+.logo-preview img{width:100%;height:100%;object-fit:cover;border-radius:50%}.logo-preview span{font-size:28px;color:var(--accent);display:grid;place-items:center;width:100%;height:100%}
 #faviconState{font-size:13px;color:var(--muted);overflow-wrap:anywhere}

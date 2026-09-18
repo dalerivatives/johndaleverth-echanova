@@ -62,12 +62,21 @@ function renderSocials(raw){
   });
 }
 
+// Bound the full JSON response, including a stalled response body.
+async function fetchContentJson(url){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),8000);
+  try{
+    const response=await fetch(url,{signal:controller.signal});
+    if(!response.ok) throw new Error('HTTP '+response.status);
+    return await response.json();
+  }finally{clearTimeout(timer);}
+}
+
 async function applySiteSettings(){
   let settings;
   try{
-    const res = await fetch("/api/settings");
-    if(!res.ok) throw new Error("settings unavailable");
-    settings = await res.json();
+    settings = await fetchContentJson("/api/settings");
   }catch(err){
     return null;   // keep the fallback text that's already in the HTML
   }
@@ -101,35 +110,9 @@ async function applySiteSettings(){
   const metaDesc = document.querySelector('meta[name="description"]');
   if(metaDesc && (settings.meta_description || "").trim()) metaDesc.content = settings.meta_description;
 
-  // 5b. browser-tab logo — replaces the default "D" once one is uploaded
-  //     in Site settings. The HTML ships with the default baked in, so a
-  //     blank/failed settings fetch just leaves that in place.
+  // The upload is ONLY a tab icon, never an extra avatar in the viewer bar.
   const logo = (settings.favicon_url || "").trim();
-  if(logo){
-    const tabIcon = document.querySelector('link[rel="icon"]');
-    if(tabIcon){
-      const dataMatch = /^data:([^;,]+)/.exec(logo);
-      const ext = (logo.split("?")[0].split("#")[0].split(".").pop() || "").toLowerCase();
-      tabIcon.type = dataMatch ? dataMatch[1] :
-        ({png:"image/png", jpg:"image/jpeg", jpeg:"image/jpeg", webp:"image/webp",
-          ico:"image/x-icon", svg:"image/svg+xml"}[ext] || "image/png");
-      tabIcon.href = logo;
-    }
-  }
-
-  // 5c. Public website logo — the uploaded logo is not only a browser-tab
-  //     icon. When present, it also appears visibly in the public header.
-  const siteLogo = document.getElementById("siteLogo");
-  const siteLogoImg = document.getElementById("siteLogoImg");
-  if(siteLogo && siteLogoImg){
-    if(logo){
-      siteLogoImg.src = logo;
-      siteLogo.hidden = false;
-    }else{
-      siteLogo.hidden = true;
-      siteLogoImg.removeAttribute("src");
-    }
-  }
+  if(window.PortfolioFavicon) window.PortfolioFavicon.apply(logo);
 
   /* 7. Link-preview URLs. Facebook and friends read these tags from the raw
         HTML before any JavaScript runs, so rewriting them here does NOT make
@@ -222,6 +205,7 @@ function renderStack(){
    const btn=document.createElement("button");
    btn.type="button"; btn.className="nav-btn"; btn.innerHTML=item.icon;
    btn.setAttribute("aria-label",item.label);
+   if(index===0) btn.setAttribute("aria-current","page");
    const label=document.createElement("span");
    label.className="nav-label"; label.textContent=item.label;
    wrap.append(btn,label); stack.appendChild(wrap);
@@ -272,13 +256,19 @@ function activate(id,{historyMode="push",scroll=true}={}){
    const el=stack.querySelector('.nav-item[data-id="'+item.id+'"]');
    if(el) el.style.order=String(index);
  });
- document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
+ document.querySelectorAll(".nav-item").forEach(x=>{
+   x.classList.remove("active");
+   x.querySelector('.nav-btn').removeAttribute('aria-current');
+ });
  const activeItem=document.querySelector(`.nav-item[data-id="${id}"]`);
- if(activeItem) activeItem.classList.add("active");
+ if(activeItem){
+   activeItem.classList.add("active");
+   activeItem.querySelector('.nav-btn').setAttribute('aria-current','page');
+ }
  views.forEach(view=>view.classList.toggle("active",view.dataset.view===id));
  if(historyMode !== "none") syncSectionUrl(id,historyMode);
  window.dispatchEvent(new CustomEvent("portfolio-section-change",{detail:{id}}));
- if(scroll) window.scrollTo({top:0,behavior:"smooth"});
+ if(scroll) window.scrollTo({top:0,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
 }
 /* On a pointer device the rail opens on hover, so a click is always a
    navigation. Touch has no hover: the collapsed circle would otherwise be
@@ -1425,13 +1415,14 @@ if(osLight){
   }
 
   async function loadCmsSection(container){
+    if(container.dataset.loading==='true') return;
+    container.dataset.loading='true';
+    container.setAttribute('aria-busy','true');
     const section = container.dataset.section;
     const emptyLabel = container.dataset.emptyLabel || "Nothing here yet.";
     container.innerHTML = `<p class="cms-loading">Loading…</p>`;
     try{
-      const res = await fetch(`/api/content/${encodeURIComponent(section)}`);
-      if(!res.ok) throw new Error("HTTP "+res.status);
-      const categories = await res.json();
+      const categories = await fetchContentJson(`/api/content/${encodeURIComponent(section)}`);
       const withItems = categories.filter(c=>c.items && c.items.length);
       if(!withItems.length){
         container.innerHTML = `<p class="cms-empty">${escapeHtml(emptyLabel)}</p>`;
@@ -1440,8 +1431,12 @@ if(osLight){
       container.innerHTML = "";
       withItems.forEach(cat => container.appendChild(renderCategory(cat)));
     }catch(err){
-      container.innerHTML = `<p class="cms-empty">This section is temporarily unavailable. Please refresh to try again.</p>`;
+      container.innerHTML = `<div class="cms-empty" role="status"><p>This section is temporarily unavailable.</p><button class="cms-retry" type="button">Retry this section</button></div>`;
+      container.querySelector('.cms-retry').addEventListener('click',()=>loadCmsSection(container));
       if(window.PortfolioBoot) window.PortfolioBoot.fail(section);
+    }finally{
+      delete container.dataset.loading;
+      container.setAttribute('aria-busy','false');
     }
   }
 
@@ -2798,7 +2793,6 @@ if(osLight){
   function applyCapability(){
     const dynamic=!!(window.Speech && window.Speech.dynamicSupported);
     toggle.hidden=!dynamic;
-    if(!dynamic) on=false;
     paint();
   }
 
@@ -2827,7 +2821,7 @@ if(osLight){
       }
       const fresh = messages.filter(m => !spoken.has(m.id));
       fresh.forEach(m => spoken.add(m.id));
-      if(!on || !fresh.length) return;
+      if(!on || !fresh.length || !window.Speech.dynamicSupported) return;
       /* The master switch outranks this one. Reading arriving messages
          aloud is something the page does at you, unasked, once per
          message — which is exactly what "mute" is for. The chat's own
@@ -2885,11 +2879,17 @@ if(osLight){
        installed, or an engine that has wedged. */
     if(spoke === false){
       btn.classList.add("failed");
-      btn.setAttribute("title", "Voice playback unavailable. Please try again.");
+      const text=collectText();
+      const message=!window.Speech.dynamicSupported && !window.Speech.isStatic(text,'narration')
+        ? "This edited text needs new recorded audio. Low-memory hosting only plays the bundled narration."
+        : "Voice playback unavailable. Please try again.";
+      btn.setAttribute("title", message);
+      btn.setAttribute("aria-label", message);
       clearTimeout(btn.__failT);
       btn.__failT = setTimeout(()=>{
         btn.classList.remove("failed");
         btn.setAttribute("title", "Read aloud");
+        btn.setAttribute("aria-label", "Read this terminal aloud");
       }, 3000);
     }
   }
@@ -2928,7 +2928,8 @@ if(osLight){
   }
 
   // Cache the static narration in the visitor's browser so click is immediate.
-  window.addEventListener('load', ()=>setTimeout(warmTerminalVoice, 900), {once:true});
+  window.addEventListener('portfolio-ready', ()=>setTimeout(warmTerminalVoice, 300), {once:true});
+  settingsReady.then(warmTerminalVoice);
   window.addEventListener('portfolio-section-change', ()=>setTimeout(warmTerminalVoice, 120));
   btn.addEventListener('pointerenter', warmTerminalVoice, {passive:true});
   btn.addEventListener('focus', warmTerminalVoice);
@@ -2948,7 +2949,7 @@ if(osLight){
        while the voice kept going. */
     const queued = window.Speech.plain(text, true, idle);
     if(!queued){
-      idle();
+      idle(false);
       return;
     }
     /* A last-resort guard on this side too. Speech.plain() has its own

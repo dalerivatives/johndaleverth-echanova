@@ -1,3 +1,10 @@
+# v80 update
+
+Start with **UPDATE_v80.md**. Uploaded branding is now a circular browser-tab
+icon only. Viewer avatars remain in the header. This update also improves
+startup, content retries, speech caching, and navigation accessibility while
+keeping the v79 Render memory protection.
+
 # v79 update
 
 Start with **UPDATE_v79.md**. This release prevents the bundled neural voice

@@ -15,7 +15,7 @@ class AudioContext {
 }
 const window={AudioContext,addEventListener(){},dispatchEvent(e){events.push(e);}};
 const dynamicStatus=()=>Promise.resolve({ok:true,json:()=>Promise.resolve({dynamic:true})});
-const sandbox={window,Worker,CustomEvent:class{constructor(type,{detail}){this.type=type;this.detail=detail;}},document:{addEventListener(){}},console,setTimeout,clearTimeout,fetch:dynamicStatus};
+const sandbox={window,Worker,AbortController,CustomEvent:class{constructor(type,{detail}){this.type=type;this.detail=detail;}},document:{addEventListener(){}},console,setTimeout,clearTimeout,fetch:dynamicStatus};
 vm.runInNewContext(fs.readFileSync('static/speech.js','utf8'),sandbox);
 (async()=>{
   await new Promise(r=>setImmediate(r));
@@ -81,7 +81,7 @@ vm.runInNewContext(fs.readFileSync('static/speech.js','utf8'),sandbox);
       createBufferSource(){const s={connect(){},disconnect(){},start(){this.started=true;},stop(){this.stopped=true;}};sources2.push(s);return s;}
     }
     const window2={AudioContext:SlowAudioContext,addEventListener(){},dispatchEvent(){}};
-    const sandbox2={window:window2,Worker:Worker2,CustomEvent:class{constructor(type,{detail}){this.type=type;this.detail=detail;}},document:{addEventListener(){}},console,setTimeout,clearTimeout,setInterval,clearInterval,fetch:dynamicStatus};
+    const sandbox2={window:window2,Worker:Worker2,AbortController,CustomEvent:class{constructor(type,{detail}){this.type=type;this.detail=detail;}},document:{addEventListener(){}},console,setTimeout,clearTimeout,setInterval,clearInterval,fetch:dynamicStatus};
     vm.runInNewContext(fs.readFileSync('static/speech.js','utf8'),sandbox2);
     await new Promise(r=>setImmediate(r));
     const speech2=window2.Speech;
@@ -94,5 +94,21 @@ vm.runInNewContext(fs.readFileSync('static/speech.js','utf8'),sandbox);
     assert.equal(result,true);
   })();
 
-  console.log('PASS: playback lifecycle, completion, cancellation, stale response, interruption, error, empty input, bounded queue, first-tap-while-suspended');
+  assert.equal(speech.warm('Never synthesize this automatically'),false);
+  assert(speech.warm('Welcome to my world!'));
+  const prefetched=workers.at(-1);
+  const prefetch=prefetched.sent.at(-1);
+  await prefetched.onmessage({data:{id:prefetch.id,warmed:true,key:prefetch.key}});
+  speech.robot('Welcome to my world!',true);
+  assert.equal(workers.at(-1),prefetched,'starting idle playback must preserve the cached worker');
+  assert(!prefetched.terminated);
+  speech.stop();
+  assert(speech.warm('Welcome to my world!'));
+  assert.notEqual(workers.at(-1),prefetched,'cancellation must clear the old warmed bookkeeping');
+  const failed=workers.at(-1), warmRequest=failed.sent.at(-1);
+  await failed.onmessage({data:{id:warmRequest.id,prefetch:true,key:warmRequest.key,error:'offline'}});
+  const beforeRetry=failed.sent.length;
+  speech.warm('Welcome to my world!');
+  assert.equal(failed.sent.length,beforeRetry+1,'failed prefetch is retryable');
+  console.log('PASS: playback lifecycle, cancellation, queue, first tap, cache reuse, safe prefetch, and retry');
 })().catch(e=>{console.error(e);window.Speech.stop();process.exitCode=1;});

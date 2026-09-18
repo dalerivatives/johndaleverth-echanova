@@ -1,8 +1,8 @@
-/* Readiness gate, not a pretend time-based percentage. */
+/* A bounded readiness gate. Optional content cannot trap the visitor here. */
 (() => {
   document.documentElement.classList.add('booting');
   const tasks=[], failures=new Set();
-  let released=false, completed=0, total=1;
+  let released=false, completed=0, total=1, criticalFailure=false, deadline;
   const byId=id=>document.getElementById(id);
   function progress(){
     const bar=byId('bootBar');
@@ -13,30 +13,44 @@
     total++;
     /* Settings and CMS data enhance fallback HTML; they must not keep the
        whole page inert when the backend is restarting or unavailable. */
-    const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),7000));
-    const safe=Promise.race([Promise.resolve(promise),timeout]).catch(()=>fail(name)).finally(()=>{completed++;progress();});
+    let timer;
+    const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('timeout')),3500);});
+    const safe=Promise.race([Promise.resolve(promise),timeout]).catch(()=>fail(name)).finally(()=>{clearTimeout(timer);completed++;progress();});
     tasks.push(safe);
     return safe;
   }
   window.PortfolioBoot={track,fail};
   function release(){
+    if(released) return;
     released=true;
     clearTimeout(deadline);
+    const screen=byId('bootScreen');
+    const moveFocus=!!(screen && screen.contains(document.activeElement));
     document.documentElement.classList.remove('booting');
     if(byId('bootScreen')) byId('bootScreen').hidden=true;
     document.querySelectorAll('[data-boot-inert]').forEach(el=>{el.inert=false;el.removeAttribute('data-boot-inert');});
+    if(moveFocus && byId('mainContent')) byId('mainContent').focus({preventScroll:true});
     window.dispatchEvent(new Event('portfolio-ready'));
   }
   function recovery(){
     if(released || !byId('bootStatus')) return;
-    byId('bootStatus').textContent='Some content is taking longer or could not load. Retry, or continue with what is ready.';
+    byId('bootStatus').textContent='An essential page file could not load. Retry, or continue with limited functionality.';
     byId('bootActions').hidden=false;
   }
-  const deadline=setTimeout(recovery,20000);
+  function finish(){
+    if(released) return;
+    if(criticalFailure){recovery();return;}
+    if(byId('bootBar')) byId('bootBar').style.width='100%';
+    if(byId('bootStatus')) byId('bootStatus').textContent='Ready. Welcome.';
+    release();
+  }
   window.addEventListener('error', event=>{
-    if(event.error) fail('Application script');
     const el=event.target;
-    if(el && (el.tagName==='SCRIPT' || el.tagName==='LINK')) fail(el.src || el.href);
+    if((el && el.hasAttribute && el.hasAttribute('data-boot-critical')) ||
+       (event.error && /\/script\.js(?:[?#]|$)/.test(event.filename || ''))){
+      criticalFailure=true;
+      if(document.readyState!=='loading') recovery();
+    }
   },true);
   document.addEventListener('DOMContentLoaded',()=>{
     byId('bootScreen').hidden=false;
@@ -45,31 +59,29 @@
     }
     byId('bootRetry').onclick=()=>location.reload();
     byId('bootContinue').onclick=release;
+    // One overall cap, not a full timeout for each loading phase.
+    deadline=setTimeout(finish,7000);
     // Other DOMContentLoaded handlers register CMS requests in this same turn.
     setTimeout(async()=>{
       await Promise.all(tasks);
       if(released) return;
       byId('bootStatus').textContent='Finishing images and typography…';
       const assets=[];
-      /* Prefetch both bundled voices, but never make narration a boot gate. */
-      fetch('assets/whoami-robot.wav?v=79').catch(()=>{});
-      fetch('assets/voice-preview.wav?v=79').catch(()=>{});
       if(document.fonts) assets.push(track(document.fonts.ready,'Fonts'));
       for(const img of document.images){
-        img.loading='eager';
+        const view=img.closest('.page-view');
+        // Keep off-screen galleries lazy instead of promoting all to eager.
+        if(img.loading==='lazy' || img.closest('[hidden]') ||
+           (view && !view.classList.contains('active'))) continue;
         const ready=img.decode ? img.decode() : new Promise((resolve,reject)=>{
           if(img.complete){img.naturalWidth ? resolve() : reject();return;}
           img.addEventListener('load',resolve,{once:true});img.addEventListener('error',reject,{once:true});
         });
         assets.push(track(ready,'Image'));
       }
-      assets.push(track(document.readyState==='complete' ? Promise.resolve() : new Promise(resolve=>window.addEventListener('load',resolve,{once:true})),'Page assets'));
+      // No window.load or audio gate: embeds and narration are optional.
       await Promise.all(assets);
-      if(released) return;
-      /* Optional API/image failures use the readable HTML fallback. */
-      byId('bootBar').style.width='100%';
-      byId('bootStatus').textContent='Ready. Welcome.';
-      requestAnimationFrame(()=>requestAnimationFrame(release));
+      finish();
     },0);
   },{once:true});
 })();

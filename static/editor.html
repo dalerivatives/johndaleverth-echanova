@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2305080b'/%3E%3Crect x='12' y='16' width='40' height='28' rx='6' fill='none' stroke='%234dff91' stroke-width='4'/%3E%3Cpath d='M22 26l6 4-6 4' fill='none' stroke='%234dff91' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M33 35h9' stroke='%234dff91' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'/%3E">
 <title>Portfolio Editor</title>
 <link rel="stylesheet" href="vendor/fontawesome/all.min.css?v=78">
-<link rel="stylesheet" href="style.css?v=78">
-<link rel="stylesheet" href="editor.css?v=78">
+<link rel="stylesheet" href="style.css?v=80">
+<link rel="stylesheet" href="editor.css?v=80">
 </head>
 <body class="app editor-body" id="editorBody">
 
@@ -84,8 +84,8 @@
       <p class="editor-hint">Everything on the site that isn't a card lives here. Changes appear on the site the next time it loads.</p>
 
       <section class="settings-group">
-        <h3><i class="fa-solid fa-image" aria-hidden="true"></i> Website logo</h3>
-        <p class="settings-note">Choose the browser-tab logo for your website. Upload a square PNG, JPG, WebP or ICO, up to 5 MB. Saved immediately.</p>
+        <h3><i class="fa-solid fa-image" aria-hidden="true"></i> Browser-tab icon</h3>
+        <p class="settings-note">Shown only in the browser tab, not beside the viewer count. PNG, JPG, WebP or ICO, up to 5 MB. Automatically centre-cropped into a circle with transparent corners; your original upload stays unchanged. Saved immediately.</p>
         <div class="logo-upload">
           <div class="logo-preview"><img id="faviconPreview" alt="Website logo preview" width="64" height="64" hidden><span id="faviconDefault" aria-label="No custom website logo"><i class="fa-solid fa-image" aria-hidden="true"></i></span></div>
           <div>
@@ -320,6 +320,7 @@
     </div>
   </div>
 
-<script src="editor.js?v=78"></script>
+<script src="favicon.js?v=80"></script>
+<script src="editor.js?v=80"></script>
 </body>
 </html>

@@ -19,6 +19,8 @@ const SECTION_HINTS = {
 
 const $ = sel => document.querySelector(sel);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
+// Tab branding is public, including the locked editor page.
+if(window.PortfolioFavicon) window.PortfolioFavicon.refresh();
 
 const EDITOR_THEME_CLASSES = ["light-mode","dark-mode","mono-mode","cyber-mode","ocean-mode","violet-mode","amber-mode"];
 const editorOsLight = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
@@ -280,32 +282,31 @@ function setSettingsStatus(text, isError){
   }
 }
 
-/* The logo comes back from the upload endpoint as an "/uploads/xxx.png"
-   file URL, not a base64 data URI — so "is there a logo" is just "is the
-   string non-empty", and the <img>/<link> src works with either form. */
-const DEFAULT_FAVICON_SVG = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#05080b"/><rect x="12" y="16" width="40" height="28" rx="6" fill="none" stroke="#4dff91" stroke-width="4"/><path d="M22 26l6 4-6 4" fill="none" stroke="#4dff91" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M33 35h9" stroke="#4dff91" stroke-width="4" stroke-linecap="round"/></svg>');
-
-function faviconMime(url){
-  const dataMatch = /^data:([^;,]+)/.exec(url);
-  if(dataMatch) return dataMatch[1];
-  const ext = (url.split("?")[0].split("#")[0].split(".").pop() || "").toLowerCase();
-  return {png:"image/png", jpg:"image/jpeg", jpeg:"image/jpeg", webp:"image/webp",
-    ico:"image/x-icon", svg:"image/svg+xml"}[ext] || "image/png";
-}
+let faviconRenderRevision = 0;
 
 /* Shows whether the resume slot is filled, and offers "Remove" only when
    there's something to remove. */
-function renderUploadStates(){
+function renderUploadStates({broadcast=false}={}){
+  const revision = ++faviconRenderRevision;
   const logo = (settingsSnapshot.favicon_url || "").trim();
   const preview = $("#faviconPreview");
   preview.hidden = !logo;
   if(logo) preview.src = logo; else preview.removeAttribute("src");
   $("#faviconDefault").hidden = !!logo;
-  $("#faviconState").textContent = logo ? "Custom logo saved" : "No custom logo uploaded yet";
+  $("#faviconState").textContent = logo ? "Circular tab icon saved" : "No custom logo uploaded yet";
   document.querySelector('[data-clear="favicon_url"]').hidden = !logo;
-  const tabIcon = document.querySelector('link[rel="icon"]');
-  tabIcon.type = logo ? faviconMime(logo) : "image/svg+xml";
-  tabIcon.href = logo || DEFAULT_FAVICON_SVG;
+  if(window.PortfolioFavicon){
+    window.PortfolioFavicon.apply(logo, {broadcast}).then(png=>{
+      if(revision!==faviconRenderRevision || !logo) return;
+      if(png){
+        preview.src=png;
+      }else{
+        preview.hidden=true;
+        $("#faviconDefault").hidden=false;
+        $("#faviconState").textContent="Saved, but the image could not be loaded. Please try uploading it again.";
+      }
+    });
+  }
   const rows = {
     resume_url: {el:$("#resumeState"), empty:"Not uploaded yet — the download button stays hidden"}
   };
@@ -635,7 +636,7 @@ $("#settingsFileInput").addEventListener("change", async e=>{
     }
     const data = await res.json();
     settingsSnapshot[key] = data.value;
-    renderUploadStates();
+    renderUploadStates({broadcast:key==="favicon_url"});
     setSettingsStatus("Uploaded.");
   }catch(err){
     if(err.message!=="unauthorized") setSettingsStatus("Upload failed: "+err.message, true);
@@ -653,7 +654,7 @@ $$("[data-clear]").forEach(btn=>{
       });
       if(!res.ok) throw new Error("HTTP "+res.status);
       settingsSnapshot = await res.json();
-      renderUploadStates();
+      renderUploadStates({broadcast:key==="favicon_url"});
       setSettingsStatus("Removed.");
     }catch(err){
       if(err.message!=="unauthorized") setSettingsStatus("Couldn't remove: "+err.message, true);

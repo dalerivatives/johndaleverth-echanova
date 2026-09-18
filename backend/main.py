@@ -279,13 +279,13 @@ _speech_rate_lock = threading.Lock()
 
 @app.post("/api/speech")
 def robot_speech(payload: SpeechRequest, request: Request):
+    text = payload.text.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="Text is required")
     # Static mode prevents the Piper/ONNX model from entering the Render web
     # process. Bundled WAVs still provide the terminal and whoami voices.
     if SPEECH_MODE != "dynamic":
         raise HTTPException(status_code=503, detail="Dynamic speech is disabled on this hosting plan")
-    text = payload.text.strip()
-    if not text:
-        raise HTTPException(status_code=422, detail="Text is required")
     ip = request.client.host if request.client else "unknown"
     now = time.monotonic()
     with _speech_rate_lock:

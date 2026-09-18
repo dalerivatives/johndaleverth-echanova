@@ -59,12 +59,18 @@
   }
   window.addEventListener('pointerdown', prime, {passive:true});
   window.addEventListener('keydown', prime);
+  function discardWorker(){
+    if(worker) worker.terminate();
+    worker=null;
+    warmed.clear();
+    warming.clear();
+  }
   function prepareWorker(){
     if(worker) return;
-    worker = new Worker('speech-worker.js?v=79');
+    worker = new Worker('/speech-worker.js?v=80');
     worker.onmessage = async ({data}) => {
-      if(data && data.warmed){
-        if(data.key) warmed.add(data.key);
+      if(data && (data.warmed || data.prefetch)){
+        if(data.key && data.warmed) warmed.add(data.key);
         if(data.key) warming.delete(data.key);
         return;
       }
@@ -98,7 +104,7 @@
     const ownedWorker=worker;
     worker.onerror = ()=>{
       if(worker !== ownedWorker) return;
-      worker.terminate(); worker = null;
+      discardWorker();
       finish(false);
     };
   }
@@ -111,7 +117,7 @@
       prepareWorker();
       worker.postMessage({id:current.id, parts:current.parts, profile:current.profile});
       timer = setTimeout(()=>{
-        if(worker){worker.terminate();worker=null;}
+        discardWorker();
         finish(false);
       }, current.parts.length*25000+5000);
     } catch(e){ finish(false); }
@@ -124,7 +130,9 @@
   function stop(){
     queue = [];
     clearTimeout(timer);
-    if(worker){ worker.terminate(); worker=null; }
+    // Starting a new utterance calls stop(), even when idle. Preserve an
+    // idle worker's prefetched/cached WAV instead of throwing that cache away.
+    if(current) discardWorker();
     if(source){ source.onended=null; try{source.stop();source.disconnect();}catch(e){} source=null; }
     const job = current; current = null;
     if(job){
@@ -162,7 +170,8 @@
     if(!supported) return false;
     const clean = normalizeText(text);
     if(!clean) return false;
-    if(!dynamicAvailable && !isStatic(clean, profile)) return false;
+    // Background preparation is static-only, even on a dynamic deployment.
+    if(!isStatic(clean, profile)) return false;
     const key = profile + '|' + clean;
     if(warmed.has(key) || warming.has(key)) return true;
     prepareWorker();
@@ -200,12 +209,15 @@
     get speaking(){return !!current || queue.length > 0;},
     get primed(){return unlocked;}
   };
-  fetch('/api/speech/status', {cache:'no-store'})
+  const statusController=new AbortController();
+  const statusTimeout=setTimeout(()=>statusController.abort(),5000);
+  fetch('/api/speech/status', {cache:'no-store',signal:statusController.signal})
     .then(r=>r.ok?r.json():{dynamic:false})
     .then(data=>{
       dynamicAvailable=!!data.dynamic;
       emit('portfolio-speech-capability',{dynamic:dynamicAvailable});
     })
-    .catch(()=>emit('portfolio-speech-capability',{dynamic:false}));
+    .catch(()=>emit('portfolio-speech-capability',{dynamic:false}))
+    .finally(()=>clearTimeout(statusTimeout));
   document.addEventListener('visibilitychange', ()=>{if(document.hidden) stop();});
 })();

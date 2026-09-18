@@ -66,9 +66,6 @@ button{cursor:pointer}
 .ambient{position:absolute;width:420px;height:420px;border-radius:50%;background:var(--glow);filter:blur(90px);left:28%;top:35%;opacity:.25;pointer-events:none}
 .topbar{position:fixed;z-index:50;top:0;left:0;right:0;min-height:82px;display:flex;justify-content:space-between;align-items:center;padding:18px 38px 18px 30px;border-bottom:1px solid var(--line);background:var(--topbar-bg);backdrop-filter:blur(18px)}
 .brand{display:flex;align-items:center;gap:12px;font:14px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);min-width:0}
-.site-logo{flex:0 0 auto;display:grid;place-items:center;width:38px;height:38px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--tile-bg);box-shadow:0 6px 18px var(--panel-shadow);text-decoration:none}
-.site-logo img{width:100%;height:100%;display:block;object-fit:cover;border-radius:12px}
-.site-logo:hover{border-color:var(--accent);box-shadow:0 8px 22px var(--panel-shadow)}
 .prompt{color:var(--accent)}
 .caret{animation:blink 1s steps(1) infinite}
 .top-actions{display:flex;align-items:center;gap:14px;margin-left:auto}
@@ -114,6 +111,9 @@ button{cursor:pointer}
 .cms-section{display:flex;flex-direction:column;gap:34px;margin-top:22px}
 .cms-empty{color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:22px;text-align:center}
 .cms-loading{color:var(--muted);font:12px ui-monospace,monospace}
+.cms-retry{min-height:44px;margin-top:8px;padding:10px 18px;border:1px solid var(--line);border-radius:10px;background:var(--control-bg);color:var(--text);font:inherit;cursor:pointer}
+.cms-retry:hover{border-color:var(--accent)}
+.cms-retry:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .cms-category{display:flex;flex-direction:column}
 .cms-category-head{margin-bottom:14px}
 .cms-category-head h3{font:13px ui-monospace,monospace;letter-spacing:.06em;color:var(--accent);text-transform:uppercase;margin:0}
@@ -3327,8 +3327,6 @@ body.lightbox-open{overflow:hidden}
    has; these only shrink the furniture. The row never wraps, because a
    wrapping header pushes the whole page down by a line. */
 @media(max-width:560px){
-  .site-logo{width:34px;height:34px;border-radius:11px}
-  .site-logo img{border-radius:11px}
   .online{ gap:2px; font-size:11px }
   .pv-face{ width:19px; height:19px }
   .pv-more{ height:19px; font-size:9px; padding:0 6px 0 3px }
