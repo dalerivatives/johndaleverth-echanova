@@ -213,7 +213,35 @@ function renderStack(){
    wrap.append(btn,label); stack.appendChild(wrap);
  });
 }
-function activate(id){
+/* Clean section URLs. The portfolio remains a fast single-page interface,
+   but every section now has a real address that can be refreshed, bookmarked
+   or shared without exposing index.html. */
+const SECTION_PATHS = {
+  profile: "/",
+  projects: "/projects",
+  achievements: "/achievements",
+  tools: "/tools",
+  chat: "/chat"
+};
+
+function sectionFromPath(pathname=window.location.pathname){
+  let path = String(pathname || "/").replace(/\/+$/, "") || "/";
+  if(path === "/index.html") path = "/";
+  const match = Object.entries(SECTION_PATHS).find(([,route])=>route===path);
+  return match ? match[0] : "profile";
+}
+
+function syncSectionUrl(id, mode="push"){
+  const path = SECTION_PATHS[id] || "/";
+  if(window.location.pathname === path) return;
+  const url = new URL(window.location.href);
+  url.pathname = path;
+  url.hash = "";
+  if(mode === "replace") window.history.replaceState({portfolioSection:id}, "", url);
+  else if(mode === "push") window.history.pushState({portfolioSection:id}, "", url);
+}
+
+function activate(id,{historyMode="push",scroll=true}={}){
  const foundIndex=items.findIndex(x=>x.id===id);
  const found=items[foundIndex];
  if(!found)return;
@@ -231,9 +259,12 @@ function activate(id){
    if(el) el.style.order=String(index);
  });
  document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
- document.querySelector(`.nav-item[data-id="${id}"]`).classList.add("active");
+ const activeItem=document.querySelector(`.nav-item[data-id="${id}"]`);
+ if(activeItem) activeItem.classList.add("active");
  views.forEach(view=>view.classList.toggle("active",view.dataset.view===id));
- window.scrollTo({top:0,behavior:"smooth"});
+ if(historyMode !== "none") syncSectionUrl(id,historyMode);
+ window.dispatchEvent(new CustomEvent("portfolio-section-change",{detail:{id}}));
+ if(scroll) window.scrollTo({top:0,behavior:"smooth"});
 }
 /* On a pointer device the rail opens on hover, so a click is always a
    navigation. Touch has no hover: the collapsed circle would otherwise be
@@ -273,6 +304,14 @@ document.addEventListener("click",e=>{
    just navigated would leave it hanging open behind the new page. */
 window.addEventListener("resize",()=>{ if(!navIsTouch()) stack.classList.remove("open"); });
 renderStack();
+
+/* Open the section named by the URL on first load, then keep the page in sync
+   with browser Back/Forward navigation. `replace` records a clean initial
+   state without adding a fake extra history entry. */
+activate(sectionFromPath(),{historyMode:"replace",scroll:false});
+window.addEventListener("popstate",()=>{
+  activate(sectionFromPath(),{historyMode:"none",scroll:false});
+});
 
 /* ============================================================
    COLOUR MODE — a three-position lever

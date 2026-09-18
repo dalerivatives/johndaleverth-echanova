@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Replace example.com with the real deployed address. The portfolio is a
-     single page whose sections are switched client-side, so there is one URL
-     to submit; the hash links are listed for clarity, not as separate pages. -->
+<!-- Clean section URLs are real, refreshable routes and can be indexed/shared independently. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://example.com/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
+  <url><loc>https://example.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://example.com/projects</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://example.com/achievements</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://example.com/tools</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://example.com/chat</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
 </urlset>

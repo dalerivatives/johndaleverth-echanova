@@ -60,5 +60,14 @@ class RegressionTests(unittest.TestCase):
         for asset in ['/loader.js','/loader.css','/speech-worker.js','/assets/whoami-robot.wav']:
             self.assertEqual(self.client.get(asset).status_code,200)
 
+    def test_clean_section_urls(self):
+        for path in ['/projects','/achievements','/tools','/chat']:
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('id="mainContent"', response.text)
+        legacy = self.client.get('/index.html', follow_redirects=False)
+        self.assertEqual(legacy.status_code, 308)
+        self.assertEqual(legacy.headers['location'], '/')
+
 if __name__ == '__main__':
     unittest.main()

@@ -17,7 +17,7 @@ from typing import Optional, Literal
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
@@ -1791,9 +1791,23 @@ def _escape_attr(value: str) -> str:
 
 
 @app.get("/", include_in_schema=False)
-@app.get("/index.html", include_in_schema=False)
+@app.get("/projects", include_in_schema=False)
+@app.get("/achievements", include_in_schema=False)
+@app.get("/tools", include_in_schema=False)
+@app.get("/chat", include_in_schema=False)
 def serve_index(request: Request, db: Session = Depends(get_db)):
+    """Serve the SPA shell at clean, shareable section URLs.
+
+    The browser-side router changes between these paths without reloading, but
+    direct visits and refreshes still need the server to return index.html.
+    """
     return _render_index(db, request)
+
+
+@app.get("/index.html", include_in_schema=False)
+def redirect_legacy_index():
+    """Keep old bookmarks working without leaving index.html in the address bar."""
+    return RedirectResponse(url="/", status_code=308)
 
 
 @app.get("/editor.html", include_in_schema=False)

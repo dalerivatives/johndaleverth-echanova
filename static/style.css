@@ -234,6 +234,15 @@ pre{margin:0;color:var(--accent);font:8px/8px ui-monospace,monospace;opacity:.72
    positioned ancestor. It looked right by accident; now it's stated, and the
    graph layer sits on the same footing. */
 .code-field{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+/* Keep the decorative floating code/algorithm trees completely away from the
+   portrait/coded-human zone. background.js measures the actual rendered human
+   image and supplies these viewport coordinates, so the protected area follows
+   the figure on desktop, tablet and mobile instead of relying on a guessed
+   right-side rectangle. */
+.code-field.human-safe-mask,.graph-field.human-safe-mask{
+  -webkit-mask-image:radial-gradient(ellipse var(--human-safe-rx) var(--human-safe-ry) at var(--human-safe-x) var(--human-safe-y),transparent 0 82%,rgba(0,0,0,.18) 90%,#000 100%);
+  mask-image:radial-gradient(ellipse var(--human-safe-rx) var(--human-safe-ry) at var(--human-safe-x) var(--human-safe-y),transparent 0 82%,rgba(0,0,0,.18) 90%,#000 100%);
+}
 /* Backdrop code: text and nothing else.
    `<pre>` carries browser defaults — a margin, and a background in some
    engines — so each snippet was sitting on a faint slab, which is what read
@@ -1311,6 +1320,10 @@ body.lightbox-open{overflow:hidden}
    the position it has and is only given a layer. */
 .portrait-stage,.terminal,.activity,.page-view{position:relative}
 .workspace,.portrait-stage,.terminal,.activity,.page-view{z-index:2}
+/* The portrait itself gets its own explicit foreground layer as a second line
+   of defence. The background fields are z-index:0; this guarantees neither
+   their text nor their SVG trees can ever paint over the coded or real human. */
+.hero,.human-backdrop,.human-backdrop #asciiArt,.human-backdrop .real-portrait{isolation:isolate}
 
 @media(max-width:560px){.bg-graph{opacity:.5}}
 @media(prefers-reduced-motion:reduce){
