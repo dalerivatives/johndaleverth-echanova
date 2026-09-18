@@ -453,6 +453,15 @@ def update_settings(payload: dict, db: Session = Depends(get_db)):
     return {**seed.DEFAULT_SETTINGS, **stored}
 
 
+# Settings that accept a file upload, and how each one is validated. Adding
+# a key here is the only step needed to let a new setting take a file — the
+# endpoint below just looks it up rather than hard-coding one key.
+UPLOADABLE_SETTINGS = {
+    "resume_url": {"kind": "pdf"},
+    "favicon_url": {"kind": "image", "max_bytes": 5 * 1024 * 1024},  # 5 MB, matches the editor's copy
+}
+
+
 @app.post("/api/settings/upload", dependencies=[Depends(require_admin)])
 def upload_setting_file(
     key: str = Form(...),
@@ -461,14 +470,24 @@ def upload_setting_file(
 ):
     """Admin: upload a file and store its URL in the matching setting,
     replacing whatever was there before."""
-    if key not in ("resume_url",):
+    spec = UPLOADABLE_SETTINGS.get(key)
+    if not spec:
         raise HTTPException(status_code=400, detail="That setting doesn't take a file")
 
     content_type = file.content_type or ""
-    if content_type != "application/pdf" and not (file.filename or "").lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="The resume must be a PDF")
+    filename_lower = (file.filename or "").lower()
 
-    _, media_url = _save_upload(file, allow_pdf=True)
+    if spec["kind"] == "pdf":
+        if content_type != "application/pdf" and not filename_lower.endswith(".pdf"):
+            raise HTTPException(status_code=400, detail="The resume must be a PDF")
+        _, media_url = _save_upload(file, allow_pdf=True)
+    else:
+        # Images only here — the shared _save_upload() also accepts video/*
+        # for item media, which a browser-tab logo should never take.
+        is_icon = content_type in ("image/x-icon", "image/vnd.microsoft.icon") or filename_lower.endswith(".ico")
+        if not is_icon and not content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="The logo must be a PNG, JPG, WebP or ICO image")
+        _, media_url = _save_upload(file, max_bytes=spec.get("max_bytes"))
 
     setting = db.get(models.Setting, key)
     if setting:
@@ -1396,21 +1415,26 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 # Item admin endpoints
 # ---------------------------------------------------------------------------
-def _save_upload(file: UploadFile, allow_pdf: bool = False) -> tuple[str, str]:
+def _save_upload(file: UploadFile, allow_pdf: bool = False, max_bytes: Optional[int] = None) -> tuple[str, str]:
     """Validates and saves an uploaded file. Returns (media_type, media_url)."""
     content_type = file.content_type or ""
+    filename_lower = (file.filename or "").lower()
     is_pdf = allow_pdf and (
-        content_type == "application/pdf" or (file.filename or "").lower().endswith(".pdf")
+        content_type == "application/pdf" or filename_lower.endswith(".pdf")
     )
-    if not is_pdf and not content_type.startswith(ALLOWED_MEDIA_PREFIXES):
+    # Some browsers/OSes send .ico files as "application/octet-stream" rather
+    # than an image/* type, so the extension alone is enough to accept one.
+    is_icon = content_type in ("image/x-icon", "image/vnd.microsoft.icon") or filename_lower.endswith(".ico")
+    if not is_pdf and not is_icon and not content_type.startswith(ALLOWED_MEDIA_PREFIXES):
         raise HTTPException(status_code=400, detail="Only image or video files are accepted")
 
     ext = Path(file.filename or "").suffix
     if not ext:
-        ext = mimetypes.guess_extension(content_type) or ""
+        ext = mimetypes.guess_extension(content_type) or (".ico" if is_icon else "")
     filename = f"{uuid.uuid4().hex}{ext}"
     dest = UPLOAD_DIR / filename
 
+    limit = max_bytes or MAX_UPLOAD_BYTES
     size = 0
     with open(dest, "wb") as out:
         while True:
@@ -1418,15 +1442,16 @@ def _save_upload(file: UploadFile, allow_pdf: bool = False) -> tuple[str, str]:
             if not chunk:
                 break
             size += len(chunk)
-            if size > MAX_UPLOAD_BYTES:
+            if size > limit:
                 out.close()
                 dest.unlink(missing_ok=True)
-                raise HTTPException(status_code=413, detail="File too large (25MB max)")
+                limit_mb = limit / (1024 * 1024)
+                raise HTTPException(status_code=413, detail=f"File too large ({limit_mb:.0f}MB max)")
             out.write(chunk)
 
     if is_pdf:
         media_type = "file"
-    elif content_type.startswith("image/"):
+    elif is_icon or content_type.startswith("image/"):
         media_type = "image"
     else:
         media_type = "video_file"

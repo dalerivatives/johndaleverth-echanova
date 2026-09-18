@@ -51,5 +51,45 @@ vm.runInNewContext(fs.readFileSync('static/speech.js','utf8'),sandbox);
 
   speech.robot('one',false);for(let i=0;i<8;i++)assert(speech.robot('queued',false));
   assert.equal(speech.robot('over limit',false),false);speech.stop();
-  console.log('PASS: playback lifecycle, completion, cancellation, stale response, interruption, error, empty input, bounded queue');
+
+  // --- Regression: "first tap does nothing" ---------------------------
+  // An AudioContext is born suspended and resume() is asynchronous, so the
+  // worker's audio can come back before the context has actually flipped to
+  // 'running' — exactly the class of bug sfx.js documents fixing for UI
+  // sound. This must still play on the ONE call, with no second tap needed.
+  // A fresh vm context is used because the module-level `context` variable
+  // is created once and reused for the rest of this file's tests.
+  await (async()=>{
+    const workers2=[],sources2=[];
+    class Worker2 {
+      constructor(){workers2.push(this);this.sent=[];}
+      postMessage(data){this.sent.push(data);}
+      terminate(){this.terminated=true;}
+    }
+    class SlowAudioContext {
+      constructor(){this.state='suspended';}
+      resume(){
+        // The promise can resolve well before the state actually flips —
+        // real browsers do this — so it must never be treated as "final".
+        setTimeout(()=>{this.state='running';},10);
+        return Promise.resolve();
+      }
+      decodeAudioData(){return Promise.resolve({duration:1,length:22050,sampleRate:22050,getChannelData:()=>new Float32Array(22050)});}
+      createBuffer(channels,length,rate){return {duration:length/rate,copyToChannel(){}};}
+      createBufferSource(){const s={connect(){},disconnect(){},start(){this.started=true;},stop(){this.stopped=true;}};sources2.push(s);return s;}
+    }
+    const window2={AudioContext:SlowAudioContext,addEventListener(){},dispatchEvent(){}};
+    const sandbox2={window:window2,Worker:Worker2,CustomEvent:class{constructor(type,{detail}){this.type=type;this.detail=detail;}},document:{addEventListener(){}},console,setTimeout,clearTimeout,setInterval,clearInterval};
+    vm.runInNewContext(fs.readFileSync('static/speech.js','utf8'),sandbox2);
+    const speech2=window2.Speech;
+    let result;
+    assert(speech2.robot('One tap.',true,ok=>{result=ok;}));
+    const w2=workers2.at(-1),id2=w2.sent[0].id;
+    await w2.onmessage({data:{id:id2,wav:new ArrayBuffer(8)}});
+    assert(sources2.at(-1) && sources2.at(-1).started,'audio must start on the first call even though the context was still suspended when the response arrived');
+    sources2.at(-1).onended();
+    assert.equal(result,true);
+  })();
+
+  console.log('PASS: playback lifecycle, completion, cancellation, stale response, interruption, error, empty input, bounded queue, first-tap-while-suspended');
 })().catch(e=>{console.error(e);window.Speech.stop();process.exitCode=1;});

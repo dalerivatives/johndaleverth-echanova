@@ -364,6 +364,7 @@ DEFAULT_SETTINGS = {
 
     # --- uploaded files (set by the editor's upload button) ---
     "resume_url": "",
+    "favicon_url": "",
 }
 
 

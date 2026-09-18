@@ -22,6 +22,38 @@
       context.resume().then(()=>{ unlocked = context.state === 'running'; }).catch(()=>{});
     } catch(e){}
   }
+  /* An AudioContext is born SUSPENDED and resume() is asynchronous, so
+     "we called resume()" and "the context is actually running" are two
+     different moments. Scheduling playback in the gap between them is the
+     classic "first tap does nothing, second tap works" bug — sfx.js hits
+     the same issue and fixes it the same way: hold the tap's own gesture,
+     poll briefly, and only bail out if the context genuinely never wakes
+     up, instead of failing the instant it isn't running yet. */
+  function waitRunning(maxMs){
+    if(context.state === 'running') return Promise.resolve(true);
+    return new Promise(resolve=>{
+      let settled = false;
+      const succeed = () => { if(settled) return; settled = true; resolve(true); };
+      const fail = () => { if(settled) return; settled = true; resolve(false); };
+      try{
+        const r = context.resume();
+        // Only settle here if the state has ALREADY flipped by the time the
+        // promise resolves — resolving without checking would treat "resume()
+        // finished" as "still not running" and give up before the poll below
+        // ever gets a chance to see the real flip, which just reintroduces
+        // the same race one line down.
+        if(r && typeof r.then === 'function') r.then(()=>{ if(context.state==='running') succeed(); }).catch(()=>{});
+      }catch(e){}
+      // Some browsers have shipped resume() that resolves late or never
+      // while the state flips anyway — a short poll is the backstop.
+      let tries = 0;
+      const poll = setInterval(()=>{
+        if(settled){ clearInterval(poll); return; }
+        if(context.state === 'running'){ clearInterval(poll); succeed(); return; }
+        if(++tries > Math.ceil(maxMs/25)){ clearInterval(poll); fail(); }
+      }, 25);
+    });
+  }
   window.addEventListener('pointerdown', prime, {passive:true});
   window.addEventListener('keydown', prime);
   function prepareWorker(){
@@ -32,7 +64,9 @@
       if(data.error){ finish(false); return; }
       clearTimeout(timer);
       try {
-        if(context.state !== 'running'){ finish(false); return; }
+        const ready = await waitRunning(1500);
+        if(!current || data.id !== current.id) return;   // cancelled/superseded while we waited
+        if(!ready){ finish(false); return; }
         const decoded = await Promise.all((data.wavs || [data.wav]).map(wav=>context.decodeAudioData(wav)));
         let buffer=decoded[0];
         if(decoded.length>1){

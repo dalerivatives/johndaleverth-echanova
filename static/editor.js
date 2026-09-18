@@ -218,20 +218,32 @@ function setSettingsStatus(text, isError){
   }
 }
 
+/* The logo comes back from the upload endpoint as an "/uploads/xxx.png"
+   file URL, not a base64 data URI — so "is there a logo" is just "is the
+   string non-empty", and the <img>/<link> src works with either form. */
+const DEFAULT_FAVICON_SVG = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#05080b"/><text x="32" y="43" font-family="monospace" font-size="30" fill="#4dff91" text-anchor="middle">D</text></svg>');
+
+function faviconMime(url){
+  const dataMatch = /^data:([^;,]+)/.exec(url);
+  if(dataMatch) return dataMatch[1];
+  const ext = (url.split("?")[0].split("#")[0].split(".").pop() || "").toLowerCase();
+  return {png:"image/png", jpg:"image/jpeg", jpeg:"image/jpeg", webp:"image/webp",
+    ico:"image/x-icon", svg:"image/svg+xml"}[ext] || "image/png";
+}
+
 /* Shows whether the resume slot is filled, and offers "Remove" only when
    there's something to remove. */
 function renderUploadStates(){
-  const logo = settingsSnapshot.favicon_url || "";
-  const safeLogo = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(logo);
+  const logo = (settingsSnapshot.favicon_url || "").trim();
   const preview = $("#faviconPreview");
-  preview.hidden = !safeLogo;
-  if(safeLogo) preview.src = logo; else preview.removeAttribute("src");
-  $("#faviconDefault").hidden = safeLogo;
-  $("#faviconState").textContent = safeLogo ? "Custom logo saved" : "Using the default D logo";
+  preview.hidden = !logo;
+  if(logo) preview.src = logo; else preview.removeAttribute("src");
+  $("#faviconDefault").hidden = !!logo;
+  $("#faviconState").textContent = logo ? "Custom logo saved" : "Using the default D logo";
   document.querySelector('[data-clear="favicon_url"]').hidden = !logo;
   const tabIcon = document.querySelector('link[rel="icon"]');
-  tabIcon.type = safeLogo ? "image/png" : "image/svg+xml";
-  tabIcon.href = safeLogo ? logo : "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#05080b"/><text x="32" y="43" font-family="monospace" font-size="30" fill="#4dff91" text-anchor="middle">D</text></svg>');
+  tabIcon.type = logo ? faviconMime(logo) : "image/svg+xml";
+  tabIcon.href = logo || DEFAULT_FAVICON_SVG;
   const rows = {
     resume_url: {el:$("#resumeState"), empty:"Not uploaded yet — the download button stays hidden"}
   };

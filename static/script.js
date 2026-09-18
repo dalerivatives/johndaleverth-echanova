@@ -101,6 +101,22 @@ async function applySiteSettings(){
   const metaDesc = document.querySelector('meta[name="description"]');
   if(metaDesc && (settings.meta_description || "").trim()) metaDesc.content = settings.meta_description;
 
+  // 5b. browser-tab logo — replaces the default "D" once one is uploaded
+  //     in Site settings. The HTML ships with the default baked in, so a
+  //     blank/failed settings fetch just leaves that in place.
+  const logo = (settings.favicon_url || "").trim();
+  if(logo){
+    const tabIcon = document.querySelector('link[rel="icon"]');
+    if(tabIcon){
+      const dataMatch = /^data:([^;,]+)/.exec(logo);
+      const ext = (logo.split("?")[0].split("#")[0].split(".").pop() || "").toLowerCase();
+      tabIcon.type = dataMatch ? dataMatch[1] :
+        ({png:"image/png", jpg:"image/jpeg", jpeg:"image/jpeg", webp:"image/webp",
+          ico:"image/x-icon", svg:"image/svg+xml"}[ext] || "image/png");
+      tabIcon.href = logo;
+    }
+  }
+
   /* 7. Link-preview URLs. Facebook and friends read these tags from the raw
         HTML before any JavaScript runs, so rewriting them here does NOT make
         previews work on its own — the real fix is setting the site URL in
