@@ -1,18 +1,11 @@
-# Johndaleverth Portfolio v82
+# v82 — Profile backdrop lock + halo emphasis
 
-## Focus
-- Guaranteed the floating code layer and tree/graph layer stay behind both the coded human and the revealed real portrait in all dial themes.
-- Added a clean halo emphasis to both the coded human and the real portrait.
+This build hard-locks the floating code and generated algorithm trees behind the portfolio workspace in every dialer theme. The coded-human and revealed real portrait are on an explicit foreground stack, so neither decorative layer can paint over them.
 
-## What changed
-- Raised the human stage into its own isolated foreground layer.
-- Kept the identity text and terminal above the human, while all decorative backdrops remain below.
-- Added a soft theme-aware radial halo behind the human container instead of glowing the photo edge directly.
-- Strengthened the coded-human glow for better emphasis.
-- Added a subtle depth shadow to the revealed real portrait.
-- Tightened the halo behavior on small screens so it does not look like a cropped backlight edge.
+Both profile states now receive an adaptive theme-aware halo. The halo is a soft radial layer behind the silhouette rather than a drop-shadow attached to the photograph, which keeps the face and shoulder clean and avoids the cropped rectangular backlight seen in earlier mobile builds. The existing portrait dimensions, offsets, object positioning, responsive sizing, and face-safe text layout are unchanged.
 
-## Result
-- No floating code / trees in front of the coded human or real portrait.
-- The human figure stands out more clearly in every theme.
-- Mobile view keeps the portrait clean without the old visible rim artefact.
+Additional safeguards:
+- coded-human visibility is strengthened on desktop, tablet, and mobile without changing geometry;
+- real-photo reveal remains normal-blend/opaque over the decorative world;
+- halo colors follow the active dialer theme automatically, including monochrome themes;
+- the halo fades to transparent before its bounds, preventing a visible crop edge at the hero boundary.

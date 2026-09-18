@@ -3539,172 +3539,113 @@ a.btn:active{
   filter:none!important;
 }
 
-
 /* ============================================================
-   V82 — HUMAN FOREGROUND GUARANTEE + CLEAN HALO EMPHASIS
+   V82 — PROFILE LAYER LOCK + ADAPTIVE HUMAN HALO
    ------------------------------------------------------------
-   The user asked for two things at once:
-   1) floating code / trees must never sit in front of either the coded
-      human or the revealed portrait in any dial theme
-   2) both human states need a visible emphasis halo
-
-   The safest way is not to glow the photo's own edge again (that caused the
-   old cropped backlight artefact), but to put a soft, theme-aware halo BEHIND
-   the figure container itself. The figure then stays crisp, while a blurred
-   radial light lifts it off the busy backdrop.
-
-   This final block is intentionally late in the file so it overrides the
-   earlier portrait-cleanup rules without reintroducing edge glow on the
-   image itself.
+   1) The drifting code field and generated algorithm trees are direct
+      children of .app. Lock them to the backdrop plane while the entire
+      workspace lives on a higher stacking plane. This is deliberately
+      theme-independent: no dialer palette can raise those decorative
+      layers in front of either human image.
+   2) Both profile states share a soft radial halo BEHIND the silhouette.
+      The halo fades to transparent well inside its own bounds, so mobile
+      overflow clipping cannot produce the old rectangular/cropped
+      backlight above the head or beside the shoulder.
+   3) No portrait geometry is changed here: width, height, position,
+      object-position, and the responsive face-safe layout stay untouched.
    ============================================================ */
-.hero{
+
+/* Hard backdrop/content separation — applies to every dialer theme. */
+.app > #codeField,
+.app > #graphField{
+  z-index:0!important;
+  pointer-events:none!important;
+}
+.app > .workspace{
+  position:relative;
+  z-index:4!important;
   isolation:isolate;
 }
-
-/* The decorative backdrop already lives at z=0. Lift the whole human stage
-   above it as one isolated island so no theme variant can let code/trees
-   paint over the coded or real figure. */
-.human-backdrop{
+#profileView,
+#profileView .hero{
+  isolation:isolate;
+}
+#profileView .human-backdrop{
+  z-index:2!important;
+}
+#profileView .hero .identity{
   z-index:3!important;
-  isolation:isolate;
 }
-.hero .identity{
-  z-index:4;
-}
-.terminal{
-  z-index:5;
+#profileView .terminal{
+  z-index:4!important;
 }
 
-/* Theme-aware halo that sits behind the figure, not on its edges. */
-.human-backdrop::before{
+/* Shared halo: sits behind BOTH coded-human and real-photo states. */
+#profileView .human-backdrop::before{
   content:"";
   position:absolute;
-  left:12%;
-  right:12%;
-  top:6%;
+  z-index:0;
+  left:50%;
   bottom:2%;
+  width:82%;
+  height:86%;
+  transform:translateX(-50%);
   border-radius:50%;
   pointer-events:none;
-  z-index:1;
   background:
-    radial-gradient(ellipse at 50% 40%, color-mix(in srgb,var(--accent) 22%, transparent) 0%, color-mix(in srgb,var(--accent) 14%, transparent) 22%, transparent 62%),
-    radial-gradient(ellipse at 52% 58%, color-mix(in srgb,var(--accent2) 14%, transparent) 0%, transparent 58%);
-  filter:blur(22px);
-  opacity:.70;
-  transform:translateY(8px) scale(.90,1.02);
+    radial-gradient(ellipse at 50% 48%,
+      color-mix(in srgb,var(--accent) 28%,transparent) 0%,
+      color-mix(in srgb,var(--accent) 18%,transparent) 31%,
+      color-mix(in srgb,var(--accent2) 10%,transparent) 49%,
+      transparent 72%);
+  filter:blur(7px);
+  opacity:.9;
+  transition:opacity .45s ease,filter .45s ease,background .45s ease;
 }
 
-/* Figure pixels always sit above the halo and above the decorative world. */
-.human-backdrop #asciiArt,
-.human-backdrop .real-portrait{
-  position:relative!important;
+/* Keep the coded silhouette clearly emphasized without moving/scaling it. */
+#profileView .human-backdrop:not(.revealed):not(.crossfade){
+  opacity:.82!important;
+}
+#profileView .human-backdrop:not(.revealed) #asciiArt{
+  /* Do not replace the theme-specific raster filter here: LIGHT, DARK,
+     CYBER and MONO each already tune the coded PNG for their own contrast.
+     The shared halo provides the added emphasis without breaking that. */
   z-index:2!important;
-  mix-blend-mode:normal!important;
-  backface-visibility:hidden;
 }
 
-/* Coded-human emphasis: keep the existing coded look, but add a slightly
-   richer outer aura so it reads clearly in every dial theme. */
-.human-backdrop:not(.revealed) #asciiArt{
-  filter:
-    drop-shadow(0 0 2px rgba(255,255,255,.08))
-    drop-shadow(0 0 8px color-mix(in srgb,var(--accent) 48%, transparent))
-    drop-shadow(0 0 20px color-mix(in srgb,var(--accent) 26%, transparent))!important;
-}
-
-/* Real portrait emphasis: the photo itself stays clean (no edge backlight),
-   but gets a subtle depth shadow so it separates from the moving backdrop. */
-.human-backdrop.revealed .real-portrait,
-.human-backdrop.crossfade .real-portrait,
-.human-backdrop.revealed:not(.crossfade) .real-portrait{
-  filter:
-    drop-shadow(0 10px 24px rgba(0,0,0,.22))
-    drop-shadow(0 0 10px color-mix(in srgb,var(--accent) 10%, transparent))!important;
-}
-
-/* Slightly stronger halo while the real photo is shown, since the user asked
-   to emphasise both the coded and real-human states. */
-.human-backdrop.revealed::before,
-.human-backdrop.crossfade::before{
-  opacity:.82;
-  filter:blur(24px);
-}
-
-/* Small screens need a tighter halo so it never reads as a cropped light rim. */
-@media (max-width: 560px){
-  .human-backdrop::before{
-    left:15%;
-    right:15%;
-    top:8%;
-    bottom:5%;
-    filter:blur(18px);
-    opacity:.62;
-  }
-  .human-backdrop.revealed::before,
-  .human-backdrop.crossfade::before{
-    opacity:.72;
-  }
-  .human-backdrop.revealed .real-portrait,
-  .human-backdrop.crossfade .real-portrait,
-  .human-backdrop.revealed:not(.crossfade) .real-portrait{
-    filter:drop-shadow(0 8px 18px rgba(0,0,0,.18))!important;
-  }
-}
-
-
-/* ============================================================
-   V83 — HALO CORRECTION
-   ------------------------------------------------------------
-   V82's halo sat too wide and read as a blurred patch in the middle of the
-   hero. Tighten the effect so it hugs the figure itself and stays off the
-   main text area.
-   ============================================================ */
-.human-backdrop::before{
-  left:50%!important;
-  right:auto!important;
-  top:20px!important;
-  bottom:auto!important;
-  width:250px!important;
-  height:300px!important;
-  border-radius:50%!important;
-  transform:translateX(-50%)!important;
+/* The real portrait gets its emphasis from the BACK halo, not a shadow on
+   the image edge. That preserves the clean face/shoulder contour and avoids
+   the cropped-glow artifact that V76/V77 removed. */
+#profileView .human-backdrop.revealed::before,
+#profileView .human-backdrop.crossfade::before{
+  opacity:1;
+  filter:blur(9px);
   background:
-    radial-gradient(ellipse at 50% 36%, color-mix(in srgb,var(--accent) 16%, transparent) 0%, color-mix(in srgb,var(--accent) 10%, transparent) 34%, transparent 72%),
-    radial-gradient(ellipse at 50% 74%, color-mix(in srgb,var(--accent2) 7%, transparent) 0%, transparent 62%)!important;
-  filter:blur(16px)!important;
-  opacity:.46!important;
+    radial-gradient(ellipse at 50% 48%,
+      color-mix(in srgb,var(--accent) 30%,transparent) 0%,
+      color-mix(in srgb,var(--accent) 19%,transparent) 30%,
+      color-mix(in srgb,var(--accent2) 12%,transparent) 49%,
+      transparent 72%);
+}
+#profileView .human-backdrop.revealed .real-portrait,
+#profileView .human-backdrop.crossfade .real-portrait{
+  z-index:3!important;
+  mix-blend-mode:normal!important;
 }
 
-/* Keep the coded human luminous, but without a giant aura cloud. */
-.human-backdrop:not(.revealed)::before{
-  opacity:.42!important;
+/* On smaller screens the halo stays comfortably inside the human canvas;
+   because it has already faded to transparent before the edge, the hero's
+   overflow rule cannot reveal a hard/cropped rectangle. */
+@media(max-width:850px){
+  #profileView .human-backdrop:not(.revealed):not(.crossfade){opacity:.8!important}
+  #profileView .human-backdrop::before{width:78%;height:82%;bottom:3%;filter:blur(6px)}
+  #profileView .human-backdrop.revealed::before,
+  #profileView .human-backdrop.crossfade::before{filter:blur(7px)}
 }
-
-/* The photo state can be a little stronger, still localized to the figure. */
-.human-backdrop.revealed::before,
-.human-backdrop.crossfade::before{
-  opacity:.54!important;
-  filter:blur(18px)!important;
-}
-
-@media (max-width: 850px){
-  .human-backdrop::before{
-    width:228px!important;
-    height:276px!important;
-    top:18px!important;
-  }
-}
-
-@media (max-width: 560px){
-  .human-backdrop::before{
-    width:182px!important;
-    height:224px!important;
-    top:14px!important;
-    filter:blur(13px)!important;
-    opacity:.40!important;
-  }
-  .human-backdrop.revealed::before,
-  .human-backdrop.crossfade::before{
-    opacity:.48!important;
-  }
+@media(max-width:560px){
+  #profileView .human-backdrop:not(.revealed):not(.crossfade){opacity:.78!important}
+  #profileView .human-backdrop::before{width:74%;height:78%;bottom:5%;filter:blur(5px)}
+  #profileView .human-backdrop.revealed::before,
+  #profileView .human-backdrop.crossfade::before{filter:blur(6px)}
 }
