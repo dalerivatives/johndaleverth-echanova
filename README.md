@@ -1,3 +1,9 @@
+# v79 update
+
+Start with **UPDATE_v79.md**. This release prevents the bundled neural voice
+from exceeding low-memory Render limits while preserving the terminal and
+whoami voices through pre-generated audio.
+
 # v70 update
 
 Start with **UPDATE_v70.md**. This release includes a new neural voice and its model parts.

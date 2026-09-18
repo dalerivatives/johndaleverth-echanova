@@ -1,3 +1,19 @@
+# v79 verification
+
+- JavaScript syntax checks passed for the loader, speech controller, speech
+  worker, and main portfolio script.
+- Speech-controller and loader regression suites passed.
+- Worker routing verified that the default terminal narration uses
+  `voice-preview.wav`, `whoami` uses `whoami-robot.wav`, and only non-static
+  text attempts the dynamic endpoint.
+- With `SPEECH_MODE=static`, the API reports static mode and rejects dynamic
+  synthesis before Piper can load. The health endpoint and bundled narration
+  remained available.
+- A clean static-mode backend import used about 56 MiB maximum RSS in this
+  environment and confirmed that neither `piper` nor `onnxruntime` was imported.
+  This is a local verification figure, not a guarantee of Render's exact RAM.
+- Archive integrity and duplicate-entry checks are performed before delivery.
+
 # v70 verification
 
 - Seven backend tests passed with the neural engine, including real WAV output,

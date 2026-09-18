@@ -19,6 +19,11 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
+      # The bundled Piper model can exceed a Free instance's memory. The
+      # public terminal and whoami use pre-generated WAV files in this mode.
+      # Change to "dynamic" only after moving to a larger-memory instance.
+      - key: SPEECH_MODE
+        value: static
       - key: ADMIN_KEY
         sync: false        # set this yourself in the Render dashboard — do not commit it
       - key: DATABASE_URL

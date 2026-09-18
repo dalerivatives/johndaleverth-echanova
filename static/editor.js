@@ -71,6 +71,11 @@ applyEditorTheme();
 window.addEventListener("storage", e=>{
   if(e.key === "portfolio-mode" || e.key === "portfolio-theme") applyEditorTheme();
 });
+window.addEventListener("pageshow", applyEditorTheme);
+window.addEventListener("focus", applyEditorTheme);
+document.addEventListener("visibilitychange", ()=>{
+  if(!document.hidden) applyEditorTheme();
+});
 if(editorOsLight){
   const refreshEditorTheme = ()=>{ if(readSavedPortfolioMode() === "auto") applyEditorTheme(); };
   if(editorOsLight.addEventListener) editorOsLight.addEventListener("change", refreshEditorTheme);

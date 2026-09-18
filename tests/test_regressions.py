@@ -1,10 +1,12 @@
 """Run: python -m unittest discover -s tests (install httpx for TestClient)."""
 import io
+import os
 import unittest
 import wave
 from concurrent.futures import ThreadPoolExecutor
+os.environ.setdefault('SPEECH_MODE', 'dynamic')
 from fastapi.testclient import TestClient
-from backend.main import app, _speech_hits
+from backend.main import app, _speech_hits, SPEECH_MODE
 from backend.speech import synthesize, normalize_pronunciation
 
 class RegressionTests(unittest.TestCase):
@@ -15,6 +17,8 @@ class RegressionTests(unittest.TestCase):
     def test_health(self):
         self.assertEqual(self.client.get('/api/health').json()['status'], 'ok')
         self.assertEqual(self.client.get('/api/health/db').json()['db'], 'ok')
+        status = self.client.get('/api/speech/status').json()
+        self.assertEqual(status['dynamic'], SPEECH_MODE == 'dynamic')
 
     def test_voice_returns_real_wav(self):
         response = self.client.post('/api/speech', json={'text':'Welcome to my world.'})
@@ -57,7 +61,7 @@ class RegressionTests(unittest.TestCase):
         for feature in ['bootScreen','Developed by Trevelade Company.','loader.js']:
             self.assertIn(feature,html)
         self.assertNotIn('whoamiSpeech', html)
-        for asset in ['/loader.js','/loader.css','/speech-worker.js','/assets/whoami-robot.wav']:
+        for asset in ['/loader.js','/loader.css','/speech-worker.js','/assets/whoami-robot.wav','/assets/voice-preview.wav']:
             self.assertEqual(self.client.get(asset).status_code,200)
 
     def test_clean_section_urls(self):

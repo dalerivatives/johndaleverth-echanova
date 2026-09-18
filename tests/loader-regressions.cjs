@@ -17,9 +17,9 @@ function setup({badImage=false}={}){
  s.window.PortfolioBoot.track(new Promise(r=>release=r),'Content');s.dom();s.run();await tick();
  assert(s.classes.has('booting'));assert(s.content.inert);release();await tick();await tick();
  assert(!s.classes.has('booting'));assert(!s.content.inert);assert(s.nodes.bootScreen.hidden);
- s=setup();s.window.PortfolioBoot.track(Promise.reject(Error('offline')),'Settings');s.dom();s.run();await tick();await tick();
- assert(s.classes.has('booting'));assert.equal(s.nodes.bootActions.hidden,false);s.nodes.bootContinue.onclick();assert(!s.classes.has('booting'));
- s=setup({badImage:true});s.dom();s.run();await tick();await tick();assert.equal(s.nodes.bootActions.hidden,false);assert(s.classes.has('booting'));
+ s=setup();s.window.PortfolioBoot.track(Promise.reject(Error('offline')),'Settings');s.dom();s.run();await tick();await tick();await tick();
+ assert(!s.classes.has('booting'));assert(s.nodes.bootScreen.hidden);
+ s=setup({badImage:true});s.dom();s.run();await tick();await tick();await tick();assert(!s.classes.has('booting'));assert(s.nodes.bootScreen.hidden);
  s=setup();s.dom();s.deadline();assert.equal(s.nodes.bootActions.hidden,false);s.nodes.bootContinue.onclick();assert(!s.classes.has('booting'));
- console.log('PASS: pending content gate, readiness release, API failure recovery, image failure recovery, timeout Continue');
+ console.log('PASS: pending content gate, readiness release, API/image fallback release, timeout Continue');
 })().catch(e=>{console.error(e);process.exitCode=1;});

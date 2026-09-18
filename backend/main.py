@@ -266,6 +266,10 @@ from collections import deque
 from pydantic import BaseModel, Field
 from .speech import synthesize
 
+SPEECH_MODE = os.getenv("SPEECH_MODE", "static").strip().lower()
+if SPEECH_MODE not in {"static", "dynamic"}:
+    SPEECH_MODE = "static"
+
 class SpeechRequest(BaseModel):
     text: str = Field(min_length=1, max_length=500)
     profile: Literal["robot", "narration"] = "robot"
@@ -275,6 +279,10 @@ _speech_rate_lock = threading.Lock()
 
 @app.post("/api/speech")
 def robot_speech(payload: SpeechRequest, request: Request):
+    # Static mode prevents the Piper/ONNX model from entering the Render web
+    # process. Bundled WAVs still provide the terminal and whoami voices.
+    if SPEECH_MODE != "dynamic":
+        raise HTTPException(status_code=503, detail="Dynamic speech is disabled on this hosting plan")
     text = payload.text.strip()
     if not text:
         raise HTTPException(status_code=422, detail="Text is required")
@@ -298,6 +306,11 @@ def robot_speech(payload: SpeechRequest, request: Request):
     except Exception:
         raise HTTPException(status_code=503, detail="Robot voice is temporarily unavailable")
     return Response(data, media_type="audio/wav", headers={"Cache-Control":"no-store"})
+
+
+@app.get("/api/speech/status")
+def speech_status():
+    return {"dynamic": SPEECH_MODE == "dynamic", "mode": SPEECH_MODE}
 
 
 @app.get("/api/health")

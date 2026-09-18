@@ -1,6 +1,15 @@
 /* Prepare and cache voice audio so playback can start immediately once asked. */
 const cache=new Map();
 
+/* The default narration already exists as a Piper-generated WAV. Using it
+   avoids loading the neural runtime in the web service during page visits. */
+const DEFAULT_TERMINAL = "Hello World. I'm Dale , a Computer Engineer, Full Stack Developer, Inventor, who enjoys building codes and turning out of the blue ideas into Output";
+function canonical(text){
+  return String(text || '').normalize('NFKC')
+    .replace(/[’‘]/g,"'").replace(/[“”]/g,'').replace(/[—–]/g,', ')
+    .replace(/\s+/g,' ').trim();
+}
+
 async function getWav(text, profile){
   const key=(profile || 'robot')+'|'+text;
   let wav=cache.get(key);
@@ -8,8 +17,13 @@ async function getWav(text, profile){
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),25000);
     try{
-      const response=text==='Welcome to my world!'
-        ? await fetch('assets/whoami-robot.wav?v=70',{signal:controller.signal})
+      const normalized=canonical(text);
+      const staticUrl=text==='Welcome to my world!'
+        ? 'assets/whoami-robot.wav?v=79'
+        : (profile==='narration' && normalized===DEFAULT_TERMINAL
+          ? 'assets/voice-preview.wav?v=79' : '');
+      const response=staticUrl
+        ? await fetch(staticUrl,{signal:controller.signal})
         : await fetch('/api/speech',{
             method:'POST',
             headers:{'Content-Type':'application/json'},

@@ -2795,6 +2795,13 @@ if(osLight){
       : '<i class="fa-solid fa-comment-slash" aria-hidden="true"></i>';
   }
 
+  function applyCapability(){
+    const dynamic=!!(window.Speech && window.Speech.dynamicSupported);
+    toggle.hidden=!dynamic;
+    if(!dynamic) on=false;
+    paint();
+  }
+
   toggle.addEventListener("click", ()=>{
     on = !on;
     try{ localStorage.setItem(KEY, on ? "on" : "off"); }catch(e){}
@@ -2806,7 +2813,8 @@ if(osLight){
     toggle.hidden = true;                 // no engine on this device
     return;
   }
-  paint();
+  applyCapability();
+  window.addEventListener('portfolio-speech-capability', applyCapability);
 
   /* Called by the chat module for every message it renders. */
   window.RobotVoice = {
@@ -2912,10 +2920,14 @@ if(osLight){
   function warmTerminalVoice(){
     if(!window.Speech || typeof window.Speech.warm !== 'function') return;
     const text = collectText();
-    if(text) window.Speech.warm(text, "narration");
+    /* Only cache the bundled WAV. Never pre-warm dynamic Piper speech: that
+       request was loading the large model on every portfolio visit. */
+    if(text && window.Speech.isStatic(text, "narration")){
+      window.Speech.warm(text, "narration");
+    }
   }
 
-  // Pre-generate the terminal narration so the click feels immediate.
+  // Cache the static narration in the visitor's browser so click is immediate.
   window.addEventListener('load', ()=>setTimeout(warmTerminalVoice, 900), {once:true});
   window.addEventListener('portfolio-section-change', ()=>setTimeout(warmTerminalVoice, 120));
   btn.addEventListener('pointerenter', warmTerminalVoice, {passive:true});

@@ -62,6 +62,9 @@ REM     without you touching it.
 REM Neither is on in a deployed copy; DEV is set here, not in the code.
 REM ---------------------------------------------------------------------
 set DEV=1
+REM Local computers can use the bundled neural model. Hosted deployments stay
+REM static by default unless a larger-memory instance explicitly opts in.
+set SPEECH_MODE=dynamic
 
 start "" "http://127.0.0.1:8000"
 uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir backend --reload-dir static

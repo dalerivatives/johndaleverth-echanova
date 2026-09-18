@@ -2,10 +2,11 @@
 (() => {
   const AudioEngine = window.AudioContext || window.webkitAudioContext;
   const supported = !!AudioEngine && typeof Worker === 'function';
+  const DEFAULT_TERMINAL = "Hello World. I'm Dale , a Computer Engineer, Full Stack Developer, Inventor, who enjoys building codes and turning out of the blue ideas into Output";
   let context, worker, source, current = null, queue = [], serial = 0;
   const warmed = new Set();
   const warming = new Set();
-  let unlocked = false, timer = null;
+  let unlocked = false, timer = null, dynamicAvailable = false;
   const emit = (type, detail) => window.dispatchEvent(new CustomEvent(type, {detail}));
   function finish(ok){
     if(!current) return;
@@ -60,7 +61,7 @@
   window.addEventListener('keydown', prime);
   function prepareWorker(){
     if(worker) return;
-    worker = new Worker('speech-worker.js?v=70');
+    worker = new Worker('speech-worker.js?v=79');
     worker.onmessage = async ({data}) => {
       if(data && data.warmed){
         if(data.key) warmed.add(data.key);
@@ -137,6 +138,11 @@
       .replace(/\p{Extended_Pictographic}/gu,' ').replace(/[\u200d\ufe0f]/g,'')
       .replace(/\s+/g,' ').trim().slice(0,4000);
   }
+  function isStatic(text, profile="robot"){
+    const clean=normalizeText(text);
+    return clean==='Welcome to my world!' ||
+      (profile==='narration' && clean===DEFAULT_TERMINAL);
+  }
   function splitParts(clean){
     const parts=[];
     let rest=clean;
@@ -156,6 +162,7 @@
     if(!supported) return false;
     const clean = normalizeText(text);
     if(!clean) return false;
+    if(!dynamicAvailable && !isStatic(clean, profile)) return false;
     const key = profile + '|' + clean;
     if(warmed.has(key) || warming.has(key)) return true;
     prepareWorker();
@@ -172,6 +179,7 @@
     if(!supported) return false;
     const clean = normalizeText(text);
     if(!clean) return false;
+    if(!dynamicAvailable && !isStatic(clean, profile)) return false;
     prime();
     if(!context) return false;
     if(interrupt) stop();
@@ -187,9 +195,17 @@
     supported,
     robot:(text,interrupt,done)=>speak(text,interrupt,done,"robot"),
     plain:(text,interrupt,done)=>speak(text,interrupt,done,"narration"),
-    warm, stop,
+    warm, stop, isStatic,
+    get dynamicSupported(){return dynamicAvailable;},
     get speaking(){return !!current || queue.length > 0;},
     get primed(){return unlocked;}
   };
+  fetch('/api/speech/status', {cache:'no-store'})
+    .then(r=>r.ok?r.json():{dynamic:false})
+    .then(data=>{
+      dynamicAvailable=!!data.dynamic;
+      emit('portfolio-speech-capability',{dynamic:dynamicAvailable});
+    })
+    .catch(()=>emit('portfolio-speech-capability',{dynamic:false}));
   document.addEventListener('visibilitychange', ()=>{if(document.hidden) stop();});
 })();

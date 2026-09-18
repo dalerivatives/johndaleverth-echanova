@@ -11,7 +11,10 @@
   const fail=name=>failures.add(name);
   function track(promise,name){
     total++;
-    const safe=Promise.resolve(promise).catch(()=>fail(name)).finally(()=>{completed++;progress();});
+    /* Settings and CMS data enhance fallback HTML; they must not keep the
+       whole page inert when the backend is restarting or unavailable. */
+    const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),7000));
+    const safe=Promise.race([Promise.resolve(promise),timeout]).catch(()=>fail(name)).finally(()=>{completed++;progress();});
     tasks.push(safe);
     return safe;
   }
@@ -48,7 +51,9 @@
       if(released) return;
       byId('bootStatus').textContent='Finishing images and typography…';
       const assets=[];
-      assets.push(track(fetch('assets/whoami-robot.wav?v=70').then(r=>{if(!r.ok) throw new Error('Voice unavailable');return r.arrayBuffer();}),'Welcome voice'));
+      /* Prefetch both bundled voices, but never make narration a boot gate. */
+      fetch('assets/whoami-robot.wav?v=79').catch(()=>{});
+      fetch('assets/voice-preview.wav?v=79').catch(()=>{});
       if(document.fonts) assets.push(track(document.fonts.ready,'Fonts'));
       for(const img of document.images){
         img.loading='eager';
@@ -61,7 +66,7 @@
       assets.push(track(document.readyState==='complete' ? Promise.resolve() : new Promise(resolve=>window.addEventListener('load',resolve,{once:true})),'Page assets'));
       await Promise.all(assets);
       if(released) return;
-      if(failures.size){recovery();return;}
+      /* Optional API/image failures use the readable HTML fallback. */
       byId('bootBar').style.width='100%';
       byId('bootStatus').textContent='Ready. Welcome.';
       requestAnimationFrame(()=>requestAnimationFrame(release));

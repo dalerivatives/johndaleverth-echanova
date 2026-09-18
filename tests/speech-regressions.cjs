@@ -14,9 +14,11 @@ class AudioContext {
   createBufferSource(){const s={connect(){},disconnect(){},start(){this.started=true;},stop(){this.stopped=true;}};sources.push(s);return s;}
 }
 const window={AudioContext,addEventListener(){},dispatchEvent(e){events.push(e);}};
-const sandbox={window,Worker,CustomEvent:class{constructor(type,{detail}){this.type=type;this.detail=detail;}},document:{addEventListener(){}},console,setTimeout,clearTimeout};
+const dynamicStatus=()=>Promise.resolve({ok:true,json:()=>Promise.resolve({dynamic:true})});
+const sandbox={window,Worker,CustomEvent:class{constructor(type,{detail}){this.type=type;this.detail=detail;}},document:{addEventListener(){}},console,setTimeout,clearTimeout,fetch:dynamicStatus};
 vm.runInNewContext(fs.readFileSync('static/speech.js','utf8'),sandbox);
 (async()=>{
+  await new Promise(r=>setImmediate(r));
   const speech=window.Speech;let done=[];
   assert(speech.robot('Hello.',true,ok=>done.push(ok)));
   let w=workers.at(-1),id=w.sent[0].id;
@@ -79,8 +81,9 @@ vm.runInNewContext(fs.readFileSync('static/speech.js','utf8'),sandbox);
       createBufferSource(){const s={connect(){},disconnect(){},start(){this.started=true;},stop(){this.stopped=true;}};sources2.push(s);return s;}
     }
     const window2={AudioContext:SlowAudioContext,addEventListener(){},dispatchEvent(){}};
-    const sandbox2={window:window2,Worker:Worker2,CustomEvent:class{constructor(type,{detail}){this.type=type;this.detail=detail;}},document:{addEventListener(){}},console,setTimeout,clearTimeout,setInterval,clearInterval};
+    const sandbox2={window:window2,Worker:Worker2,CustomEvent:class{constructor(type,{detail}){this.type=type;this.detail=detail;}},document:{addEventListener(){}},console,setTimeout,clearTimeout,setInterval,clearInterval,fetch:dynamicStatus};
     vm.runInNewContext(fs.readFileSync('static/speech.js','utf8'),sandbox2);
+    await new Promise(r=>setImmediate(r));
     const speech2=window2.Speech;
     let result;
     assert(speech2.robot('One tap.',true,ok=>{result=ok;}));
