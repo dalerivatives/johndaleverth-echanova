@@ -340,13 +340,17 @@ window.addEventListener("popstate",()=>{
    The GREEN phosphor position was cut here. It sat between DARK and MONO
    DARK and was the second dark-with-green-accents stop on the dial; one
    is enough. */
-const MODES = ["mono-light","colour-light","auto","colour-dark","mono-dark"];
+const MODES = ["mono-light","colour-light","auto","cyber","ocean","violet","amber","colour-dark","mono-dark"];
 const MODE_LABEL = {
-  "mono-light" : {word:"MONO LIGHT",  tip:"Theme: Mono light",  aria:"Theme: monochrome light, black on white"},
-  "colour-light":{word:"LIGHT",       tip:"Theme: Light",       aria:"Theme: light with matching colours"},
-  "auto"       : {word:"AUTO",        tip:"Theme: Auto",        aria:"Theme: auto, following your device"},
-  "colour-dark": {word:"DARK",        tip:"Theme: Dark",        aria:"Theme: dark with matching colours"},
-  "mono-dark"  : {word:"MONO DARK",   tip:"Theme: Mono dark",   aria:"Theme: monochrome dark, white on black"}
+  "mono-light" : {word:"MONO LIGHT", tip:"Theme: Mono light", aria:"Theme: monochrome light, black on white"},
+  "colour-light":{word:"LIGHT",      tip:"Theme: Light",      aria:"Theme: light with matching colours"},
+  "auto"       : {word:"AUTO",       tip:"Theme: Auto",       aria:"Theme: auto, following your device"},
+  "cyber"      : {word:"CYBER",      tip:"Theme: Cyber",      aria:"Theme: cyber blue"},
+  "ocean"      : {word:"OCEAN",      tip:"Theme: Ocean",      aria:"Theme: ocean blue"},
+  "violet"     : {word:"VIOLET",     tip:"Theme: Violet",     aria:"Theme: violet"},
+  "amber"      : {word:"AMBER",      tip:"Theme: Amber",      aria:"Theme: amber"},
+  "colour-dark": {word:"DARK",       tip:"Theme: Dark",       aria:"Theme: dark with matching colours"},
+  "mono-dark"  : {word:"MONO DARK",  tip:"Theme: Mono dark",  aria:"Theme: monochrome dark, white on black"}
 };
 
 const lever = document.getElementById("themeLever");
@@ -397,20 +401,44 @@ function announce(mode){
    fault — the readout names the position so the two are never ambiguous. */
 function paintMode(mode){
   const osIsLight = !!(osLight && osLight.matches);
-  const light = mode === "mono-light" || mode === "colour-light" ||
-                (mode === "auto" && osIsLight);
-  const deep  = mode === "colour-dark" || mode === "mono-dark";
-  const mono  = mode === "mono-light" || mode === "mono-dark";
-  app.classList.toggle("light-mode", light);
-  document.body.classList.toggle("light-mode", light);
-  app.classList.toggle("dark-mode", deep);
-  document.body.classList.toggle("dark-mode", deep);
-  app.classList.toggle("mono-mode", mono);
-  document.body.classList.toggle("mono-mode", mono);
-  app.dataset.theme = mono ? (light ? "mono-light" : "mono-dark")
-                    : light ? "light"
-                    : deep  ? "black"
-                            : "dark";
+  const allThemeClasses = ["light-mode","dark-mode","mono-mode","cyber-mode","ocean-mode","violet-mode","amber-mode"];
+  [app, document.body].forEach(el=>{
+    if(!el) return;
+    allThemeClasses.forEach(cls=>el.classList.remove(cls));
+  });
+
+  let datasetTheme = "dark";
+  if(mode === "mono-light"){
+    app.classList.add("light-mode","mono-mode");
+    document.body.classList.add("light-mode","mono-mode");
+    datasetTheme = "mono-light";
+  }else if(mode === "colour-light"){
+    app.classList.add("light-mode");
+    document.body.classList.add("light-mode");
+    datasetTheme = "light";
+  }else if(mode === "auto"){
+    if(osIsLight){
+      app.classList.add("light-mode");
+      document.body.classList.add("light-mode");
+      datasetTheme = "light";
+    }else{
+      datasetTheme = "dark";
+    }
+  }else if(mode === "colour-dark"){
+    app.classList.add("dark-mode");
+    document.body.classList.add("dark-mode");
+    datasetTheme = "black";
+  }else if(mode === "mono-dark"){
+    app.classList.add("dark-mode","mono-mode");
+    document.body.classList.add("dark-mode","mono-mode");
+    datasetTheme = "mono-dark";
+  }else if(["cyber","ocean","violet","amber"].includes(mode)){
+    app.classList.add(`${mode}-mode`);
+    document.body.classList.add(`${mode}-mode`);
+    datasetTheme = mode;
+  }
+  app.dataset.theme = datasetTheme;
+  document.body.dataset.theme = datasetTheme;
   if(window.Background) window.Background.draw();
 }
 
@@ -454,7 +482,7 @@ function readSavedMode(){
      three-position dial wrote light/system/dark; before that the six-theme
      menu wrote a theme name. Both map onto the new ids rather than being
      thrown away, so nobody gets silently reset. */
-  if(saved === "green")  return "colour-dark";   /* the position GREEN sat beside */
+  if(saved === "green")  return "colour-dark";
   if(saved === "light")  return "mono-light";
   if(saved === "system") return "auto";
   if(saved === "dark")   return "mono-dark";
@@ -462,8 +490,9 @@ function readSavedMode(){
   let legacy = null;
   try{ legacy = localStorage.getItem("portfolio-theme"); }catch(e){}
   if(legacy === "light") return "colour-light";
-  if(legacy) return "colour-dark";   // dark, cyber, ocean, violet, amber
-  return "auto";                     // never chose anything -> follow the device
+  if(["cyber","ocean","violet","amber"].includes(legacy)) return legacy;
+  if(legacy) return "colour-dark";
+  return "auto"
 }
 
 setMode(readSavedMode(), false);

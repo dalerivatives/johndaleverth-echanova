@@ -439,5 +439,5 @@
 .editor-body .editor-tab.active{background:#153720;color:var(--accent);border-color:var(--accent)}
 .logo-upload{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
 .logo-preview{width:88px;height:88px;flex:0 0 88px;display:grid;place-items:center;border:1px solid var(--line);border-radius:16px;background:#05080b}
-.logo-preview img{object-fit:contain}.logo-preview span{font-size:36px;color:#4dff91}
+.logo-preview img{object-fit:contain}.logo-preview span{font-size:28px;color:var(--accent);display:grid;place-items:center;width:100%;height:100%}
 #faviconState{font-size:13px;color:var(--muted);overflow-wrap:anywhere}

@@ -20,6 +20,63 @@ const SECTION_HINTS = {
 const $ = sel => document.querySelector(sel);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
 
+const EDITOR_THEME_CLASSES = ["light-mode","dark-mode","mono-mode","cyber-mode","ocean-mode","violet-mode","amber-mode"];
+const editorOsLight = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
+
+function readSavedPortfolioMode(){
+  const allowed = ["mono-light","colour-light","auto","cyber","ocean","violet","amber","colour-dark","mono-dark"];
+  let saved = null;
+  try{ saved = localStorage.getItem("portfolio-mode"); }catch(e){}
+  if(allowed.includes(saved)) return saved;
+  if(saved === "green") return "colour-dark";
+  if(saved === "light") return "mono-light";
+  if(saved === "system") return "auto";
+  if(saved === "dark") return "mono-dark";
+  let legacy = null;
+  try{ legacy = localStorage.getItem("portfolio-theme"); }catch(e){}
+  if(legacy === "light") return "colour-light";
+  if(["cyber","ocean","violet","amber"].includes(legacy)) return legacy;
+  if(legacy) return "colour-dark";
+  return "auto";
+}
+
+function applyEditorTheme(){
+  const mode = readSavedPortfolioMode();
+  const osIsLight = !!(editorOsLight && editorOsLight.matches);
+  const body = document.body;
+  EDITOR_THEME_CLASSES.forEach(cls=>body.classList.remove(cls));
+  let theme = "dark";
+  if(mode === "mono-light"){
+    body.classList.add("light-mode","mono-mode");
+    theme = "mono-light";
+  }else if(mode === "colour-light"){
+    body.classList.add("light-mode");
+    theme = "light";
+  }else if(mode === "auto"){
+    if(osIsLight){ body.classList.add("light-mode"); theme = "light"; }
+  }else if(mode === "colour-dark"){
+    body.classList.add("dark-mode");
+    theme = "black";
+  }else if(mode === "mono-dark"){
+    body.classList.add("dark-mode","mono-mode");
+    theme = "mono-dark";
+  }else if(["cyber","ocean","violet","amber"].includes(mode)){
+    body.classList.add(`${mode}-mode`);
+    theme = mode;
+  }
+  body.dataset.theme = theme;
+}
+
+applyEditorTheme();
+window.addEventListener("storage", e=>{
+  if(e.key === "portfolio-mode" || e.key === "portfolio-theme") applyEditorTheme();
+});
+if(editorOsLight){
+  const refreshEditorTheme = ()=>{ if(readSavedPortfolioMode() === "auto") applyEditorTheme(); };
+  if(editorOsLight.addEventListener) editorOsLight.addEventListener("change", refreshEditorTheme);
+  else if(editorOsLight.addListener) editorOsLight.addListener(refreshEditorTheme);
+}
+
 function escapeHtml(str){
   return String(str==null?"":str).replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 }
@@ -221,7 +278,7 @@ function setSettingsStatus(text, isError){
 /* The logo comes back from the upload endpoint as an "/uploads/xxx.png"
    file URL, not a base64 data URI — so "is there a logo" is just "is the
    string non-empty", and the <img>/<link> src works with either form. */
-const DEFAULT_FAVICON_SVG = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#05080b"/><text x="32" y="43" font-family="monospace" font-size="30" fill="#4dff91" text-anchor="middle">D</text></svg>');
+const DEFAULT_FAVICON_SVG = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#05080b"/><rect x="12" y="16" width="40" height="28" rx="6" fill="none" stroke="#4dff91" stroke-width="4"/><path d="M22 26l6 4-6 4" fill="none" stroke="#4dff91" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M33 35h9" stroke="#4dff91" stroke-width="4" stroke-linecap="round"/></svg>');
 
 function faviconMime(url){
   const dataMatch = /^data:([^;,]+)/.exec(url);
@@ -239,7 +296,7 @@ function renderUploadStates(){
   preview.hidden = !logo;
   if(logo) preview.src = logo; else preview.removeAttribute("src");
   $("#faviconDefault").hidden = !!logo;
-  $("#faviconState").textContent = logo ? "Custom logo saved" : "Using the default D logo";
+  $("#faviconState").textContent = logo ? "Custom logo saved" : "No custom logo uploaded yet";
   document.querySelector('[data-clear="favicon_url"]').hidden = !logo;
   const tabIcon = document.querySelector('link[rel="icon"]');
   tabIcon.type = logo ? faviconMime(logo) : "image/svg+xml";

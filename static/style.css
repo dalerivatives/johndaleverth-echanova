@@ -332,7 +332,7 @@ select:focus-visible,[tabindex]:focus-visible{
 @media(max-width:560px){.palette-menu{right:14px;top:64px}.theme-grid{grid-template-columns:1fr}.mode-pulse{display:none}.mode-readout{display:none}}
 
 /* HUMAN BEHIND THE CODE — intentionally static for reliable local/live preview */
-.hero{position:relative;display:grid;grid-template-columns:1fr;min-height:310px;align-items:center;overflow:visible;margin-bottom:0}
+.hero{position:relative;display:grid;grid-template-columns:1fr;min-height:310px;align-items:center;overflow:hidden;margin-bottom:0}
 .hero .identity{position:relative;z-index:3;max-width:700px}
 .human-backdrop{
   position:absolute;
@@ -2306,7 +2306,7 @@ body.lightbox-open{overflow:hidden}
   --kb-bw:1px;
   --kb-pad:5px;                       /* bezel width: dial inset from the rim */
   --kb-span:75deg;                    /* half-arc: outer detents sit at -/+ this */
-  --kb-step:calc(var(--kb-span) * 2 / 4);   /* five detents -> four gaps */
+  --kb-step:calc(var(--kb-span) * 2 / 8);   /* nine detents -> eight gaps */
   --kb-ring:calc(var(--kb-size) / 2 - var(--kb-pad) - 3px);
   --kb-tick-w:2px;
   --kb-tick-h:5px;
@@ -2346,19 +2346,27 @@ body.lightbox-open{overflow:hidden}
 }
 /* Six detents from one formula: -span, then a step at a time. Nothing is
    positioned by hand, so the scale and the pointer cannot drift apart. */
-.kb-ticks i:nth-child(1){ transform:rotate(calc(-1 * var(--kb-span)))                      translateY(calc(-1 * var(--kb-ring))) }
+.kb-ticks i:nth-child(1){ transform:rotate(calc(-1 * var(--kb-span) + 0 * var(--kb-step))) translateY(calc(-1 * var(--kb-ring))) }
 .kb-ticks i:nth-child(2){ transform:rotate(calc(-1 * var(--kb-span) + 1 * var(--kb-step))) translateY(calc(-1 * var(--kb-ring))) }
-.kb-ticks i:nth-child(3){ transform:rotate(0deg)                                           translateY(calc(-1 * var(--kb-ring))) }
+.kb-ticks i:nth-child(3){ transform:rotate(calc(-1 * var(--kb-span) + 2 * var(--kb-step))) translateY(calc(-1 * var(--kb-ring))) }
 .kb-ticks i:nth-child(4){ transform:rotate(calc(-1 * var(--kb-span) + 3 * var(--kb-step))) translateY(calc(-1 * var(--kb-ring))) }
-.kb-ticks i:nth-child(5){ transform:rotate(var(--kb-span))                                 translateY(calc(-1 * var(--kb-ring))) }
+.kb-ticks i:nth-child(5){ transform:rotate(calc(-1 * var(--kb-span) + 4 * var(--kb-step))) translateY(calc(-1 * var(--kb-ring))) }
+.kb-ticks i:nth-child(6){ transform:rotate(calc(-1 * var(--kb-span) + 5 * var(--kb-step))) translateY(calc(-1 * var(--kb-ring))) }
+.kb-ticks i:nth-child(7){ transform:rotate(calc(-1 * var(--kb-span) + 6 * var(--kb-step))) translateY(calc(-1 * var(--kb-ring))) }
+.kb-ticks i:nth-child(8){ transform:rotate(calc(-1 * var(--kb-span) + 7 * var(--kb-step))) translateY(calc(-1 * var(--kb-ring))) }
+.kb-ticks i:nth-child(9){ transform:rotate(calc(-1 * var(--kb-span) + 8 * var(--kb-step))) translateY(calc(-1 * var(--kb-ring))) }
 
 /* The detent the dial is currently pointing at lights up, so the position
    is readable at a glance without counting angles. */
 .knob[data-mode="mono-light"]   .kb-ticks i:nth-child(1),
 .knob[data-mode="colour-light"] .kb-ticks i:nth-child(2),
 .knob[data-mode="auto"]         .kb-ticks i:nth-child(3),
-.knob[data-mode="colour-dark"]  .kb-ticks i:nth-child(4),
-.knob[data-mode="mono-dark"]    .kb-ticks i:nth-child(5){
+.knob[data-mode="cyber"]        .kb-ticks i:nth-child(4),
+.knob[data-mode="ocean"]        .kb-ticks i:nth-child(5),
+.knob[data-mode="violet"]       .kb-ticks i:nth-child(6),
+.knob[data-mode="amber"]        .kb-ticks i:nth-child(7),
+.knob[data-mode="colour-dark"]  .kb-ticks i:nth-child(8),
+.knob[data-mode="mono-dark"]    .kb-ticks i:nth-child(9){
   background:var(--accent);
   opacity:1;
   box-shadow:0 0 5px var(--accent);
@@ -2396,11 +2404,15 @@ body.lightbox-open{overflow:hidden}
   box-shadow:0 0 5px var(--accent);
 }
 
-.knob[data-mode="mono-light"]   .kb-dial{ transform:rotate(calc(-1 * var(--kb-span)))                      }
+.knob[data-mode="mono-light"]   .kb-dial{ transform:rotate(calc(-1 * var(--kb-span) + 0 * var(--kb-step))) }
 .knob[data-mode="colour-light"] .kb-dial{ transform:rotate(calc(-1 * var(--kb-span) + 1 * var(--kb-step))) }
-.knob[data-mode="auto"]         .kb-dial{ transform:rotate(0deg)                                           }
-.knob[data-mode="colour-dark"]  .kb-dial{ transform:rotate(calc(-1 * var(--kb-span) + 3 * var(--kb-step))) }
-.knob[data-mode="mono-dark"]    .kb-dial{ transform:rotate(var(--kb-span))                                 }
+.knob[data-mode="auto"]         .kb-dial{ transform:rotate(calc(-1 * var(--kb-span) + 2 * var(--kb-step))) }
+.knob[data-mode="cyber"]        .kb-dial{ transform:rotate(calc(-1 * var(--kb-span) + 3 * var(--kb-step))) }
+.knob[data-mode="ocean"]        .kb-dial{ transform:rotate(calc(-1 * var(--kb-span) + 4 * var(--kb-step))) }
+.knob[data-mode="violet"]       .kb-dial{ transform:rotate(calc(-1 * var(--kb-span) + 5 * var(--kb-step))) }
+.knob[data-mode="amber"]        .kb-dial{ transform:rotate(calc(-1 * var(--kb-span) + 6 * var(--kb-step))) }
+.knob[data-mode="colour-dark"]  .kb-dial{ transform:rotate(calc(-1 * var(--kb-span) + 7 * var(--kb-step))) }
+.knob[data-mode="mono-dark"]    .kb-dial{ transform:rotate(calc(-1 * var(--kb-span) + 8 * var(--kb-step))) }
 
 .knob:hover{ border-color:var(--accent) }
 .knob:focus-visible{ outline:2px solid var(--accent); outline-offset:3px }
@@ -3475,3 +3487,28 @@ a.btn:active{
 #presenceFaces .fa-circle-user::before{content:"\f2bd"}
 @media(max-width:560px){#presenceFaces .fa-circle-user{font-size:19px}}
 @media(max-width:380px){#presenceFaces .fa-circle-user{font-size:17px}}
+
+/* ============================================================
+   V74 — TRUE BACKDROP OCCLUSION FOR THE REVEALED PORTRAIT
+   The background was already behind the human in z-order, but the parent
+   human layer used opacity below 1 and the photo used screen blending. That
+   let background code/graphs visually bleed through the face and clothing.
+   Once the real portrait is revealed, composite it as a normal opaque
+   foreground image so the decorative world is genuinely behind the person.
+   ============================================================ */
+.human-backdrop.revealed,
+.human-backdrop.crossfade{
+  opacity:1!important;
+}
+.human-backdrop.revealed .real-portrait,
+.human-backdrop.crossfade .real-portrait{
+  mix-blend-mode:normal!important;
+}
+.human-backdrop.revealed:not(.crossfade) .real-portrait{
+  opacity:1!important;
+  visibility:visible!important;
+}
+/* Trim the lowest edge of the revealed portrait so it does not peek through the semi-transparent terminal panel below. */
+.human-backdrop .real-portrait{
+  clip-path:inset(0 0 14px 0);
+}
