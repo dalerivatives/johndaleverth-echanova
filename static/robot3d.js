@@ -290,6 +290,7 @@
 
   Robot3D.mount = function(el){
     if(Robot3D._mounted) return true;
+    if(window.PortfolioPerformance?.lite)return false; // existing playable 2D robot
     if(typeof THREE === "undefined") return false;
     container = el;
 
@@ -300,7 +301,7 @@
     }
     if(!renderer || !renderer.getContext()) return false;
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.setSize(el.clientWidth || 320, el.clientHeight || 240);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -323,7 +324,14 @@
     window.addEventListener("resize", onResize);
     Robot3D._mounted = true;
     Robot3D.available = true;
-    loop();
+    inView=true;
+    renderObserver=new IntersectionObserver(entries=>{
+      inView=entries[0].isIntersecting;
+      resumeRendering();
+    });
+    renderObserver.observe(container);
+    document.addEventListener('visibilitychange',resumeRendering);
+    resumeRendering();
     return true;
   };
 
@@ -334,7 +342,7 @@
        but devicePixelRatio changes when the page is zoomed or the window is
        dragged to a different-density monitor — and a canvas still rendering
        at the old ratio is exactly the "blurry screen" you then see. */
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.setSize(w, h);
     camera.aspect = w/h;
     camera.updateProjectionMatrix();
@@ -412,9 +420,22 @@
     health = Math.max(0, Math.min(100, pct));
   };
 
-  function loop(){
+  let renderedAt=0,renderObserver=null,inView=false;
+  function resumeRendering(){
+    if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+    if(renderer && inView && !document.hidden){
+      clock.getDelta();
+      rafId=requestAnimationFrame(loop);
+    }
+  }
+  function loop(now=0){
+    rafId=null;
+    if(!renderer || !inView || document.hidden)return;
     rafId = requestAnimationFrame(loop);
-    if(!renderer) return;
+    if(!container?.getClientRects().length){clock.getDelta();return;}
+    const bounds=container.getBoundingClientRect();
+    if(bounds.bottom<0 || bounds.top>innerHeight || now-renderedAt<1000/30){return;}
+    renderedAt=now;
     const dt = Math.min(clock.getDelta(), 0.05);
     const t = clock.elapsedTime;
 
@@ -497,6 +518,9 @@
 
   Robot3D.dispose = function(){
     if(rafId) cancelAnimationFrame(rafId);
+    rafId=null;
+    if(renderObserver)renderObserver.disconnect();
+    document.removeEventListener('visibilitychange',resumeRendering);
     window.removeEventListener("resize", onResize);
     if(renderer){
       renderer.dispose();

@@ -61,25 +61,19 @@
   z-index:2!important;
   opacity:1!important;
   visibility:visible!important;
-  filter:drop-shadow(0 0 5px var(--glow))!important;
+  background-color:var(--accent);
+  -webkit-mask:url('assets/human-coded-exact-contour.png') center / 100% 100% no-repeat;
+  mask:url('assets/human-coded-exact-contour.png') center / 100% 100% no-repeat;
+  filter:none!important;
 }
 .app .hero .human-backdrop #realPortrait {
   z-index:3!important;
   opacity:0!important;
   visibility:hidden!important;
-  filter:drop-shadow(0 0 2px var(--accent)) drop-shadow(0 0 12px var(--glow))!important;
-}
-.app.light-mode .hero .human-backdrop #asciiArt {
-  filter:brightness(.45) saturate(.85) drop-shadow(0 0 3px var(--glow))!important;
-}
-.app.mono-mode .hero .human-backdrop #asciiArt {
-  filter:grayscale(1) drop-shadow(0 0 4px var(--glow))!important;
-}
-.app.light-mode.mono-mode .hero .human-backdrop #asciiArt {
-  filter:grayscale(1) brightness(.3) drop-shadow(0 0 3px var(--glow))!important;
+  filter:drop-shadow(0 0 1px var(--accent))!important;
 }
 .app.mono-mode .hero .human-backdrop #realPortrait {
-  filter:grayscale(1) drop-shadow(0 0 2px var(--accent)) drop-shadow(0 0 12px var(--glow))!important;
+  filter:grayscale(1) drop-shadow(0 0 1px var(--accent))!important;
 }
 .app .hero .human-backdrop.revealed #asciiArt {opacity:0!important}
 .app .hero .human-backdrop.revealed:not(.crossfade) #asciiArt {visibility:hidden!important}

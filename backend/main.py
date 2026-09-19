@@ -282,11 +282,9 @@ def robot_speech(payload: SpeechRequest, request: Request):
     text = payload.text.strip()
     if not text:
         raise HTTPException(status_code=422, detail="Text is required")
-    # Static mode prevents the Piper/ONNX model from entering the Render web
-    # process. Bundled WAVs still provide the terminal and whoami voices.
-    if SPEECH_MODE != "dynamic":
-        raise HTTPException(status_code=503, detail="Dynamic speech is disabled on this hosting plan")
-    ip = request.client.host if request.client else "unknown"
+    # Legacy static mode still keeps Piper/ONNX unloaded. Arbitrary chat now
+    # uses a small male robot synthesizer so phones need no OS voice fallback.
+    ip = _client_ip(request)
     now = time.monotonic()
     with _speech_rate_lock:
         # Delete expired buckets and bound even a flood of unique addresses.
@@ -302,7 +300,11 @@ def robot_speech(payload: SpeechRequest, request: Request):
             raise HTTPException(status_code=429, detail="Please wait before requesting more speech")
         hits.append(now)
     try:
-        data = synthesize(text, payload.profile)
+        if SPEECH_MODE == "dynamic":
+            data = synthesize(text, payload.profile)
+        else:
+            from .speech_lite import synthesize_lite
+            data = synthesize_lite(text, payload.profile)
     except Exception:
         raise HTTPException(status_code=503, detail="Robot voice is temporarily unavailable")
     return Response(data, media_type="audio/wav", headers={"Cache-Control":"no-store"})
@@ -310,7 +312,8 @@ def robot_speech(payload: SpeechRequest, request: Request):
 
 @app.get("/api/speech/status")
 def speech_status():
-    return {"dynamic": SPEECH_MODE == "dynamic", "mode": SPEECH_MODE}
+    return {"dynamic": True, "mode": SPEECH_MODE,
+            "engine": "john-neural" if SPEECH_MODE == "dynamic" else "male-robot-lite"}
 
 
 @app.get("/api/health")

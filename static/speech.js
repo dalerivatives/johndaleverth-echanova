@@ -1,4 +1,4 @@
-/* v83: bundled male recordings; dynamic speech uses Piper or a known male voice.
+/* v85: bundled male recordings; other speech uses server male audio or a known male voice.
    All engines share one queue so announcements never overlap narration. */
 (() => {
   const AudioEngine = window.AudioContext || window.webkitAudioContext;
@@ -129,8 +129,11 @@
       }, 25);
     });
   }
-  window.addEventListener('pointerdown', prime, {passive:true});
-  window.addEventListener('keydown', prime);
+  // Capture gestures even when a robot/control handler stops propagation.
+  // touchend covers mobile browsers that only unlock audio on gesture release.
+  window.addEventListener('pointerdown', prime, {passive:true,capture:true});
+  window.addEventListener('touchend', prime, {passive:true,capture:true});
+  window.addEventListener('keydown', prime, {capture:true});
   function discardWorker(){
     if(worker) worker.terminate();
     worker=null;
@@ -139,7 +142,7 @@
   }
   function prepareWorker(){
     if(worker) return;
-    worker = new Worker('/speech-worker.js?v=83');
+    worker = new Worker('/speech-worker.js?v=85');
     worker.onmessage = async ({data}) => {
       if(data && (data.warmed || data.prefetch)){
         if(data.key && data.warmed) warmed.add(data.key);

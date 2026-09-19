@@ -32,7 +32,7 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/health').json()['status'], 'ok')
         self.assertEqual(self.client.get('/api/health/db').json()['db'], 'ok')
         status = self.client.get('/api/speech/status').json()
-        self.assertEqual(status['dynamic'], SPEECH_MODE == 'dynamic')
+        self.assertTrue(status['dynamic'])
 
     def test_blank_optional_database_url(self):
         result = subprocess.run([sys.executable, '-c',
@@ -125,12 +125,31 @@ class RegressionTests(unittest.TestCase):
         for asset in ['/favicon.js','/loader.js','/loader.css','/speech-worker.js','/assets/whoami-robot.wav','/assets/voice-preview.wav']:
             self.assertEqual(self.client.get(asset).status_code,200)
 
-    def test_static_mode_never_synthesizes(self):
+    def test_static_mode_uses_lightweight_male_voice_not_neural(self):
         with patch('backend.main.synthesize',side_effect=AssertionError('must not synthesize')) as voice:
             for text in ['Welcome to my world!','Customized terminal words']:
-                self.assertEqual(self.client.post('/api/speech',json={'text':text}).status_code,503)
+                self.assertEqual(self.client.post('/api/speech',json={'text':text}).status_code,200)
             voice.assert_not_called()
         self.assertEqual(self.client.get('/api/speech/status').json()['mode'],'static')
+        self.assertEqual(self.client.get('/api/speech/status').json()['engine'],'male-robot-lite')
+
+    def test_lightweight_voice_without_neural_runtime(self):
+        result = subprocess.run([sys.executable, '-c',
+            "import sys,io,wave; from backend.speech_lite import synthesize_lite; "
+            "data=synthesize_lite('Johndale won this round by defeating the robot!'); "
+            "w=wave.open(io.BytesIO(data)); assert w.getnframes()>22050; "
+            "assert 'onnxruntime' not in sys.modules; assert 'piper' not in sys.modules"],
+            capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+
+    def test_lightweight_concurrent_messages(self):
+        from backend.speech_lite import synthesize_lite
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            results=list(pool.map(synthesize_lite,['First message.','Second message.','Third message.']))
+        self.assertEqual(len(set(results)),3)
+        for data in results:
+            with wave.open(io.BytesIO(data)) as wav:
+                self.assertGreater(wav.getnframes(),0)
 
     def test_editor_tab_branding(self):
         html=self.client.get('/editor.html').text

@@ -443,7 +443,7 @@ function paintMode(mode){
   }
   app.dataset.theme = datasetTheme;
   document.body.dataset.theme = datasetTheme;
-  if(window.Background) window.Background.draw();
+    // Background colours inherit the theme; rebuilding every graph is unnecessary.
 }
 
 function setMode(mode, persist = true){
@@ -944,9 +944,11 @@ if(osLight){
         return;
       }
 
-      if(command==="code" || command==="ascii"){
+      if(revealed && (command==="code" || command==="ascii")){
         showCode();
         commandVoice("Code transform.");
+      }else if(command==="code" || command==="ascii"){
+        field.value="";
       }
     }
 

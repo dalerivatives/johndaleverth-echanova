@@ -211,7 +211,7 @@
 
 /* Sticky save bar */
 .settings-actions{position:sticky;bottom:0;display:flex;align-items:center;justify-content:flex-end;
-  gap:16px;padding:16px 0;background:linear-gradient(to top,var(--bg) 62%,transparent)}
+  gap:16px;padding:16px 0;background:var(--bg)}
 .settings-actions button{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--accent);
   background:var(--code);color:var(--accent);border-radius:9px;padding:11px 20px;
   font:13px ui-monospace,monospace;transition:.18s}
@@ -426,8 +426,7 @@
  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
  background-color:var(--bg);
  background-image:
-   linear-gradient(color-mix(in srgb,var(--accent) 4%,transparent) 1px,transparent 1px),
-   linear-gradient(90deg,color-mix(in srgb,var(--accent) 4%,transparent) 1px,transparent 1px);
+   none;
  background-size:32px 32px;
 }
 .editor-body::after{content:none}

@@ -64,11 +64,12 @@
 </script>
 
 <link rel="preload" as="image" href="assets/trevelade-logo.jpg?v=70">
-<link rel="stylesheet" href="loader.css?v=80">
+<link rel="preload" as="image" href="assets/human-coded-exact-contour.png">
+<link rel="stylesheet" href="loader.css?v=85">
 <script src="loader.js?v=80"></script>
 <link rel="stylesheet" href="vendor/fontawesome/all.min.css?v=78">
-<link rel="stylesheet" href="style.css?v=83" data-boot-critical>
-<link rel="stylesheet" href="profile.css?v=84" data-boot-critical>
+<link rel="stylesheet" href="style.css?v=85" data-boot-critical>
+<link rel="stylesheet" href="profile.css?v=85" data-boot-critical>
 </head>
 <body>
 <div id="bootScreen" role="dialog" aria-modal="true" aria-labelledby="bootBrand" hidden>
@@ -195,8 +196,7 @@
              hero text reflows around it when it does — a visible jump on
              the slow connections this matters most on. The CSS still
              controls the drawn size; these only give the aspect ratio. -->
-        <img id="asciiArt" class="coded-human-outline" src="assets/human-coded-exact-contour.png"
-             width="883" height="883" alt="" aria-hidden="true" draggable="false" decoding="async">
+        <span id="asciiArt" class="coded-human-outline" aria-hidden="true"></span>
         <img id="realPortrait" class="real-portrait" src="assets/profile-transparent.png"
              width="883" height="883" alt="Johndaleverth Pastorfide Echanova" decoding="async">
       </div>
@@ -511,13 +511,14 @@
 </time>
 </footer>
 <script src="sfx.js?v=70"></script>
-<script src="background.js?v=78"></script>
+<script src="performance.js?v=85"></script>
+<script src="background.js?v=85"></script>
 <script src="avatar.js?v=70"></script>
-<script src="speech.js?v=83"></script>
+<script src="speech.js?v=85"></script>
 <script src="vendor/three.min.js?v=70"></script>
-<script src="robot3d.js?v=70"></script>
+<script src="robot3d.js?v=85"></script>
 <script src="favicon.js?v=80"></script>
-<script src="script.js?v=84" data-boot-critical></script>
+<script src="script.js?v=85" data-boot-critical></script>
 <script src="uisound.js?v=70"></script>
 </body>
 </html>

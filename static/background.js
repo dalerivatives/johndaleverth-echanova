@@ -31,6 +31,7 @@
   safeLayers.forEach(layer=>layer.classList.remove("human-safe-mask"));
 
   const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const lite=!!window.PortfolioPerformance?.lite;
 
   const FALLBACK_SNIPPETS = [
     "const future = build(idea);", "while(alive){ learn(); }", "SELECT * FROM ideas;",
@@ -59,7 +60,7 @@
     // Fewer on a phone: the same count on a narrow screen reads as clutter
     // rather than texture, and it's wasted work on the weakest device.
     const wide = window.innerWidth >= 700;
-    const count = Math.max(0, Math.min(80, Math.round(config.density * (wide ? 1 : 0.55))));
+    const count = Math.max(0, Math.min(lite?8:32, Math.round(config.density * (wide ? 1 : 0.55))));
 
     const frag = document.createDocumentFragment();
     for(let i=0;i<count;i++){
@@ -242,7 +243,12 @@
     return {x: 50 + x*scale, y: 50 + y*scale, depth: scale};
   }
 
+  let lastFrame=-Infinity;
   function tick(now){
+    frame=null;
+    if(document.hidden)return;
+    if(now-lastFrame<50){frame=requestAnimationFrame(tick);return;}
+    lastFrame=now;
     scenes.forEach(scene=>{
       const angle = scene.phase + now * 0.00012 * scene.rate;
       const cosY = Math.cos(angle), sinY = Math.sin(angle);
@@ -271,12 +277,13 @@
         el.style.setProperty("--depth", (0.3 + (p.depth - 0.7) * 1.6).toFixed(3));
       });
     });
-    frame = requestAnimationFrame(tick);
+    if(!reduced && !lite)frame = requestAnimationFrame(tick);
   }
 
   function stopLoop(){
     if(frame !== null){ cancelAnimationFrame(frame); frame = null; }
     scenes = [];
+    lastFrame=-Infinity;
   }
 
   function drawGraphs(){
@@ -289,7 +296,7 @@
     if(!kinds.length) return;
 
     const wide = window.innerWidth >= 700;
-    const count = Math.max(0, Math.min(6, Math.round(config.graphCount * (wide ? 1 : 0.6))));
+    const count = Math.max(0, Math.min(lite?1:3, Math.round(config.graphCount * (wide ? 1 : 0.6))));
 
     for(let g=0; g<count; g++){
       const rng = seeded(Date.now() + g * 7919);
@@ -359,7 +366,7 @@
     }
 
     if(!scenes.length) return;
-    if(reduced){
+    if(reduced || lite){
       // One static projection instead of a spin, so the shape is still there
       // for someone who asked their system to stop animations.
       tick(0);
@@ -396,6 +403,10 @@
   });
 
   window.Background = { load, draw };
+  document.addEventListener('visibilitychange',()=>{
+    if(frame!==null){cancelAnimationFrame(frame);frame=null;}
+    if(!document.hidden && scenes.length){lastFrame=-Infinity;tick(performance.now());}
+  });
   draw();                                   // something is on screen immediately
   if(window.__settings) load(window.__settings);
 })();

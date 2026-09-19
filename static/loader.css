@@ -2,7 +2,7 @@ html.booting{overflow:hidden}
 html.booting body > :not(#bootScreen){visibility:hidden!important}
 #bootScreen[hidden],#bootActions[hidden]{display:none}
 html.booting #bootScreen{display:grid;position:fixed;inset:0;z-index:2147483646;place-items:center;background:#060c20;color:#edf6f5;overflow:auto;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;padding:24px;box-sizing:border-box}
-.boot-grid{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 35%,#153c8490,transparent 60%),linear-gradient(#b7ceff07 1px,transparent 1px),linear-gradient(90deg,#b7ceff07 1px,transparent 1px);background-size:auto,52px 52px,52px 52px}
+.boot-grid{position:absolute;inset:0;pointer-events:none;background:none;background-size:auto,52px 52px,52px 52px}
 .boot-card{position:relative;text-align:center;width:min(100%,480px)}
 .boot-orbit{width:clamp(140px,35vw,188px);aspect-ratio:1;margin:0 auto 36px;display:grid;place-items:center;position:relative;border-radius:50%;background:#fff;box-shadow:0 12px 65px #001e7940}
 .boot-orbit:after{content:'';position:absolute;inset:-9px;border:1px solid transparent;border-top-color:#edc46a;border-bottom-color:#245ad3;border-radius:50%;animation:boot-spin 7s linear infinite;pointer-events:none}

@@ -1,3 +1,15 @@
+# v85 — flat themes, mobile speech and lighter rendering
+
+Start with **DEPLOY_v85.md**. Decorative gradients are removed, and the coded
+portrait uses the active theme accent. Layout and existing content are retained.
+Phone chat speech now uses lightweight server-generated male robot audio when
+SPEECH_MODE=static; the bundled male recordings remain. A user tap is required
+to enable audio. Repeated `code` commands no longer announce another transform.
+Small/low-powered devices get fewer static decorations and the playable 2D robot.
+See **UPDATE_v85.md** for verification and limitations.
+
+## Historical release notes
+
 # v84 — requested finishing changes
 
 Removed only the circular gradient behind the portraits, retaining their
