@@ -290,20 +290,19 @@
 
   Robot3D.mount = function(el){
     if(Robot3D._mounted) return true;
-    if(window.PortfolioPerformance?.lite)return false; // existing playable 2D robot
     if(typeof THREE === "undefined") return false;
     container = el;
 
     try{
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "low-power" });
+      renderer = new THREE.WebGLRenderer({ antialias: !window.PortfolioPerformance?.lite, alpha: true, powerPreference: "low-power" });
     }catch(err){
       return false;   // no WebGL — the caller falls back to the flat robot
     }
     if(!renderer || !renderer.getContext()) return false;
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.PortfolioPerformance?.lite?1:1.5));
     renderer.setSize(el.clientWidth || 320, el.clientHeight || 240);
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = !window.PortfolioPerformance?.lite;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     if(THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.domElement.style.width = "100%";
@@ -342,7 +341,7 @@
        but devicePixelRatio changes when the page is zoomed or the window is
        dragged to a different-density monitor — and a canvas still rendering
        at the old ratio is exactly the "blurry screen" you then see. */
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.PortfolioPerformance?.lite?1:1.5));
     renderer.setSize(w, h);
     camera.aspect = w/h;
     camera.updateProjectionMatrix();

@@ -247,7 +247,7 @@
   function tick(now){
     frame=null;
     if(document.hidden)return;
-    if(now-lastFrame<50){frame=requestAnimationFrame(tick);return;}
+    if(now-lastFrame<(lite?66.67:50)){frame=requestAnimationFrame(tick);return;}
     lastFrame=now;
     scenes.forEach(scene=>{
       const angle = scene.phase + now * 0.00012 * scene.rate;
@@ -277,7 +277,7 @@
         el.style.setProperty("--depth", (0.3 + (p.depth - 0.7) * 1.6).toFixed(3));
       });
     });
-    if(!reduced && !lite)frame = requestAnimationFrame(tick);
+    if(!reduced)frame = requestAnimationFrame(tick);
   }
 
   function stopLoop(){
@@ -366,7 +366,7 @@
     }
 
     if(!scenes.length) return;
-    if(reduced || lite){
+    if(reduced){
       // One static projection instead of a spin, so the shape is still there
       // for someone who asked their system to stop animations.
       tick(0);

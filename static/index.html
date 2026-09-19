@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>document.documentElement.classList.add('booting');</script>
+<style id="bootFirstPaint">
+html.booting{background:#060c20;overflow:hidden}
+html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!important}
+</style>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Johndaleverth “Dale” Echanova — Computer Engineer and full-stack developer building web apps, embedded prototypes, and computer-vision systems from Marinduque, Philippines.">
 <meta name="theme-color" content="#05080b">
@@ -65,11 +70,11 @@
 
 <link rel="preload" as="image" href="assets/trevelade-logo.jpg?v=70">
 <link rel="preload" as="image" href="assets/human-coded-exact-contour.png">
-<link rel="stylesheet" href="loader.css?v=85">
-<script src="loader.js?v=80"></script>
+<link rel="stylesheet" href="loader.css?v=87">
+<script src="loader.js?v=87"></script>
 <link rel="stylesheet" href="vendor/fontawesome/all.min.css?v=78">
-<link rel="stylesheet" href="style.css?v=85" data-boot-critical>
-<link rel="stylesheet" href="profile.css?v=85" data-boot-critical>
+<link rel="stylesheet" href="style.css?v=86" data-boot-critical>
+<link rel="stylesheet" href="profile.css?v=86" data-boot-critical>
 </head>
 <body>
 <div id="bootScreen" role="dialog" aria-modal="true" aria-labelledby="bootBrand" hidden>
@@ -511,14 +516,14 @@
 </time>
 </footer>
 <script src="sfx.js?v=70"></script>
-<script src="performance.js?v=85"></script>
-<script src="background.js?v=85"></script>
+<script src="performance.js?v=86"></script>
+<script src="background.js?v=86"></script>
 <script src="avatar.js?v=70"></script>
-<script src="speech.js?v=85"></script>
+<script src="speech.js?v=86"></script>
 <script src="vendor/three.min.js?v=70"></script>
-<script src="robot3d.js?v=85"></script>
+<script src="robot3d.js?v=86"></script>
 <script src="favicon.js?v=80"></script>
-<script src="script.js?v=85" data-boot-critical></script>
+<script src="script.js?v=86" data-boot-critical></script>
 <script src="uisound.js?v=70"></script>
 </body>
 </html>

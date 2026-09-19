@@ -11,7 +11,7 @@ function setup({badImage=false,hiddenImage=false,slowFonts=false}={}){
   documentElement:{classList:{add:x=>classes.add(x),remove:x=>classes.delete(x)}},body:{children:[nodes.bootScreen,content]},
   getElementById:id=>nodes[id],querySelectorAll:()=>content.inert?[content]:[],addEventListener:(name,fn)=>listeners[name]=fn};
  const window={addEventListener:(n,fn)=>listeners[n]=fn,dispatchEvent:e=>events.push(e)};
- vm.runInNewContext(code,{window,document:doc,Promise,setTimeout:(fn,ms)=>{timers.push({fn,ms});return timers.length;},clearTimeout:id=>{if(timers[id-1])timers[id-1].cleared=true;},Event:class{constructor(type){this.type=type;}},location:{reload(){}}});
+ vm.runInNewContext(code,{window,document:doc,Promise,setTimeout:(fn,ms)=>{if(ms===300){fn();return 0;}timers.push({fn,ms});return timers.length;},clearTimeout:id=>{if(timers[id-1])timers[id-1].cleared=true;},Event:class{constructor(type){this.type=type;}},location:{reload(){}}});
  return {nodes,content,classes,window,events,img,timers,decodes:()=>imageDecodes,dom:()=>listeners.DOMContentLoaded(),run:()=>timers.find(t=>t.ms===0).fn(),deadline:()=>timers.find(t=>t.ms===7000).fn(),critical:()=>listeners.error({target:{hasAttribute:()=>true}})};
 }
 (async()=>{

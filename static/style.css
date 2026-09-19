@@ -23,7 +23,7 @@
 .effects-lite .topbar,.effects-lite .site-footer,.effects-lite .stack,
 .effects-lite .palette-menu{backdrop-filter:none!important}
 .effects-lite .code,.effects-lite .bg-graph,.effects-lite .bg-node,
-.effects-lite .bg-edge{animation:none!important;filter:none!important;text-shadow:none!important}
+.effects-lite .bg-edge{filter:none!important;text-shadow:none!important}
 .effects-paused *,.effects-paused *::before,.effects-paused *::after{animation-play-state:paused!important}
 
 /* Author styles always beat the browser's own [hidden]{display:none}, so any

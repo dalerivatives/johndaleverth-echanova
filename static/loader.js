@@ -19,7 +19,44 @@
     tasks.push(safe);
     return safe;
   }
-  window.PortfolioBoot={track,fail};
+  let departing=false, departureTimer;
+  const reduced=()=>!!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  function cover(animate){
+    const screen=byId('bootScreen');
+    if(!screen)return;
+    document.documentElement.classList.remove('boot-revealing');
+    screen.hidden=false;
+    if(byId('bootActions'))byId('bootActions').hidden=true;
+    if(byId('bootStatus'))byId('bootStatus').textContent='Loading your experience…';
+    if(byId('bootBar'))byId('bootBar').style.width='4%';
+    screen.style.opacity=animate?'0':'1';
+    void screen.offsetWidth;
+    document.documentElement.classList.add('boot-departing');
+    screen.style.opacity='1';
+  }
+  function reload(){
+    if(departing)return;
+    departing=true;
+    cover(!reduced());
+    departureTimer=setTimeout(()=>location.reload(),reduced()?0:300);
+  }
+  window.PortfolioBoot={track,fail,reload};
+  // Browser toolbar reloads cannot be delayed reliably by page scripts.
+  // Cover immediately; in-page/keyboard reloads can finish the fade first.
+  window.addEventListener('beforeunload',()=>cover(false));
+  window.addEventListener('pageshow',event=>{
+    if(!event.persisted)return;
+    clearTimeout(departureTimer);departing=false;
+    document.documentElement.classList.remove('boot-departing');
+    const screen=byId('bootScreen');
+    if(screen){screen.style.opacity='';if(released)screen.hidden=true;}
+  });
+  document.addEventListener('keydown',event=>{
+    if(event.defaultPrevented || event.shiftKey || event.altKey)return;
+    if(event.key==='F5' || ((event.ctrlKey||event.metaKey) && event.key.toLowerCase()==='r')){
+      event.preventDefault();reload();
+    }
+  });
   function release(){
     if(released) return;
     released=true;
@@ -27,7 +64,14 @@
     const screen=byId('bootScreen');
     const moveFocus=!!(screen && screen.contains(document.activeElement));
     document.documentElement.classList.remove('booting');
-    if(byId('bootScreen')) byId('bootScreen').hidden=true;
+    if(screen){
+      screen.style.opacity='';
+      document.documentElement.classList.add('boot-revealing');
+      setTimeout(()=>{
+        if(!departing)screen.hidden=true;
+        document.documentElement.classList.remove('boot-revealing');
+      },reduced()?0:300);
+    }
     document.querySelectorAll('[data-boot-inert]').forEach(el=>{el.inert=false;el.removeAttribute('data-boot-inert');});
     if(moveFocus && byId('mainContent')) byId('mainContent').focus({preventScroll:true});
     window.dispatchEvent(new Event('portfolio-ready'));
@@ -57,7 +101,7 @@
     for(const el of document.body.children){
       if(el.id!=='bootScreen' && !['SCRIPT','NOSCRIPT'].includes(el.tagName) && !el.inert){el.inert=true;el.dataset.bootInert='';}
     }
-    byId('bootRetry').onclick=()=>location.reload();
+    byId('bootRetry').onclick=reload;
     byId('bootContinue').onclick=release;
     // One overall cap, not a full timeout for each loading phase.
     deadline=setTimeout(finish,7000);

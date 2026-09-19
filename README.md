@@ -1,3 +1,31 @@
+# v87 — smooth reload and portrait flash fix
+
+An inline first-paint guard hides the whole portfolio during loading, including
+portrait children with their own visibility rules. The opaque Trevelade screen
+fades away once readiness completes. F5, Ctrl/Cmd+R and in-page retry fade into
+the loading screen before reloading. Browser toolbar/hard reload cannot be
+reliably delayed by JavaScript; it gets immediate coverage and the same startup
+guard. Reduced-motion settings skip fades. Back/forward cache restores clear
+the reload cover. All v86 design, voice and 3D fixes are retained.
+
+Deploy using DEPLOY_v85.md; refresh to load v87 loader assets.
+
+## Previous release notes
+
+# v86 — restore moving backgrounds and the 3D robot
+
+Fixed the v85 device optimization that stopped code/tree motion and selected
+2D automatically. Phones and low-memory devices now keep moving decorations
+and attempt the real WebGL robot. Lighter devices retain fewer decorations,
+15 fps tree updates, 30 fps robot rendering, lower pixel density and no shadow
+maps. Hidden/off-screen rendering still pauses. A 2D fallback is used only if
+WebGL cannot initialize. The operating system reduced-motion setting continues
+to suppress decorative animation. All other v85 changes are retained.
+
+Deployment: follow DEPLOY_v85.md, then refresh the browser to load v86 assets.
+
+## Previous release notes
+
 # v85 — flat themes, mobile speech and lighter rendering
 
 Start with **DEPLOY_v85.md**. Decorative gradients are removed, and the coded

@@ -1,7 +1,7 @@
 html.booting{overflow:hidden}
-html.booting body > :not(#bootScreen){visibility:hidden!important}
+html.booting body > :not(#bootScreen){visibility:hidden!important;opacity:0!important;pointer-events:none!important}
 #bootScreen[hidden],#bootActions[hidden]{display:none}
-html.booting #bootScreen{display:grid;position:fixed;inset:0;z-index:2147483646;place-items:center;background:#060c20;color:#edf6f5;overflow:auto;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;padding:24px;box-sizing:border-box}
+#bootScreen{display:grid;position:fixed;inset:0;z-index:2147483646;place-items:center;background:#060c20;color:#edf6f5;overflow:auto;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;padding:24px;box-sizing:border-box}
 .boot-grid{position:absolute;inset:0;pointer-events:none;background:none;background-size:auto,52px 52px,52px 52px}
 .boot-card{position:relative;text-align:center;width:min(100%,480px)}
 .boot-orbit{width:clamp(140px,35vw,188px);aspect-ratio:1;margin:0 auto 36px;display:grid;place-items:center;position:relative;border-radius:50%;background:#fff;box-shadow:0 12px 65px #001e7940}
@@ -19,3 +19,11 @@ html.booting #bootScreen{display:grid;position:fixed;inset:0;z-index:2147483646;
 #bootActions button:focus-visible{outline:2px solid #fff;outline-offset:4px}
 @keyframes boot-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.boot-orbit:after{animation:none}#bootBar{transition:none}}
+
+/* A fully opaque boot surface prevents independently visible portrait layers
+   from painting through while assets settle. */
+#bootScreen{opacity:1;isolation:isolate;transition:opacity .28s ease}
+html.boot-revealing #bootScreen{opacity:0;pointer-events:none}
+html.boot-departing{overflow:hidden}
+html.boot-departing #bootScreen{opacity:1;pointer-events:auto}
+@media(prefers-reduced-motion:reduce){#bootScreen{transition:none}}
