@@ -2042,43 +2042,80 @@ def serve_editor():
 # PNG/ICO files under static/ are the fallback, so a fresh deployment with an
 # empty database still has a crawlable icon on day one.
 # ---------------------------------------------------------------------------
+# Each icon path names the file it PREFERS, then the files it will settle
+# for. The chain is not decoration: the live site 404'd on /favicon.ico
+# while /icon-192.png served fine, because that one file did not survive the
+# deploy — and a favicon route that can 404 because of a missing file is
+# precisely the failure this whole section exists to remove. Serving a PNG
+# at /favicon.ico is correct in any case: browsers and crawlers go by
+# Content-Type, not by the extension in the URL.
 _ICON_FALLBACKS = {
-    "/favicon.ico":          ("favicon.ico",          "image/x-icon"),
-    "/icon-96.png":          ("icon-96.png",          "image/png"),
-    "/icon-192.png":         ("icon-192.png",         "image/png"),
-    "/icon-512.png":         ("icon-512.png",         "image/png"),
-    "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
+    "/favicon.ico":          ["favicon.ico", "icon-192.png", "icon-96.png", "icon-512.png"],
+    "/icon-96.png":          ["icon-96.png", "icon-192.png", "icon-512.png", "favicon.ico"],
+    "/icon-192.png":         ["icon-192.png", "icon-512.png", "icon-96.png", "favicon.ico"],
+    "/icon-512.png":         ["icon-512.png", "icon-192.png", "icon-96.png", "favicon.ico"],
+    "/apple-touch-icon.png": ["apple-touch-icon.png", "icon-192.png", "icon-512.png", "favicon.ico"],
 }
+
+_ICON_MIME = {".ico": "image/x-icon", ".png": "image/png",
+              ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
 
 
 def _stored_icon(db: Session):
-    """The icon uploaded in the editor, as (bytes, mime) — or None."""
-    row = db.get(models.Setting, "_asset_favicon")
+    """The icon uploaded in the editor, as (bytes, mime) — or None.
+
+    Two storage shapes, because the site has had two. Newer uploads are
+    held in the database as a base64 asset and addressed as
+    /api/favicon/<hash>; older ones were written to the uploads directory
+    and addressed as /uploads/<name>. Only the first was handled here at
+    first, which meant a site whose icon had been uploaded the OLD way fell
+    straight through to the bundled file — and if that file was missing,
+    to a 404. Both shapes are read now.
+    """
     active = db.get(models.Setting, "favicon_url")
-    if not row or not active or not (active.value or "").startswith("/api/favicon/"):
+    url = (active.value or "").strip() if active else ""
+    if not url:
         return None
-    try:
-        asset = json.loads(row.value)
-        return base64.b64decode(asset["data"]), asset.get("mime") or "image/png"
-    except Exception:
-        return None
+
+    if url.startswith("/api/favicon/"):
+        row = db.get(models.Setting, "_asset_favicon")
+        if not row:
+            return None
+        try:
+            asset = json.loads(row.value)
+            return base64.b64decode(asset["data"]), asset.get("mime") or "image/png"
+        except Exception:
+            return None
+
+    if url.startswith("/uploads/"):
+        # Path().name strips any directory traversal before it can be used.
+        file = UPLOAD_DIR / Path(url).name
+        try:
+            if file.is_file():
+                return file.read_bytes(), _ICON_MIME.get(file.suffix.lower(), "image/png")
+        except OSError:
+            return None
+
+    return None
 
 
 def _serve_icon(path: str, db: Session) -> Response:
-    name, mime = _ICON_FALLBACKS[path]
     stored = _stored_icon(db)
     if stored:
         data, stored_mime = stored
-        # Browsers and crawlers both go by Content-Type, not by the extension
-        # in the URL, so serving a PNG at /favicon.ico is correct and is what
-        # every site with a modern icon does.
         return Response(data, media_type=stored_mime,
                         headers={"Cache-Control": "public, max-age=86400"})
-    file = STATIC_DIR / name
-    if not file.is_file():
-        raise HTTPException(status_code=404, detail="Icon not found")
-    return FileResponse(file, media_type=mime,
-                        headers={"Cache-Control": "public, max-age=86400"})
+
+    for name in _ICON_FALLBACKS[path]:
+        file = STATIC_DIR / name
+        if file.is_file():
+            return FileResponse(file, media_type=_ICON_MIME.get(file.suffix.lower(), "image/png"),
+                                headers={"Cache-Control": "public, max-age=86400"})
+
+    # Every candidate is missing, which means the deploy is broken rather
+    # than the request being wrong. Say so in the log instead of returning a
+    # silent 404 that looks like a routing problem.
+    raise HTTPException(status_code=404, detail="No icon file is present in static/")
 
 
 @app.get("/favicon.ico", include_in_schema=False)

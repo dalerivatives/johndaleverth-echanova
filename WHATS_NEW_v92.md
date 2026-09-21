@@ -1,4 +1,4 @@
-# Portfolio v91 — what changed
+# Portfolio v92 — what changed
 
 ## 1. The robot is now the Travelade EXPLORER-BOT T-700V
 
@@ -121,6 +121,29 @@ fatal:
   connection or a failed `/api/settings` call leaves a good icon showing
   instead of nothing. It blanks first only when you change the icon in
   the editor, where showing the old one would be wrong.
+
+### v92 follow-up: /favicon.ico was 404ing in production
+
+After the v91 deploy, `/site.webmanifest`, `/icon-192.png` and the new
+`robots.txt` were all live — but `/favicon.ico` itself returned **404**.
+One file had not survived the deploy, and the route depended on it, so
+Google still had nothing to fetch and kept the grey globe.
+
+Two changes so that cannot happen again:
+
+- **`/favicon.ico` now falls back through a chain of candidate files**
+  (`favicon.ico` → `icon-192.png` → `icon-96.png` → `icon-512.png`) and
+  serves the first one present. Serving a PNG at `/favicon.ico` is
+  perfectly valid — browsers and crawlers go by Content-Type, not by the
+  extension in the URL. Every icon path has its own chain, so any single
+  missing file is now invisible to the outside world.
+- **The uploaded icon is found whichever way it was stored.** The site has
+  had two storage shapes: newer uploads live in the database and are
+  addressed as `/api/favicon/<hash>`; older ones were written to the
+  uploads directory as `/uploads/<name>`. Only the first was being read,
+  so a site whose icon had been uploaded the old way fell straight past it
+  to the bundled file. Both are read now, with the uploads path reduced to
+  its bare filename first so it cannot be walked out of that directory.
 
 ### What you still have to do yourself
 
