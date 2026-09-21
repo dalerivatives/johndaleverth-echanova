@@ -14,6 +14,9 @@ Allow: /api/health/db
 # The icons, explicitly. Google will not show a favicon in search results
 # for a URL it is not allowed to fetch, and a blanket Disallow one line
 # further down is exactly how a site ends up with the grey globe.
+Allow: /brand-icon.png
+Allow: /brand-icon-512.png
+Allow: /brand-icon-touch.png
 Allow: /favicon.ico
 Allow: /icon-96.png
 Allow: /icon-192.png

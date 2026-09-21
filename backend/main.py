@@ -2055,6 +2055,22 @@ _ICON_FALLBACKS = {
     "/icon-192.png":         ["icon-192.png", "icon-512.png", "icon-96.png", "favicon.ico"],
     "/icon-512.png":         ["icon-512.png", "icon-192.png", "icon-96.png", "favicon.ico"],
     "/apple-touch-icon.png": ["apple-touch-icon.png", "icon-192.png", "icon-512.png", "favicon.ico"],
+
+    # ---- the paths the HTML actually points at --------------------------
+    # These exist because /favicon.ico could not be rescued from the server
+    # side. A CDN in front of this site had cached a 404 against that exact
+    # URL from one bad deploy, and a cached response is not something the
+    # origin can revoke — it can only be purged by hand, at the edge.
+    #
+    # So the page stopped asking for it. These paths have never been
+    # requested by anyone, which means no cache anywhere holds an opinion
+    # about them, which means the very first request for one reaches this
+    # code. They are permanent, not throwaway cache-busters: a favicon URL
+    # that changes on every deploy makes a search engine re-crawl it every
+    # time, and Google explicitly wants a stable one.
+    "/brand-icon.png":       ["icon-192.png", "icon-512.png", "icon-96.png", "favicon.ico"],
+    "/brand-icon-512.png":   ["icon-512.png", "icon-192.png", "icon-96.png", "favicon.ico"],
+    "/brand-icon-touch.png": ["apple-touch-icon.png", "icon-192.png", "icon-512.png", "favicon.ico"],
 }
 
 _ICON_MIME = {".ico": "image/x-icon", ".png": "image/png",
@@ -2167,6 +2183,21 @@ def serve_apple_touch_icon(db: Session = Depends(get_db)):
     return _serve_icon("/apple-touch-icon.png", db)
 
 
+@app.get("/brand-icon.png", include_in_schema=False)
+def serve_brand_icon(db: Session = Depends(get_db)):
+    return _serve_icon("/brand-icon.png", db)
+
+
+@app.get("/brand-icon-512.png", include_in_schema=False)
+def serve_brand_icon_512(db: Session = Depends(get_db)):
+    return _serve_icon("/brand-icon-512.png", db)
+
+
+@app.get("/brand-icon-touch.png", include_in_schema=False)
+def serve_brand_icon_touch(db: Session = Depends(get_db)):
+    return _serve_icon("/brand-icon-touch.png", db)
+
+
 @app.get("/site.webmanifest", include_in_schema=False)
 def serve_webmanifest(request: Request, db: Session = Depends(get_db)):
     """Named icons for the phone home screen and for Chrome's install prompt.
@@ -2182,8 +2213,8 @@ def serve_webmanifest(request: Request, db: Session = Depends(get_db)):
         "name": name,
         "short_name": short,
         "icons": [
-            {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
-            {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"},
+            {"src": "/brand-icon.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/brand-icon-512.png", "sizes": "512x512", "type": "image/png"},
         ],
         "theme_color": "#05080b",
         "background_color": "#060c20",

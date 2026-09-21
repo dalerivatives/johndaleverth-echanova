@@ -11,24 +11,33 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
 <meta name="description" content="Johndaleverth “Dale” Echanova — Computer Engineer and full-stack developer building web apps, embedded prototypes, and computer-vision systems from Marinduque, Philippines.">
 <meta name="theme-color" content="#05080b">
 <!-- ============================================================
-     FAVICONS — real files at real URLs.
+     FAVICONS — real files, at paths no cache has an opinion about.
 
-     This used to be a single EMPTY inline SVG, with the actual icon drawn
-     later in the browser by favicon.js and set as a `data:` URL. That is
-     why the site showed a photo in the tab and a grey globe in Google:
+     Two separate bugs live in the history of these five lines.
+
+     The first: this used to be ONE empty inline SVG, with the real icon
+     drawn later in the browser by favicon.js and set as a `data:` URL.
+     That is why the tab showed a photo while Google showed a grey globe —
      the search crawler does not run the page's JavaScript, so the only
      icon it ever saw was the blank placeholder, and a `data:` URL is not
      something it can crawl in the first place.
 
-     These four are ordinary fetchable files (served by the backend, which
-     swaps in the icon uploaded in the editor when there is one), so the
-     crawler has something to index and every browser has something to
-     show before any script has run.
+     The second, which outlived the first fix: one deploy went out without
+     static/favicon.ico, the route 404'd once, and the CDN in front of the
+     site cached that 404 against the bare /favicon.ico URL. After that it
+     did not matter what the origin did — nothing reached it. A cached
+     response can only be purged at the edge, by hand.
+
+     Hence /brand-icon.png. It is a path that has never been requested by
+     anything, so no cache holds a stale answer for it, so the first
+     request lands on the origin. /favicon.ico stays declared last, for
+     clients that probe it by convention, but it is no longer the URL this
+     page depends on.
      ============================================================ -->
+<link rel="icon" type="image/png" sizes="192x192" href="/brand-icon.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/brand-icon-512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/brand-icon-touch.png">
 <link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
-<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <title>Dale — Dynamic Stack Portfolio</title>
 

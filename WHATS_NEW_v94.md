@@ -1,4 +1,4 @@
-# Portfolio v93 — what changed
+# Portfolio v94 — what changed
 
 ## 1. The robot is now the Travelade EXPLORER-BOT T-700V
 
@@ -181,6 +181,39 @@ Caching → Configuration → Purge Cache → either purge the single URL
 Verified locally in all three states: every icon file missing (404, and
 uncacheable), only `favicon.ico` missing (200, served as PNG — which is
 exactly production's state), and everything present (200, `image/x-icon`).
+
+### v94: routing around the cached 404 instead of fighting it
+
+The purge did not clear it. Measured again, with a brand-new probe value so
+nothing between here and the server could have seen it before:
+
+| URL | Result |
+|---|---|
+| `/favicon.ico` | **404** |
+| `/favicon.ico?probe=772311` | **200, an image** |
+
+Route matching ignores query strings — the server runs identical code for
+both — so the origin is serving the icon correctly and something in front
+of it is still answering for the bare URL. A cached response cannot be
+revoked from the origin. It can only be purged at the edge.
+
+So the page stopped asking for that URL.
+
+**`/brand-icon.png`** (plus `-512` and `-touch`) are new paths that have
+never been requested by anything, anywhere. No cache holds a stale answer
+for them, so the first request for one lands on the origin. The head now
+declares those first, and `/favicon.ico` last — still served, still
+correct, for clients that probe it by convention, but no longer the URL
+this site depends on.
+
+They are permanent paths, not cache-busting query strings. A favicon URL
+that changes every deploy makes a search engine re-crawl it every time, and
+Google asks for a stable one.
+
+`robots.txt` and `site.webmanifest` point at the new paths too. Verified
+locally: all four icon URLs 200 with the right content types, the served
+HTML carries the new links, and the page still loads with no console
+errors.
 
 ### What you still have to do yourself
 
