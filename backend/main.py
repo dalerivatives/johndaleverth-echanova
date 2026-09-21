@@ -2015,8 +2015,28 @@ def _apply_icons(html: str, db: Session) -> str:
     version = _icon_version(db)
     html = _ICON_HREF.sub(lambda m: f'{m.group(1)}"{m.group(2)}?v={version}"', html)
     inline = _inline_icon(db, version)
-    if inline and _ICON_ANCHOR in html:
-        tag = f'<link rel="icon" type="image/png" sizes="32x32" href="{inline}">\n'
+    if not inline:
+        return html
+
+    tag = f'<link rel="icon" type="image/png" sizes="32x32" href="{inline}">\n'
+
+    # Put it as early in the document as it is legal to put anything.
+    #
+    # The icon cannot appear in a tab until the parser has reached its tag,
+    # so WHERE the tag sits is the last thing still under our control. Left
+    # among the other icon links it sat about 3,400 bytes in, behind the
+    # viewport and description metas and a long comment — so the browser had
+    # to receive and chew through all of that first, every single load.
+    #
+    # Directly after <meta charset> it is roughly 60 bytes in: inside the
+    # very first packet of the response, parsed effectively the instant the
+    # response starts arriving. The charset declaration has to stay first —
+    # it must appear within the first 1024 bytes or the browser re-decodes
+    # the document — so this is as early as the tag can legally go.
+    charset = '<meta charset="UTF-8">'
+    if charset in html:
+        html = html.replace(charset, charset + "\n" + tag.rstrip("\n"), 1)
+    elif _ICON_ANCHOR in html:
         html = html.replace(_ICON_ANCHOR, tag + _ICON_ANCHOR, 1)
     return html
 

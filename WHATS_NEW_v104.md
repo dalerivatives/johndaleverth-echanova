@@ -1,4 +1,4 @@
-# Portfolio v103 — what changed
+# Portfolio v104 — what changed
 
 ## 1. The robot is now the Travelade EXPLORER-BOT T-700V
 
@@ -684,6 +684,56 @@ on either page.
 the app booting. It is restored and verified byte-identical to the original,
 and the seed data above it is untouched. Flagging it because you would have
 no way to know otherwise.
+
+### v104: the icon now arrives in the first packet — and where the limit is
+
+The inline icon was sitting about **3,400 bytes** into the response, behind
+the viewport meta, the description, and a long explanatory comment. The
+browser had to receive and parse all of that before it had an icon to show.
+
+It is now **97 bytes in**, directly after `<meta charset>`:
+
+```
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,...
+```
+
+That is as early as it can legally go — the charset declaration has to come
+first, because it must appear within the first 1024 bytes or the browser
+re-decodes the document. The icon is now inside the very first packet of the
+response, parsed essentially the moment the response begins arriving.
+
+Applied to the portfolio and the editor alike, and re-measured: still zero
+network requests for a tab icon across four loads of each page.
+
+### The part that cannot be fixed, and why
+
+There is a window during any navigation where the browser has thrown away
+the old document and not yet received the new one. The tab icon belongs to
+the document, so in that window there is nothing for the tab to display —
+it shows a spinner. **No website can override this**, because at that moment
+the site has not been asked for anything yet. It is not a favicon setting, a
+cache header, or a `<link>` attribute.
+
+What a site can control is how long that window lasts, and there are exactly
+two levers:
+
+1. **How early the icon appears in the HTML.** Now 97 bytes — first packet.
+   This one is finished; there is nothing left to win.
+2. **How fast the server answers at all.** This is the one that is still
+   worth attention. If the host has gone to sleep, the first request after
+   it wakes can take many seconds, and every one of those seconds is a tab
+   with no icon. That is almost certainly what a long gap is.
+
+The repository already ships `.github/workflows/keep-awake.yml`, which pings
+`/api/health/db` every five minutes to stop the service sleeping. If the gap
+you see is measured in seconds rather than a flicker, check that the workflow
+is enabled and actually succeeding in the repo's Actions tab — a sleeping
+service produces exactly this symptom, and no amount of favicon work will
+touch it.
 
 ### What you still have to do yourself
 
