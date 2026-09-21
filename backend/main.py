@@ -336,7 +336,7 @@ _NO_STORE = {
 }
 
 
-@app.get("/api/health")
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 def health():
     """Liveness only. Returns a constant and opens no database connection, so
     it stays cheap enough to poll every few minutes. See /api/health/db for the
@@ -344,7 +344,7 @@ def health():
     return JSONResponse({"status": "ok"}, headers=dict(_NO_STORE))
 
 
-@app.get("/api/health/db")
+@app.api_route("/api/health/db", methods=["GET", "HEAD"])
 def health_db(db: Session = Depends(get_db)):
     """Liveness AND a deliberate touch of the database.
 
@@ -372,7 +372,7 @@ def health_db(db: Session = Depends(get_db)):
     return JSONResponse({"status": "ok", "db": "ok"}, headers=dict(_NO_STORE))
 
 
-@app.get("/api/health/awake")
+@app.api_route("/api/health/awake", methods=["GET", "HEAD"])
 def health_awake():
     """Is the self-heartbeat actually running, and when did it last succeed?
 
@@ -2138,11 +2138,11 @@ def _escape_attr(value: str) -> str:
     )
 
 
-@app.get("/", include_in_schema=False)
-@app.get("/projects", include_in_schema=False)
-@app.get("/achievements", include_in_schema=False)
-@app.get("/tools", include_in_schema=False)
-@app.get("/chat", include_in_schema=False)
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/projects", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/achievements", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/tools", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/chat", methods=["GET", "HEAD"], include_in_schema=False)
 def serve_index(request: Request, db: Session = Depends(get_db)):
     """Serve the SPA shell at clean, shareable section URLs.
 
@@ -2158,7 +2158,7 @@ def redirect_legacy_index():
     return RedirectResponse(url="/", status_code=308)
 
 
-@app.get("/editor.html", include_in_schema=False)
+@app.api_route("/editor.html", methods=["GET", "HEAD"], include_in_schema=False)
 def serve_editor(db: Session = Depends(get_db)):
     """Served by hand only so live reload can be injected into it too — the
     editor is where most of the editing happens, so it's the page that most
@@ -2475,47 +2475,62 @@ def _serve_icon(path: str, db: Session, versioned: bool = False) -> Response:
     )
 
 
-@app.get("/favicon.ico", include_in_schema=False)
+# Every route below answers HEAD as well as GET, and that is not pedantry.
+#
+# FastAPI's @app.get registers GET *only* — unlike Starlette's own Route,
+# which quietly adds HEAD alongside it. A HEAD request therefore did not
+# match any of these routes, fell through to the static mount at "/", found
+# no file of that name, and came back **404**. Measured, before this change:
+#
+#     GET  /brand-icon.png -> 200 image/png
+#     HEAD /brand-icon.png -> 404 text/html
+#
+# Crawlers, CDNs, link-preview bots and uptime monitors all use HEAD, and
+# several of them read a 404 as "this file does not exist" without ever
+# trying a GET. On a site whose icons sit behind a CDN that has already been
+# caught caching a 404 for an icon path once, that is not a theoretical
+# problem — it is the same bug wearing a different hat.
+@app.api_route("/favicon.ico", methods=["GET", "HEAD"], include_in_schema=False)
 def serve_favicon_ico(v: str = "", db: Session = Depends(get_db)):
     return _serve_icon("/favicon.ico", db, versioned=bool(v))
 
 
-@app.get("/icon-192.png", include_in_schema=False)
+@app.api_route("/icon-192.png", methods=["GET", "HEAD"], include_in_schema=False)
 def serve_icon_192(v: str = "", db: Session = Depends(get_db)):
     return _serve_icon("/icon-192.png", db, versioned=bool(v))
 
 
-@app.get("/icon-512.png", include_in_schema=False)
+@app.api_route("/icon-512.png", methods=["GET", "HEAD"], include_in_schema=False)
 def serve_icon_512(v: str = "", db: Session = Depends(get_db)):
     return _serve_icon("/icon-512.png", db, versioned=bool(v))
 
 
-@app.get("/apple-touch-icon.png", include_in_schema=False)
+@app.api_route("/apple-touch-icon.png", methods=["GET", "HEAD"], include_in_schema=False)
 def serve_apple_touch_icon(v: str = "", db: Session = Depends(get_db)):
     return _serve_icon("/apple-touch-icon.png", db, versioned=bool(v))
 
 
-@app.get("/brand-icon.png", include_in_schema=False)
+@app.api_route("/brand-icon.png", methods=["GET", "HEAD"], include_in_schema=False)
 def serve_brand_icon(v: str = "", db: Session = Depends(get_db)):
     return _serve_icon("/brand-icon.png", db, versioned=bool(v))
 
 
-@app.get("/brand-icon-512.png", include_in_schema=False)
+@app.api_route("/brand-icon-512.png", methods=["GET", "HEAD"], include_in_schema=False)
 def serve_brand_icon_512(v: str = "", db: Session = Depends(get_db)):
     return _serve_icon("/brand-icon-512.png", db, versioned=bool(v))
 
 
-@app.get("/brand-icon-touch.png", include_in_schema=False)
+@app.api_route("/brand-icon-touch.png", methods=["GET", "HEAD"], include_in_schema=False)
 def serve_brand_icon_touch(v: str = "", db: Session = Depends(get_db)):
     return _serve_icon("/brand-icon-touch.png", db, versioned=bool(v))
 
 
-@app.get("/brand-icon.ico", include_in_schema=False)
+@app.api_route("/brand-icon.ico", methods=["GET", "HEAD"], include_in_schema=False)
 def serve_brand_icon_ico(v: str = "", db: Session = Depends(get_db)):
     return _serve_icon("/brand-icon.ico", db, versioned=bool(v))
 
 
-@app.get("/site.webmanifest", include_in_schema=False)
+@app.api_route("/site.webmanifest", methods=["GET", "HEAD"], include_in_schema=False)
 def serve_webmanifest(request: Request, db: Session = Depends(get_db)):
     """Named icons for the phone home screen and for Chrome's install prompt.
     Built here rather than shipped as a static file so the title tracks the
@@ -2658,7 +2673,7 @@ def editor_tutorial():
     ]}
 
 
-@app.get("/robots.txt", include_in_schema=False)
+@app.api_route("/robots.txt", methods=["GET", "HEAD"], include_in_schema=False)
 def serve_robots(request: Request, db: Session = Depends(get_db)):
     text = (STATIC_DIR / "robots.txt").read_text(encoding="utf-8")
     site_url = _effective_site_url(db, request)
@@ -2667,7 +2682,7 @@ def serve_robots(request: Request, db: Session = Depends(get_db)):
     return PlainTextResponse(text, headers=dict(_NO_STORE))
 
 
-@app.get("/sitemap.xml", include_in_schema=False)
+@app.api_route("/sitemap.xml", methods=["GET", "HEAD"], include_in_schema=False)
 def serve_sitemap(request: Request, db: Session = Depends(get_db)):
     text = (STATIC_DIR / "sitemap.xml").read_text(encoding="utf-8")
     site_url = _effective_site_url(db, request)

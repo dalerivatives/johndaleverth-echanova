@@ -6,10 +6,11 @@ Allow: /
 # order matters. Plenty of uptime monitors fetch robots.txt and honour it, so
 # a blanket "Disallow: /api/" quietly stops them pinging — the keep-alive
 # never fires, the service sleeps, and the monitor reports nothing wrong
-# because it never made a request in the first place. These two paths expose
-# nothing but {"status":"ok"}.
+# because it never made a request in the first place. These three paths
+# expose nothing but a status line.
 Allow: /api/health
 Allow: /api/health/db
+Allow: /api/health/awake
 
 # The icons, explicitly. Google will not show a favicon in search results
 # for a URL it is not allowed to fetch, and a blanket Disallow one line
