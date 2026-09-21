@@ -19,6 +19,7 @@ from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from . import github, linkpreview, models, schemas, seed
@@ -1092,12 +1093,33 @@ def _robot_events_since(since: int) -> list[dict]:
 
 
 def _get_robot(db: Session) -> models.RobotState:
+    """The single robot row, created on first use.
+
+    The check-then-insert here is a race, and not a theoretical one: the
+    page opens several connections at once, so on a database that has never
+    seen a request two of them both find no row and both try to create it.
+    One wins, the other gets `UNIQUE constraint failed: robot_state.id` and
+    the request 500s.
+
+    It only bites on a completely fresh database — which sounds rare until
+    you remember this deploys to a host with an ephemeral disk, where every
+    single redeploy produces exactly that. The loser of the race simply
+    reads the row the winner just committed.
+    """
     robot = db.get(models.RobotState, 1)
-    if not robot:
-        robot = models.RobotState(id=1, hp=100.0, dead_until=0.0, kills=0, total_hits=0)
-        db.add(robot)
+    if robot:
+        return robot
+    robot = models.RobotState(id=1, hp=100.0, dead_until=0.0, kills=0, total_hits=0)
+    db.add(robot)
+    try:
         db.commit()
-        db.refresh(robot)
+    except IntegrityError:
+        db.rollback()
+        robot = db.get(models.RobotState, 1)
+        if robot is None:
+            raise
+        return robot
+    db.refresh(robot)
     return robot
 
 
@@ -2085,6 +2107,7 @@ _ICON_FALLBACKS = {
     "/brand-icon.png":       ["icon-192.png", "icon-512.png", "icon-96.png", "favicon.ico"],
     "/brand-icon-512.png":   ["icon-512.png", "icon-192.png", "icon-96.png", "favicon.ico"],
     "/brand-icon-touch.png": ["apple-touch-icon.png", "icon-192.png", "icon-512.png", "favicon.ico"],
+    "/brand-icon.ico":       ["favicon.ico", "icon-192.png", "icon-96.png", "icon-512.png"],
 }
 
 _ICON_MIME = {".ico": "image/x-icon", ".png": "image/png",
@@ -2266,6 +2289,11 @@ def serve_brand_icon_512(db: Session = Depends(get_db)):
 @app.get("/brand-icon-touch.png", include_in_schema=False)
 def serve_brand_icon_touch(db: Session = Depends(get_db)):
     return _serve_icon("/brand-icon-touch.png", db)
+
+
+@app.get("/brand-icon.ico", include_in_schema=False)
+def serve_brand_icon_ico(db: Session = Depends(get_db)):
+    return _serve_icon("/brand-icon.ico", db)
 
 
 @app.get("/site.webmanifest", include_in_schema=False)

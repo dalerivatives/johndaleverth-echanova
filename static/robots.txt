@@ -15,6 +15,7 @@ Allow: /api/health/db
 # for a URL it is not allowed to fetch, and a blanket Disallow one line
 # further down is exactly how a site ends up with the grey globe.
 Allow: /brand-icon.png
+Allow: /brand-icon.ico
 Allow: /brand-icon-512.png
 Allow: /brand-icon-touch.png
 Allow: /favicon.ico

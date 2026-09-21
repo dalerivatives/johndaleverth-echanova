@@ -1,4 +1,4 @@
-# Portfolio v97 — what changed
+# Portfolio v99 — what changed
 
 ## 1. The robot is now the Travelade EXPLORER-BOT T-700V
 
@@ -360,6 +360,106 @@ the tab has the final, circular icon and nothing touches it again.
 The editor's preview was repointed too: it previewed the raw stored file, so
 it showed the owner a square that no visitor ever saw. It now previews what
 the site actually serves.
+
+### v98: 635KB smaller, with nothing removed that the site uses
+
+I audited for dead code first and found none worth reporting — no
+unreferenced top-level functions in any of the eleven JavaScript files, and
+every asset in `static/assets/` is referenced by the HTML, CSS or JS. The
+FontAwesome bundle looked like a candidate until the count came back: solid
+89 uses, brands 6, regular 3. All three font files are earning their place.
+
+So the savings are compression, and each one is either lossless or drops
+data the site provably never reads:
+
+| File | Before | After | |
+|---|---|---|---|
+| `profile-transparent.png` | 832KB | 426KB | re-encoded, **pixels verified identical** |
+| `og-preview.png` → `.jpg` | 269KB | 87KB | a photograph in the wrong container |
+| `human-coded-exact-contour.png` | 102KB | 66KB | colour channels dropped |
+| `icon-512.png` + the other icons | 281KB | 271KB | re-encoded losslessly |
+| **Total** | **1485KB** | **850KB** | **635KB saved** |
+
+The contour PNG is the one worth explaining. `profile.css` uses it through
+`mask:url()`, and a CSS mask takes its shape from the image's **alpha**
+channel — the RGB underneath has never been rendered by anything. Storing
+it as an LA image keeps the alpha to the last pixel and throws away two
+channels nobody reads. The script asserts the alpha is byte-identical
+afterwards, and so does the portrait's full pixel data.
+
+`og-preview.png` became a JPEG because a 1200x630 photograph is the one
+thing PNG is bad at. Every platform that renders a preview card accepts
+JPEG. All three references were updated.
+
+`backend/icon_data.py` was re-derived from the re-encoded `icon-192.png`, so
+the embedded copy still matches the file byte for byte — there is an
+assertion for that too.
+
+Only one file was deleted: `CLEANUP.txt`, a stale note listing what a
+previous version's packaging had excluded. `check_db.py` is unreferenced by
+the app but kept deliberately — it is a database inspection tool, and
+database state is the thing that keeps biting this deployment.
+
+### And a real bug found on the way
+
+While testing the optimised build against a fresh database, `/api/robot`
+returned a 500: `UNIQUE constraint failed: robot_state.id`.
+
+`_get_robot()` checked for the row and created it if absent, which is a race
+— the page opens several connections at once, so on a database that has
+never seen a request, two of them both find no row and both try to create
+it. One wins; the other 500s.
+
+That sounds rare until you remember this deploys to a host with an ephemeral
+disk, where **every single redeploy produces exactly that state**. The loser
+now simply reads the row the winner just committed. Verified with twelve
+concurrent requests against a brand-new database: twelve 200s, zero
+tracebacks. It used to fail on the first page load after every deploy.
+
+### v99: round while loading, square once settled — the `sizes="any"` trap
+
+The icon flipped the other way round this time: correct during load, square
+once the page had settled. That is a different bug from the last one and it
+was one attribute.
+
+```html
+<link rel="icon" href="/favicon.ico" sizes="any">
+```
+
+`sizes="any"` declares an icon as **scalable**. It exists for SVG, and a
+browser ranks a scalable icon above every fixed-size one. So the sequence
+was: paint the first icon the parser reaches (the 192px PNG — round), then
+finish evaluating all four and settle on the one that claims to be scalable
+— `/favicon.ico`.
+
+Which is the worst possible URL to settle on here. It is the single path
+that spent weeks 404ing, then served the raw square upload untouched through
+v94–v96. Both a CDN and Chrome's own favicon database — which is separate
+from the HTTP cache and far stickier — had a square stored against it.
+
+Confirmed rather than assumed: instrumenting a real browser shows it
+requests **only the ICO** and ignores the PNGs entirely. The ICO is what the
+tab shows, so the ICO was the file that mattered all along.
+
+Two changes:
+
+- **`sizes="any"` is gone**, and every icon link now carries an explicit
+  `type` and explicit `sizes`. Nothing claims to be scalable, so nothing
+  outranks anything else on a false premise.
+- **The ICO moved to `/brand-icon.ico`** — the same reasoning that moved the
+  PNGs earlier. Nothing has ever requested that path, so no cache anywhere
+  holds a square against it. `/favicon.ico` is still served for crawlers
+  that probe it by convention; the page just does not point at it any more.
+
+Verified: all five icon URLs return images whose corner pixels are
+transparent and whose centre is opaque — round, not square — and the icon
+links no longer change after the page settles.
+
+**One thing worth knowing:** Chrome caches favicons in its own database,
+which a hard refresh does not clear. If the old square lingers for you after
+deploying, open the site in an Incognito window to see the truth. The URL
+change should sidestep it entirely, but that is how to tell a stale cache
+from a real problem.
 
 ### What you still have to do yourself
 

@@ -125,7 +125,7 @@ async function applySiteSettings(){
     document.querySelectorAll('meta[property="og:url"], link[rel="canonical"]')
       .forEach(el=>{ if(el.tagName==="META") el.content = abs("/"); else el.href = abs("/"); });
     document.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]')
-      .forEach(el=>{ el.content = abs("/assets/og-preview.png"); });
+      .forEach(el=>{ el.content = abs("/assets/og-preview.jpg"); });
   }
   return settings;
 }

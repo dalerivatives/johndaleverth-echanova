@@ -34,10 +34,25 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
      clients that probe it by convention, but it is no longer the URL this
      page depends on.
      ============================================================ -->
+<!-- Every one of these carries an explicit type and explicit sizes, and
+     NONE of them says sizes="any".
+
+     That attribute is why the tab showed a circle while the page loaded and
+     a square once it had settled. sizes="any" declares an icon as scalable —
+     it is meant for SVG — and a browser ranks a scalable icon ABOVE any
+     fixed-size one. So the first icon painted was the 192px PNG (round),
+     and the icon the browser settled on afterwards was /favicon.ico, which
+     is the single URL with a stale square cached against it, from the weeks
+     when this route served the raw upload untouched. Removing sizes="any"
+     stops the ICO outranking the PNGs; moving it to a path nothing has ever
+     cached means the copy served is the current one.
+
+     /favicon.ico is still served — crawlers probe it by convention — it
+     just is not what this page points at any more. -->
 <link rel="icon" type="image/png" sizes="192x192" href="/brand-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="/brand-icon-512.png">
+<link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="/brand-icon.ico">
 <link rel="apple-touch-icon" sizes="180x180" href="/brand-icon-touch.png">
-<link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="manifest" href="/site.webmanifest">
 <title>Dale — Dynamic Stack Portfolio</title>
 
@@ -57,7 +72,7 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
 <meta property="og:site_name" content="Trevelade — Johndaleverth Echanova">
 <meta property="og:title" content="Johndaleverth “Dale” Echanova — Computer Engineer &amp; Full-Stack Developer">
 <meta property="og:description" content="Full-stack web apps, embedded/IoT prototypes, and computer-vision systems — built from Marinduque, Philippines.">
-<meta property="og:image" content="https://example.com/assets/og-preview.png">
+<meta property="og:image" content="https://example.com/assets/og-preview.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Trevelade — Johndaleverth Echanova, Computer Engineer and Full-Stack Developer">
@@ -65,7 +80,7 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Johndaleverth “Dale” Echanova — Computer Engineer &amp; Full-Stack Developer">
 <meta name="twitter:description" content="Full-stack web apps, embedded/IoT prototypes, and computer-vision systems — built from Marinduque, Philippines.">
-<meta name="twitter:image" content="https://example.com/assets/og-preview.png">
+<meta name="twitter:image" content="https://example.com/assets/og-preview.jpg">
 
 <!-- Structured data: tells Google this page is a person, not a company,
      so the name, job title, location and links can be understood properly
