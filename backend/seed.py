@@ -239,7 +239,7 @@ DEFAULT_SETTINGS = {
     # --- identity (profile hero) ---
     "hero_eyebrow": "// COMPUTER ENGINEER",
     "hero_name_first": "Johndaleverth",
-    "hero_name_rest": "P. Echanova",
+    "hero_name_rest": "Pastorfide Echanova",
     "hero_tagline": "Full Stack Developer · Embedded Systems Builder · Inventor",
 
     # --- the whoami terminal ---
@@ -354,8 +354,8 @@ DEFAULT_SETTINGS = {
     "github_username": "dalerivatives",
 
     # --- SEO / link previews ---
-    "site_url": "https://johndaleverthechanova.com",
-    "site_title": "Engr. Johndaleverth P. Echanova | Computer Engineer & Full-Stack Developer",
+    "site_url": "",
+    "site_title": "Dale — Dynamic Stack Portfolio",
     "meta_description": (
         "Johndaleverth “Dale” Echanova — Computer Engineer and full-stack "
         "developer building web apps, embedded prototypes, and computer-vision systems "
@@ -378,25 +378,6 @@ def seed_settings(db: Session):
         if key not in existing:
             db.add(models.Setting(key=key, value=value))
             added = True
-    # v96 identity correction: v95 accidentally shipped an expanded middle
-    # name ("Pastorfide") as a default.  That value can be mistaken by search
-    # engines for a different person.  Correct ONLY that exact legacy default;
-    # any owner-customized name remains untouched.
-    legacy_name = db.get(models.Setting, "hero_name_rest")
-    if legacy_name and (legacy_name.value or "").strip() == "Pastorfide Echanova":
-        legacy_name.value = "P. Echanova"
-        added = True
-
-    legacy_title = db.get(models.Setting, "site_title")
-    if legacy_title and (legacy_title.value or "").strip() == "Dale — Dynamic Stack Portfolio":
-        legacy_title.value = "Engr. Johndaleverth P. Echanova | Computer Engineer & Full-Stack Developer"
-        added = True
-
-    legacy_site_url = db.get(models.Setting, "site_url")
-    if legacy_site_url and not (legacy_site_url.value or "").strip():
-        legacy_site_url.value = "https://johndaleverthechanova.com"
-        added = True
-
     if added:
         db.commit()
 

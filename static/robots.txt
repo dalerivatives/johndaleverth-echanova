@@ -23,7 +23,6 @@ Allow: /icon-192.png
 Allow: /icon-512.png
 Allow: /apple-touch-icon.png
 Allow: /site.webmanifest
-Allow: /assets/profile-search.jpg
 
 Disallow: /editor.html
 Disallow: /api/

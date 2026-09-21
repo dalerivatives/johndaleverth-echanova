@@ -19,7 +19,8 @@ const SECTION_HINTS = {
 
 const $ = sel => document.querySelector(sel);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
-// The browser/search icon is a fixed portrait asset bundled with the site.
+// Tab branding is public, including the locked editor page.
+if(window.PortfolioFavicon) window.PortfolioFavicon.refresh();
 
 const EDITOR_THEME_CLASSES = ["light-mode","dark-mode","mono-mode","cyber-mode","ocean-mode","violet-mode","amber-mode"];
 const editorOsLight = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
@@ -281,10 +282,42 @@ function setSettingsStatus(text, isError){
   }
 }
 
+let faviconRenderRevision = 0;
+
 /* Shows whether the resume slot is filled, and offers "Remove" only when
-   there is something to remove. The site portrait/favicon is fixed in the
-   build and intentionally is not editable here. */
-function renderUploadStates(){
+   there's something to remove. */
+function renderUploadStates({broadcast=false}={}){
+  const revision = ++faviconRenderRevision;
+  const logo = (settingsSnapshot.favicon_url || "").trim();
+  const preview = $("#faviconPreview");
+  preview.hidden = true;
+  preview.removeAttribute('src');
+  $("#faviconDefault").hidden = false;
+  $("#faviconState").textContent = logo ? "Loading saved icon…" : "No custom logo uploaded yet";
+  document.querySelector('[data-clear="favicon_url"]').hidden = !logo;
+  if(logo){
+    const image=new Image();
+    image.onload=()=>{
+      if(revision!==faviconRenderRevision)return;
+      preview.onload=()=>{
+        if(revision!==faviconRenderRevision)return;
+        preview.hidden=false;$("#faviconDefault").hidden=true;
+        $("#faviconState").textContent="Circular tab icon saved";
+      };
+      preview.onerror=()=>{
+        if(revision!==faviconRenderRevision)return;
+        preview.hidden=true;$("#faviconDefault").hidden=false;
+        $("#faviconState").textContent="Saved icon is unavailable. Please upload the photo again.";
+      };
+      preview.src=logo;
+    };
+    image.onerror=()=>{
+      if(revision!==faviconRenderRevision)return;
+      $("#faviconState").textContent="Saved icon is unavailable. Please upload the photo again.";
+    };
+    image.src=logo;
+  }
+  if(window.PortfolioFavicon)window.PortfolioFavicon.apply(logo,{broadcast});
   const rows = {
     resume_url: {el:$("#resumeState"), empty:"Not uploaded yet — the download button stays hidden"}
   };
@@ -607,6 +640,15 @@ $("#settingsFileInput").addEventListener("change", async e=>{
   fd.append("key", key);
   fd.append("file", file);
   try{
+    if(key==='favicon_url'){
+      if(file.size>5*1024*1024)throw new Error('The icon must be 5 MB or smaller.');
+      await new Promise((resolve,reject)=>{
+        const url=URL.createObjectURL(file),image=new Image();
+        image.onload=()=>{URL.revokeObjectURL(url);resolve();};
+        image.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('This image cannot be opened. Choose a PNG, JPG, WebP or ICO.'));};
+        image.src=url;
+      });
+    }
     const res = await api("/api/settings/upload", {method:"POST", body: fd});
     if(!res.ok){
       const detail = await res.json().catch(()=>({}));
@@ -614,7 +656,7 @@ $("#settingsFileInput").addEventListener("change", async e=>{
     }
     const data = await res.json();
     settingsSnapshot[key] = data.value;
-    renderUploadStates();
+    renderUploadStates({broadcast:key==="favicon_url"});
     setSettingsStatus("Uploaded.");
   }catch(err){
     if(err.message!=="unauthorized") setSettingsStatus("Upload failed: "+err.message, true);
@@ -632,7 +674,7 @@ $$("[data-clear]").forEach(btn=>{
       });
       if(!res.ok) throw new Error("HTTP "+res.status);
       settingsSnapshot = await res.json();
-      renderUploadStates();
+      renderUploadStates({broadcast:key==="favicon_url"});
       setSettingsStatus("Removed.");
     }catch(err){
       if(err.message!=="unauthorized") setSettingsStatus("Couldn't remove: "+err.message, true);
