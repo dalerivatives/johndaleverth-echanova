@@ -596,6 +596,20 @@ def upload_setting_file(
         if not mime:
             original.unlink(missing_ok=True)
             raise HTTPException(status_code=400, detail="Choose a valid PNG, JPG, WebP or ICO image")
+        # Round it HERE, once, rather than only in the browser.
+        #
+        # The circular crop used to happen entirely in favicon.js, which
+        # meant the tab got a circle and every other consumer of this icon —
+        # search crawlers, phone home screens, link unfurlers — got the raw
+        # square upload, because none of them run the page's JavaScript. One
+        # upload, two different icons. Masking at upload time gives them all
+        # the same one. If Pillow is unavailable the original bytes are
+        # stored exactly as before; an un-cropped icon is a far smaller
+        # problem than an upload endpoint that fails.
+        rounded = iconify.circular_png(raw) if iconify is not None else None
+        if rounded:
+            raw, mime = rounded, "image/png"
+
         digest = hashlib.sha256(raw).hexdigest()
         stored_asset = db.get(models.Setting, "_asset_favicon")
         value = json.dumps({"hash":digest,"mime":mime,"data":base64.b64encode(raw).decode("ascii")})
@@ -2118,6 +2132,11 @@ def _stored_icon(db: Session):
 # A found icon is cached for an hour, not a day: short enough that
 # re-uploading one in the editor shows up the same session, long enough that
 # the edge is still doing its job.
+try:
+    from backend import iconify
+except Exception:   # pragma: no cover - uploads must work without it
+    iconify = None
+
 try:
     from backend import icon_data
 except Exception:   # pragma: no cover - the site must boot without it

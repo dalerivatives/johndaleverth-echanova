@@ -302,18 +302,18 @@ function renderUploadStates({broadcast=false}={}){
       preview.onload=()=>{
         if(revision!==faviconRenderRevision)return;
         preview.hidden=false;$("#faviconDefault").hidden=true;
-        $("#faviconState").textContent="Circular tab icon saved";
+        $("#faviconState").textContent="Saved — cropped to a circle on the server, so search results and home screens get the same round icon the tab does";
       };
       preview.onerror=()=>{
         if(revision!==faviconRenderRevision)return;
         preview.hidden=true;$("#faviconDefault").hidden=false;
-        $("#faviconState").textContent="Saved icon is unavailable. Please upload the photo again.";
+        $("#faviconState").textContent="Saved icon is missing. On a host with an ephemeral disk this happens on every redeploy unless DATABASE_URL points at a real database — see SUPABASE.md. Upload the photo again to restore it.";
       };
       preview.src=logo;
     };
     image.onerror=()=>{
       if(revision!==faviconRenderRevision)return;
-      $("#faviconState").textContent="Saved icon is unavailable. Please upload the photo again.";
+      $("#faviconState").textContent="Saved icon is missing. On a host with an ephemeral disk this happens on every redeploy unless DATABASE_URL points at a real database — see SUPABASE.md. Upload the photo again to restore it.";
     };
     image.src=logo;
   }

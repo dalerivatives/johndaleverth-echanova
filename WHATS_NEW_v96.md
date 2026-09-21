@@ -1,4 +1,4 @@
-# Portfolio v95 — what changed
+# Portfolio v96 — what changed
 
 ## 1. The robot is now the Travelade EXPLORER-BOT T-700V
 
@@ -252,6 +252,65 @@ and 16px on both a light and a dark results page.
 
 `tools_make_icons.py` regenerates the whole set plus the embedded module, so
 changing the photo later is one command rather than a manual rebuild.
+
+### v96: the tab is never blank, and uploads are round everywhere
+
+**The blank tab while loading — found and fixed.**
+
+`favicon.js` had a function that created the tab's `<link rel="icon">` and
+it ran at the top of `apply()`, on every page load, before there was
+anything to put in it. So an element like this was appended to the END of
+the head on every visit:
+
+```html
+<link rel="icon" id="tabIcon">
+```
+
+No `href`. A browser that takes the last declared icon then had an empty one
+to honour, and the tab went blank. Worse, if no custom icon had ever been
+uploaded, `apply()` returns early in that case — so the hrefless link just
+stayed there, and the tab stayed blank permanently.
+
+The link is now created only when there is a real image to put in it. The
+page already ships real circular PNGs in its head; those show from the
+moment the HTML is parsed and keep showing the whole time the script is
+working. Nothing is removed until a replacement is live.
+
+A related sequence is fixed too: upload an icon in the editor (the static
+links get retired in favour of the generated one), then press **Remove
+logo**. The generated link goes away with the icon it was showing, and the
+static links had been thrown away for good — leaving the document with no
+icon at all until a reload. They are kept now and put back.
+
+Measured in a real browser, sampling the icon links every 40ms from first
+paint for seven seconds, in three states — no custom icon, custom icon, and
+upload-then-remove. The only sample without an icon is at ~20ms, before the
+browser has parsed the head at all, which no site can do anything about.
+
+**Uploading a photo: still there, and now round everywhere.**
+
+The Upload photo button never went anywhere — it is in the editor under the
+site logo, next to Remove logo. What was wrong is subtler: the circular crop
+happened *only* in `favicon.js*, in the browser. So an upload produced a
+round icon in the tab and a **square** one everywhere else — search
+crawlers, phone home screens, link unfurlers — because none of them run the
+page's JavaScript. One upload, two different icons.
+
+The crop now happens on the server, once, at upload time
+(`backend/iconify.py`). Verified end to end: a raw square JPEG posted to the
+upload endpoint comes back out of every icon URL as a 512x512 circular PNG
+with transparent corners. Pillow is imported defensively — if it were
+missing, the original bytes are stored exactly as before, because an
+un-cropped icon is a much smaller problem than an upload endpoint that
+raises.
+
+**Why your upload probably disappeared.** On Render's free plan the disk is
+ephemeral, and the default database is a SQLite file on that disk — so every
+redeploy wipes it, including the uploaded icon. That is not a bug in the
+upload feature; it is the plan. `SUPABASE.md` covers pointing `DATABASE_URL`
+at a real Postgres database, which is what makes it stick. The editor now
+says this in place of the old bare "please upload the photo again", and the
+bundled circular icon means the site never looks broken in the meantime.
 
 ### What you still have to do yourself
 
