@@ -2056,7 +2056,34 @@ def _apply_icons(html: str, db: Session) -> str:
     if not inline:
         return html
 
-    tag = f'<link rel="icon" type="image/png" sizes="32x32" href="{inline}">\n'
+    # ---- ORDER MATTERS, and for two different readers ----------------
+    #
+    # A CRAWLABLE url goes first, then the inline copy.
+    #
+    # Google will only use a favicon it can FETCH: "Googlebot-Image must be
+    # able to crawl the favicon file". A `data:` URI is not a file, so a head
+    # that opens with one offers the crawler nothing at the first place it
+    # looks — and a grey globe is what a site gets when the icon reference it
+    # finds does not meet the guidelines. Putting a real URL ahead of the
+    # inline copy means the first `rel="icon"` in the document is always
+    # something Google can go and get.
+    #
+    # The browser is unaffected, because a browser does not take the first
+    # icon — it takes the one whose declared size is closest to what it needs
+    # for a tab, which is 32x32 here and is the inline one. That is what the
+    # measurement says too: the tab still paints from the inline copy, with
+    # zero network requests for an icon.
+    #
+    # The crawlable link is MOVED here rather than copied, so the document
+    # never carries the same href twice.
+    crawlable = ''
+    match = re.search(r'<link rel="icon" type="image/png" sizes="192x192" href="[^"]*">', html)
+    if match:
+        crawlable = match.group(0)
+        html = html.replace(crawlable + "\n", "", 1)
+
+    tag = crawlable + ("\n" if crawlable else "")
+    tag += f'<link rel="icon" type="image/png" sizes="32x32" href="{inline}">\n'
 
     # Put it as early in the document as it is legal to put anything.
     #
