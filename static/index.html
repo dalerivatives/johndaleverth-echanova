@@ -36,12 +36,11 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
      clients that probe it by convention, but it is no longer the URL this
      page depends on.
      ============================================================ -->
-<link rel="icon" type="image/png" sizes="192x192" href="/brand-icon.png">
-<link rel="icon" type="image/png" sizes="512x512" href="/brand-icon-512.png">
+<link rel="icon" type="image/png" href="/brand-icon.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/brand-icon-touch.png">
-<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="shortcut icon" href="/favicon.ico">
 <link rel="manifest" href="/site.webmanifest">
-<title>Dale — Dynamic Stack Portfolio</title>
+<title>Engr. Johndaleverth P. Echanova | Computer Engineer &amp; Full-Stack Developer</title>
 
 <!-- ============================================================
      LINK PREVIEW (Open Graph + Twitter cards)
@@ -55,8 +54,10 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
      can't fetch the image.
      ============================================================ -->
 <link rel="canonical" href="https://example.com/">
+<link rel="me" href="https://www.linkedin.com/in/johndaleverth/">
+<link rel="me" href="https://github.com/dalerivatives">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Trevelade — Johndaleverth Echanova">
+<meta property="og:site_name" content="Johndaleverth P. Echanova">
 <meta property="og:title" content="Johndaleverth “Dale” Echanova — Computer Engineer &amp; Full-Stack Developer">
 <meta property="og:description" content="Full-stack web apps, embedded/IoT prototypes, and computer-vision systems — built from Marinduque, Philippines.">
 <meta property="og:image" content="https://example.com/assets/profile-search.jpg">
@@ -71,34 +72,43 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
 <meta name="twitter:image" content="https://example.com/assets/profile-search.jpg">
 <meta name="twitter:image:alt" content="Portrait of Johndaleverth P. Echanova">
 
-<!-- Structured data: tells Google this page is a person, not a company,
-     so the name, job title, location and links can be understood properly
-     when someone searches for you. -->
+<!-- Structured data: this portfolio is the profile page of Johndaleverth P. Echanova.
+     Keeping the abbreviated middle initial avoids conflating this owner with
+     other people who share the same first and last name. -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "Person",
-  "name": "Johndaleverth Pastorfide Echanova",
-  "alternateName": "Dale",
-  "jobTitle": "Computer Engineer, Full-Stack Developer",
-  "description": "Computer Engineer building full-stack web applications, embedded/IoT prototypes, and computer-vision systems.",
+  "@type": "ProfilePage",
+  "@id": "https://example.com/#profile-page",
   "url": "https://example.com/",
-  "image": "https://example.com/assets/profile-search.jpg",
-  "mainEntityOfPage": "https://example.com/",
-  "email": "mailto:johndaleverthpechanova@gmail.com",
-  "address": {
-    "@type": "PostalAddress",
-    "addressLocality": "Santa Cruz",
-    "addressRegion": "Marinduque",
-    "addressCountry": "PH"
-  },
-  "alumniOf": {
-    "@type": "CollegeOrUniversity",
-    "name": "Marinduque State University"
-  },
-  "knowsLanguage": ["English", "Filipino"],
-  "knowsAbout": ["Full-Stack Web Development", "Embedded Systems", "Computer Vision", "Python", "FastAPI", "Internet of Things"],
-  "sameAs": ["https://github.com/dalerivatives"]
+  "name": "Johndaleverth P. Echanova — Portfolio",
+  "mainEntity": {
+    "@type": "Person",
+    "@id": "https://example.com/#johndaleverth-p-echanova",
+    "name": "Johndaleverth P. Echanova",
+    "givenName": "Johndaleverth",
+    "additionalName": "P.",
+    "familyName": "Echanova",
+    "alternateName": ["Johndaleverth Echanova", "Dale Echanova"],
+    "disambiguatingDescription": "Computer engineer and full-stack developer whose official portfolio is johndaleverthechanova.com.",
+    "jobTitle": ["Computer Engineer", "Full-Stack Developer"],
+    "description": "Computer Engineer and full-stack developer building web applications, embedded prototypes, and computer-vision systems.",
+    "url": "https://example.com/",
+    "image": {
+      "@type": "ImageObject",
+      "url": "https://example.com/assets/profile-search.jpg",
+      "contentUrl": "https://example.com/assets/profile-search.jpg",
+      "width": 883,
+      "height": 883,
+      "caption": "Johndaleverth P. Echanova"
+    },
+    "sameAs": [
+      "https://www.linkedin.com/in/johndaleverth/",
+      "https://github.com/dalerivatives"
+    ],
+    "knowsLanguage": ["English", "Filipino"],
+    "knowsAbout": ["Full-Stack Web Development", "Embedded Systems", "Computer Vision", "Python", "FastAPI", "Internet of Things"]
+  }
 }
 </script>
 
@@ -219,7 +229,7 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
              The text kept here is the fallback shown if the API is slow or
              unreachable, so the page is never blank. -->
         <div class="eyebrow" data-setting="hero_eyebrow">// COMPUTER ENGINEER</div>
-        <h1><span data-setting="hero_name_first">Johndaleverth</span> <span data-setting="hero_name_rest">Pastorfide Echanova</span></h1>
+        <h1><span data-setting="hero_name_first">Johndaleverth</span> <span data-setting="hero_name_rest">P. Echanova</span></h1>
         <p class="sub" data-setting="hero_tagline">Full Stack Developer · Embedded Systems Builder · Inventor</p>
         <!-- Shown only once a resume has been uploaded in the editor. -->
         <a class="resume-btn" id="resumeBtn" href="#" download hidden>
@@ -237,7 +247,7 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
              controls the drawn size; these only give the aspect ratio. -->
         <span id="asciiArt" class="coded-human-outline" aria-hidden="true"></span>
         <img id="realPortrait" class="real-portrait" src="assets/profile-transparent.png"
-             width="883" height="883" alt="Johndaleverth Pastorfide Echanova" decoding="async">
+             width="883" height="883" alt="Johndaleverth P. Echanova" decoding="async">
       </div>
     </section>
 
