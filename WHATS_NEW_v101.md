@@ -1,4 +1,4 @@
-# Portfolio v100 — what changed
+# Portfolio v101 — what changed
 
 ## 1. The robot is now the Travelade EXPLORER-BOT T-700V
 
@@ -508,6 +508,70 @@ GET /brand-icon.png?v=5bf6d04add8d   1
 
 Once each. The two refreshes never reached the server at all — the icon came
 from disk, which is why there is no gap to see.
+
+### v101: the name actually changes, and the tab icon needs no fetch at all
+
+Both of these were half-fixes last time. Here is what was wrong with each.
+
+**The name.** I changed the defaults in the code and told you to also change
+it in the editor. That was the wrong shape of answer: the title on your live
+site lives in the **database**, so the code change only ever affected a
+fresh install and your site kept saying "P." regardless.
+
+There is now a migration that runs at startup and rewrites the stored value.
+It is deliberately narrow — it touches only `site_title`, only when the value
+still carries the abbreviated initial between those two exact names, and it
+writes your own name rather than anything invented. It also repairs the
+missing space in `Engr.Johndaleverth`. Once it has run the pattern no longer
+matches, so it is a no-op afterwards and cannot fight an edit you make in
+the editor later.
+
+Verified against the exact value your site holds:
+
+```
+'Engr.Johndaleverth P. Echanova'  ->  'Engr. Johndaleverth Pastorfide Echanova'
+'Engr. Johndaleverth Pastorfide Echanova'  ->  unchanged
+'Dale — Dynamic Stack Portfolio'           ->  unchanged
+```
+
+The home-screen label is now just **Johndaleverth** — honorific stripped,
+because that label sits in a very small box under an icon and
+"Engr. Johndaleverth" gets truncated by the device.
+
+**The blank at the start of a refresh.** Last time I made the icon cache
+`immutable`, which removed the network round trip — and that was the wrong
+target. The gap is not how long the fetch takes. It is that a fetch has to
+happen *at all*: when a browser navigates it tears the old page down and the
+tab icon goes with it, and the new one cannot appear until the document has
+been parsed far enough to find a `<link>`, the URL resolved, and the bytes
+returned. Even a disk-cache hit is not instantaneous. No `Cache-Control`
+value can close that, which is why the last fix did not.
+
+The icon is now **written into the HTML** as a 32x32 `data:` URI, spliced in
+by the backend above the other icon links. There is no URL to resolve and
+nothing to fetch — it exists the moment the parser reaches the tag, a few
+hundred bytes into the document. 32x32 covers a tab at 2x device pixel ratio
+and costs about 3.4KB per page.
+
+The crawlable URLs stay in the head at 192 and 512. The two do not compete:
+a tab asks for 16-32px and takes the exact-size inline copy; a crawler wants
+a large icon and ignores a `data:` URI it cannot fetch. The ICO was removed
+from the head for the same reason — it advertised 16/32/48, which would have
+given the browser a competing exact match that it would have to *fetch*.
+Both `/favicon.ico` and `/brand-icon.ico` are still served for crawlers that
+probe them by convention.
+
+Measured across one fresh load and three refreshes:
+
+```
+network requests for a tab icon:
+   first   : NONE
+   reload1 : NONE
+   reload2 : NONE
+   reload3 : NONE
+```
+
+Not "fast". **None.** All four crawlable icon URLs still return round images.
 
 ### What you still have to do yourself
 

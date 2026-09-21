@@ -2,6 +2,7 @@
 isn't empty before you've added anything through the editor. Safe to
 run repeatedly — it only seeds when a section has zero categories."""
 
+import re
 import json
 
 from sqlalchemy.orm import Session
@@ -379,6 +380,36 @@ def seed_settings(db: Session):
             db.add(models.Setting(key=key, value=value))
             added = True
     if added:
+        db.commit()
+    _expand_middle_initial(db)
+
+
+def _expand_middle_initial(db: Session):
+    """Write the owner's middle name out in full in the stored site title.
+
+    The title shown in the tab, in search results and on a link preview
+    comes from the DATABASE, not from the default above — it is whatever was
+    typed into the editor. So changing the default fixes a fresh install and
+    leaves an existing one displaying the old text forever, which is exactly
+    what happened: the code said "Pastorfide" and the live site went on
+    saying "P.".
+
+    This is deliberately narrow. It only touches the one setting, only when
+    the value still carries the abbreviated initial between those two exact
+    names, and it writes the owner's own name rather than anything invented.
+    Once it has run the pattern no longer matches, so it is a no-op from
+    then on and cannot fight an edit made later in the editor.
+    """
+    row = db.get(models.Setting, "site_title")
+    if not row or not row.value:
+        return
+    updated = re.sub(r"\bJohndaleverth\s+P\.\s+Echanova\b",
+                     "Johndaleverth Pastorfide Echanova", row.value)
+    # "Engr.Johndaleverth" -> "Engr. Johndaleverth": a missing space after an
+    # abbreviation, from the same typing.
+    updated = re.sub(r"\bEngr\.(?=\S)", "Engr. ", updated)
+    if updated != row.value:
+        row.value = updated
         db.commit()
 
 

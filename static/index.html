@@ -47,11 +47,18 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
      stops the ICO outranking the PNGs; moving it to a path nothing has ever
      cached means the copy served is the current one.
 
-     /favicon.ico is still served — crawlers probe it by convention — it
-     just is not what this page points at any more. -->
+     /favicon.ico and /brand-icon.ico are both still served — crawlers probe
+     them by convention — they just are not what this page points at.
+
+     The ICO is no longer declared here at all, and that is deliberate. The
+     backend splices a 32x32 data: URI in above these links, and a tab asks
+     for exactly that size; leaving an ICO that advertises 16/32/48 in the
+     head gives the browser a competing exact match that it would have to
+     FETCH, which is the blank moment this is meant to remove. The links
+     below advertise 192 and 512 — sizes no tab asks for and every crawler
+     prefers. -->
 <link rel="icon" type="image/png" sizes="192x192" href="/brand-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="/brand-icon-512.png">
-<link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="/brand-icon.ico">
 <link rel="apple-touch-icon" sizes="180x180" href="/brand-icon-touch.png">
 <link rel="manifest" href="/site.webmanifest">
 <title>Engr. Johndaleverth Pastorfide Echanova</title>

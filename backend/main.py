@@ -1960,6 +1960,9 @@ _ASSET_QS = re.compile(r"(\.(?:css|js))\?v=[A-Za-z0-9._-]*")
 # without disturbing the rest of the tag.
 _ICON_HREF = re.compile(r'(<link[^>]*rel="(?:icon|apple-touch-icon)"[^>]*href=)"(/[^"?]+)"')
 
+# The first icon link in index.html — where the inline copy is spliced in.
+_ICON_ANCHOR = '<link rel="icon" type="image/png" sizes="192x192"'
+
 
 def _stamp_assets(html: str) -> str:
     """Rewrite every `?v=...` on a local asset to the current fingerprint.
@@ -2017,6 +2020,12 @@ def _render_index(db: Session, request: Request) -> HTMLResponse:
     # chasing a new icon URL on every deploy.
     version = _icon_version(db)
     html = _ICON_HREF.sub(lambda m: f'{m.group(1)}"{m.group(2)}?v={version}"', html)
+
+    # Put the inline copy FIRST, at the exact size a tab asks for.
+    inline = _inline_icon(db, version)
+    if inline:
+        tag = f'<link rel="icon" type="image/png" sizes="32x32" href="{inline}">\n'
+        html = html.replace(_ICON_ANCHOR, tag + _ICON_ANCHOR, 1)
     html = _stamp_assets(_inject_livereload(html))
     return HTMLResponse(html, headers={"Cache-Control": "no-cache, must-revalidate"})
 
@@ -2199,6 +2208,69 @@ _ICON_IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
 _ICON_VERSION_CACHE: dict[str, str] = {}
 
 
+# The icon, small, as a data: URI — the copy that makes the tab never blank.
+#
+# Caching fixed the network round trip but not what the user actually sees on
+# a reload. When a browser navigates it tears the old page down and the tab
+# icon goes with it; the new one cannot appear until the document has been
+# parsed far enough to find a <link>, the URL has been resolved, and the
+# bytes have come back from wherever they live. Even a disk-cache hit is not
+# instant, and that gap at the START of a refresh is the blank the user kept
+# seeing. No Cache-Control value can close it, because the problem is not how
+# long the fetch takes — it is that a fetch has to happen at all.
+#
+# An icon written into the HTML has no fetch. It is present the moment the
+# parser reaches the tag, which is a few hundred bytes into the document.
+#
+# 32x32 covers a tab at 2x device pixel ratio and costs ~3.4KB per page. The
+# real, crawlable URLs stay in the head at 192 and 512 — a search crawler
+# wants a large icon and ignores a data: URI it cannot fetch, so the two do
+# not compete: the browser takes the exact-size inline one for the tab, the
+# crawler takes the big ones from disk.
+_INLINE_ICON_CACHE: dict[str, str] = {}
+
+
+def _inline_icon(db: Session, version: str) -> str:
+    """A 32x32 data: URI for the current icon, or "" if one can't be made."""
+    hit = _INLINE_ICON_CACHE.get(version)
+    if hit is not None:
+        return hit
+    data = b""
+    stored = _stored_icon(db)
+    if stored:
+        data = _rounded_stored(*stored)[0]
+    else:
+        for name in ("icon-192.png", "icon-512.png", "icon-96.png", "favicon.ico"):
+            f = STATIC_DIR / name
+            if f.is_file():
+                try:
+                    data = f.read_bytes()
+                except OSError:
+                    data = b""
+                break
+        if not data and icon_data is not None:
+            data = icon_data.ICON_PNG
+
+    uri = ""
+    if data and iconify is not None and iconify.available():
+        try:
+            from PIL import Image
+            import io as _io
+            im = Image.open(_io.BytesIO(data))
+            if getattr(im, "format", "") == "ICO":
+                im.size = (32, 32)
+            im = im.convert("RGBA").resize((32, 32), Image.LANCZOS)
+            buf = _io.BytesIO()
+            im.save(buf, format="PNG", optimize=True)
+            uri = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        except Exception:
+            uri = ""
+    if len(_INLINE_ICON_CACHE) > 8:
+        _INLINE_ICON_CACHE.clear()
+    _INLINE_ICON_CACHE[version] = uri
+    return uri
+
+
 def _icon_version(db: Session) -> str:
     """A short hash identifying the icon currently being served."""
     row = db.get(models.Setting, "favicon_url")
@@ -2363,7 +2435,12 @@ def serve_webmanifest(request: Request, db: Session = Depends(get_db)):
     # A home-screen label is shown under an icon, so it has to be SHORT —
     # "Dale — Dynamic Stack Por" is what a naive truncation produces. The
     # segment before the first dash is almost always the actual name.
-    short = re.split(r"\s+[—–-]\s+", name)[0].strip()[:20] or name[:20]
+    # A home-screen label sits under an icon in a very small box. Drop any
+    # honorific and take the first name — "Engr. Johndaleverth" is a label
+    # that gets truncated on the device; "Johndaleverth" is one that fits.
+    short = re.split(r"\s+[—–-]\s+", name)[0].strip()
+    short = re.sub(r"^(?:Engr|Dr|Mr|Ms|Mrs|Prof)\.?\s+", "", short, flags=re.I)
+    short = (short.split() or [name])[0][:16]
     return JSONResponse({
         "name": name,
         "short_name": short,
