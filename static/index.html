@@ -10,7 +10,26 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Johndaleverth “Dale” Echanova — Computer Engineer and full-stack developer building web apps, embedded prototypes, and computer-vision systems from Marinduque, Philippines.">
 <meta name="theme-color" content="#05080b">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'/%3E">
+<!-- ============================================================
+     FAVICONS — real files at real URLs.
+
+     This used to be a single EMPTY inline SVG, with the actual icon drawn
+     later in the browser by favicon.js and set as a `data:` URL. That is
+     why the site showed a photo in the tab and a grey globe in Google:
+     the search crawler does not run the page's JavaScript, so the only
+     icon it ever saw was the blank placeholder, and a `data:` URL is not
+     something it can crawl in the first place.
+
+     These four are ordinary fetchable files (served by the backend, which
+     swaps in the icon uploaded in the editor when there is one), so the
+     crawler has something to index and every browser has something to
+     show before any script has run.
+     ============================================================ -->
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
 <title>Dale — Dynamic Stack Portfolio</title>
 
 <!-- ============================================================
@@ -349,7 +368,7 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
                    in the bottom corner where it is reachable from every page
                    instead of only from the one page that happens to be loudest. -->
               <span class="robot-label-wrap">
-                <span class="robot-label">UNIT-01</span>
+                <span class="robot-label">T-700V</span>
                 <span class="robot-status" id="robotStatus">Awaiting attack</span>
               </span>
             </div>
@@ -387,7 +406,7 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
             <div class="robot-name-gate" id="robotNameGate">
               <span class="robot-gate-mark" aria-hidden="true"><i class="fa-solid fa-id-badge"></i></span>
               <b>Enter your name first</b>
-              <em>Then destroy UNIT-01 to unlock the chat.</em>
+              <em>Then destroy T-700V to unlock the chat.</em>
             </div>
 
             <div class="robot-fx" id="robotFx" aria-hidden="true"></div>
@@ -409,13 +428,13 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
             <span class="board-crown" aria-hidden="true"><i class="fa-solid fa-crown"></i></span>
             <span class="board-champ-face" id="boardChampFace" aria-hidden="true"></span>
             <span class="board-champ-who">
-              <em title="Most damage dealt to that UNIT-01">DESTROYER #<b id="boardChampRound">1</b></em>
+              <em title="Most damage dealt to that T-700V">DESTROYER #<b id="boardChampRound">1</b></em>
               <b id="boardChampName">—</b>
             </span>
             <span class="board-champ-dmg" id="boardChampDmg">—</span>
           </div>
 
-          <!-- The fight happening now. Empties the moment UNIT-01 falls. -->
+          <!-- The fight happening now. Empties the moment T-700V falls. -->
           <div class="board-head">
             <span class="board-title">THIS ROUND</span>
             <span class="board-note" id="boardNote">most damage wins</span>
@@ -474,7 +493,7 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
             <span class="chat-locked-mark" aria-hidden="true"><i class="fa-solid fa-lock"></i></span>
             <div class="chat-locked-text">
               <b>Chat is locked.</b>
-              <em>Destroy UNIT-01 to prove you are not a robot — then you can chat.</em>
+              <em>Destroy T-700V to prove you are not a robot — then you can chat.</em>
             </div>
             <span class="chat-locked-hp" id="chatLockedHp">100%</span>
           </div>

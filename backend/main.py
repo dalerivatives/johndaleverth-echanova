@@ -818,7 +818,7 @@ def _claim_payload(row, mine: bool = True):
         "claimed": True,
         "mine": mine,
         "expires_in": expires_in,
-        # Has this person actually destroyed UNIT-01 this session?
+        # Has this person actually destroyed T-700V this session?
         "verified": row.verified_at is not None,
     }
 
@@ -928,7 +928,7 @@ def post_chat(payload: schemas.ChatMessageIn, request: Request, db: Session = De
     if claim.verified_at is None:
         # The captcha is the point of the robot; a composer that merely LOOKS
         # locked is decoration, since the endpoint is one fetch call away.
-        raise HTTPException(status_code=403, detail="Destroy UNIT-01 first — that's how you prove you're not a robot.")
+        raise HTTPException(status_code=403, detail="Destroy T-700V first — that's how you prove you're not a robot.")
     name = claim.name          # post under the name exactly as it was claimed
 
     _chat_rate_limit(client_ip, device_id)
@@ -1128,7 +1128,7 @@ def robot_hit(payload: schemas.RobotHitIn, request: Request, db: Session = Depen
     claimed = (payload.name or "").strip()[:40]
     claim = db.get(models.ChatName, claimed.lower()) if claimed else None
     if not claim:
-        raise HTTPException(status_code=403, detail="Enter your name before attacking UNIT-01.")
+        raise HTTPException(status_code=403, detail="Enter your name before attacking T-700V.")
     if claim.device_id != (payload.device_id or "").strip()[:64]:
         raise HTTPException(status_code=403, detail="That name belongs to someone else.")
 
@@ -1259,7 +1259,7 @@ ROBOT_BOARD_SIZE = 3
 
 @app.get("/api/robot/leaderboard")
 def robot_leaderboard(db: Session = Depends(get_db)):
-    """Who is destroying UNIT-01 *right now*, and who destroyed the last one.
+    """Who is destroying T-700V *right now*, and who destroyed the last one.
 
     `round` is the current life only — it empties the moment the robot dies —
     and `champion` is the name that came top of the life before this one.
@@ -2013,6 +2013,123 @@ def serve_editor():
     html = (STATIC_DIR / "editor.html").read_text(encoding="utf-8")
     return HTMLResponse(_stamp_assets(_inject_livereload(html)),
                         headers={"Cache-Control": "no-cache, must-revalidate"})
+
+
+# ---------------------------------------------------------------------------
+# FAVICONS — why these are real routes and not just a <link> tag
+#
+# The site had no crawlable icon at all. The tab icon was built entirely in
+# the browser: favicon.js fetched /api/settings, drew the uploaded photo into
+# a canvas with a circular mask, and set the <link> href to the resulting
+# `data:` URL. That works beautifully in a tab and is invisible to a search
+# engine, for three separate reasons, any one of which is fatal:
+#
+#   1. Google's favicon fetcher does not execute the page's JavaScript, so
+#      the icon it looks for is whichever one is in the HTML as it leaves the
+#      server. That was an EMPTY 64x64 SVG.
+#   2. A `data:` URL is not a fetchable location. Google indexes favicons by
+#      URL; there is nothing to crawl or re-crawl.
+#   3. The one real icon URL that did exist, /api/favicon/<hash>, sits under
+#      /api/ — which robots.txt disallows. Even a correct <link> pointing at
+#      it would have been refused.
+#
+# The result was the grey globe placeholder in search results while the tab
+# showed the photo, which is exactly the symptom.
+#
+# So: real files at real root-level paths, declared in the HTML head, allowed
+# by robots.txt. The uploaded icon still wins when one is set — it is served
+# from the database here rather than only as a data URL — and the bundled
+# PNG/ICO files under static/ are the fallback, so a fresh deployment with an
+# empty database still has a crawlable icon on day one.
+# ---------------------------------------------------------------------------
+_ICON_FALLBACKS = {
+    "/favicon.ico":          ("favicon.ico",          "image/x-icon"),
+    "/icon-96.png":          ("icon-96.png",          "image/png"),
+    "/icon-192.png":         ("icon-192.png",         "image/png"),
+    "/icon-512.png":         ("icon-512.png",         "image/png"),
+    "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
+}
+
+
+def _stored_icon(db: Session):
+    """The icon uploaded in the editor, as (bytes, mime) — or None."""
+    row = db.get(models.Setting, "_asset_favicon")
+    active = db.get(models.Setting, "favicon_url")
+    if not row or not active or not (active.value or "").startswith("/api/favicon/"):
+        return None
+    try:
+        asset = json.loads(row.value)
+        return base64.b64decode(asset["data"]), asset.get("mime") or "image/png"
+    except Exception:
+        return None
+
+
+def _serve_icon(path: str, db: Session) -> Response:
+    name, mime = _ICON_FALLBACKS[path]
+    stored = _stored_icon(db)
+    if stored:
+        data, stored_mime = stored
+        # Browsers and crawlers both go by Content-Type, not by the extension
+        # in the URL, so serving a PNG at /favicon.ico is correct and is what
+        # every site with a modern icon does.
+        return Response(data, media_type=stored_mime,
+                        headers={"Cache-Control": "public, max-age=86400"})
+    file = STATIC_DIR / name
+    if not file.is_file():
+        raise HTTPException(status_code=404, detail="Icon not found")
+    return FileResponse(file, media_type=mime,
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def serve_favicon_ico(db: Session = Depends(get_db)):
+    return _serve_icon("/favicon.ico", db)
+
+
+@app.get("/icon-96.png", include_in_schema=False)
+def serve_icon_96(db: Session = Depends(get_db)):
+    return _serve_icon("/icon-96.png", db)
+
+
+@app.get("/icon-192.png", include_in_schema=False)
+def serve_icon_192(db: Session = Depends(get_db)):
+    return _serve_icon("/icon-192.png", db)
+
+
+@app.get("/icon-512.png", include_in_schema=False)
+def serve_icon_512(db: Session = Depends(get_db)):
+    return _serve_icon("/icon-512.png", db)
+
+
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+def serve_apple_touch_icon(db: Session = Depends(get_db)):
+    return _serve_icon("/apple-touch-icon.png", db)
+
+
+@app.get("/site.webmanifest", include_in_schema=False)
+def serve_webmanifest(request: Request, db: Session = Depends(get_db)):
+    """Named icons for the phone home screen and for Chrome's install prompt.
+    Built here rather than shipped as a static file so the title tracks the
+    one set in the editor."""
+    settings = _settings_map(db)
+    name = (settings.get("site_title") or "Johndaleverth P. Echanova").strip()
+    # A home-screen label is shown under an icon, so it has to be SHORT —
+    # "Dale — Dynamic Stack Por" is what a naive truncation produces. The
+    # segment before the first dash is almost always the actual name.
+    short = re.split(r"\s+[—–-]\s+", name)[0].strip()[:20] or name[:20]
+    return JSONResponse({
+        "name": name,
+        "short_name": short,
+        "icons": [
+            {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"},
+        ],
+        "theme_color": "#05080b",
+        "background_color": "#060c20",
+        "display": "standalone",
+        "start_url": "/",
+    }, media_type="application/manifest+json",
+       headers={"Cache-Control": "public, max-age=3600"})
 
 
 @app.get("/robots.txt", include_in_schema=False)

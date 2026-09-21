@@ -33,6 +33,13 @@
     "#robotSound"       // the old id, if it is still on the page
   ].join(",");
 
+  /* Fields where a keystroke is typing rather than a press. Declared up
+     here with the other selectors because BOTH the press handler and the
+     typing handler below consult it. */
+  const TYPEABLE = "input[type='text'], input[type='search'], input[type='email'], " +
+                   "input[type='url'], input[type='number'], input:not([type]), textarea, " +
+                   "[contenteditable='true'], [contenteditable='']";
+
   /* Controls that read as navigation rather than as buttons. */
   const NAV_LIKE = ".nav-item, .nav-btn, .socials a, .chat-socials a, .board-row";
 
@@ -158,18 +165,55 @@
     const t = document.activeElement;
     if(!(t instanceof Element)) return;
     if(t.closest(OWN_VOICE)) return;
-    if(t.matches("input[type='text'], textarea")) return;   // typing, not pressing
+    if(t.matches(TYPEABLE)) return;                        // typing, not pressing
     const el = isControl(t);
     if(!el) return;
     if(el.matches(NAV_LIKE) || el.closest(NAV_LIKE)) S.tap();
     else S.click();
   }, true);
 
-  /* ---- 2. typing in the terminal --------------------------------------
-     Only this one field. A site that clicks at you in every text box is
-     unbearable, but the terminal is a terminal — a keystroke there is
-     meant to feel like one. Very quiet, and gated hard enough that a
-     held key or a paste doesn't turn into a drum roll. */
+  /* ---- 2. typing ------------------------------------------------------
+     Every text field on the site, not just the terminal.
+
+     The original rule here was "only the terminal, because a site that
+     clicks at you in every text box is unbearable" — and that is true of
+     a click. It is not true of a keystroke, and the two are different
+     voices: S.click() is a button bottoming out, S.key() is a keycap,
+     already a third of the level and a fifth of the length. What makes
+     typing feedback unbearable is a LOUD sound per character, not the
+     presence of one; every mechanical keyboard ever sold is the proof.
+
+     Three rules keep it on the right side of that line:
+
+       - Delegated at the document, so fields built at runtime (the chat
+         composer, the editor, anything added later) are covered without
+         being wired up one at a time.
+       - `e.repeat` is dropped, so holding a key down does not turn into a
+         drum roll, and a paste makes no sound at all — it is one action,
+         not forty characters.
+       - Space and Enter get their own slightly lower voices, because they
+         are the big keys and hearing the same tick for every one of them
+         is what makes fake typing sound fake.
+
+     Any field can opt out with data-no-sound, and password fields opt out
+     on their own — nobody wants their passphrase audible as a rhythm. */
+  document.addEventListener("keydown", e => {
+    if(!e.isTrusted || e.repeat) return;
+    const t = e.target;
+    if(!(t instanceof Element)) return;
+    if(!t.matches(TYPEABLE)) return;
+    if(t.closest("[data-no-sound]")) return;
+    if(e.ctrlKey || e.metaKey || e.altKey) return;     // a shortcut, not typing
+
+    if(e.key === "Enter"){ S.click(); return; }
+    if(e.key === " "){ S.tap(); return; }
+    if(e.key === "Backspace" || e.key === "Delete"){ S.key(); return; }
+    if(e.key.length === 1) S.key();
+  }, true);
+
+  /* The terminal keeps its own handler. It is the one field where a
+     keystroke is the point rather than a side effect, so it answers on
+     every key including the ones the generic rule above skips. */
   const term = document.getElementById("whoamiField");
   if(term){
     term.addEventListener("keydown", e => {

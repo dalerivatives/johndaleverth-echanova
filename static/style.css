@@ -2459,7 +2459,7 @@ body.lightbox-open{overflow:hidden}
 
      robot HP bar and % : colour set INLINE from JS as hsl(...), so no
                           plain CSS rule can reach it
-     the UNIT-01 robot  : a WebGL canvas; its pixels are not CSS at all
+     the T-700V robot  : a WebGL canvas; its pixels are not CSS at all
      chat avatars       : drawn, not styled
      window dots        : hardcoded #ff5f57 / amber / green
 

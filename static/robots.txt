@@ -11,6 +11,16 @@ Allow: /
 Allow: /api/health
 Allow: /api/health/db
 
+# The icons, explicitly. Google will not show a favicon in search results
+# for a URL it is not allowed to fetch, and a blanket Disallow one line
+# further down is exactly how a site ends up with the grey globe.
+Allow: /favicon.ico
+Allow: /icon-96.png
+Allow: /icon-192.png
+Allow: /icon-512.png
+Allow: /apple-touch-icon.png
+Allow: /site.webmanifest
+
 Disallow: /editor.html
 Disallow: /api/
 

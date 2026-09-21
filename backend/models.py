@@ -83,12 +83,12 @@ class ChatName(Base):
     # room has to live with the room.
     verified_at = Column(DateTime(timezone=True), nullable=True)
     # Set on every hit, cleared when the robot dies — this is what lets
-    # everyone who actually damaged UNIT-01 during a life count as having
+    # everyone who actually damaged T-700V during a life count as having
     # destroyed it, not only whoever happened to land the last blow.
     hit_since_respawn = Column(Boolean, default=False, nullable=False)
 
     # Leaderboard tallies for the CURRENT LIFE of the robot, not the day.
-    # Both are zeroed for everyone the moment UNIT-01 goes down, because the
+    # Both are zeroed for everyone the moment T-700V goes down, because the
     # question the board answers is "who destroyed this one?" — and a running
     # total across a dozen lives answers a different question badly: it reads
     # past 100%, it can't be beaten by a newcomer, and it stops being about

@@ -1639,7 +1639,7 @@ if(osLight){
      determined can clear storage, exactly as they can with a real captcha.
      window.__robotBeaten is set by the robot module the moment it explodes,
      which is what makes the unlock feel immediate rather than on reload. */
-  /* Verified means "this claim has destroyed UNIT-01", and the SERVER says so.
+  /* Verified means "this claim has destroyed T-700V", and the SERVER says so.
      It used to be a localStorage flag, which outlived the thing it described:
      the 24-hour reset wiped the room and rebuilt the robot at full health, but
      the browser still said "beaten", so the composer sat open next to a robot
@@ -1974,7 +1974,7 @@ if(osLight){
   const captchaSub = document.getElementById("robotCaptchaSub");
 
   /* ---- sound ----------------------------------------------------------
-     UNIT-01's clank, boom and power-up used to be synthesised right here,
+     T-700V's clank, boom and power-up used to be synthesised right here,
      in a module that owned its own AudioContext, its own mute flag and its
      own speaker button. Then every other control on the site wanted a
      sound too, and one page's private audio engine is the wrong place to
@@ -2022,7 +2022,7 @@ if(osLight){
       const data = await res.json();
 
       /* The round table: who is damaging THIS life of the robot. It empties
-         the moment UNIT-01 falls, which is the point — the board is about the
+         the moment T-700V falls, which is the point — the board is about the
          fight in front of you, never a running total nobody can catch. */
       const round = data.round || [];
       boardList.innerHTML = round.map((row, i)=>`
@@ -2533,6 +2533,25 @@ if(osLight){
     if(use3d && window.Robot3D) window.Robot3D.resize();
   }
 
+  /* ---- the robot's chest display --------------------------------------
+     The display on the T-700V's head shows the same line the HUD shows
+     above it — "Awaiting attack", "Under attack — Dale", "Destroyed".
+
+     Mirrored with an observer rather than by calling setScreen() at each
+     of the four places that write the status: those are spread across the
+     hit handler, the death handler, the respawn and the idle timeout, and
+     every one of them would be a place to forget. Watching the element
+     means the screen cannot fall out of step with the label, whatever
+     writes it and whenever. */
+  function mirrorStatusToChest(){
+    if(!statusEl || !window.Robot3D || !window.Robot3D.setScreen) return;
+    const push = () => {
+      try{ window.Robot3D.setScreen("T-700V", statusEl.textContent || ""); }catch(e){}
+    };
+    push();
+    new MutationObserver(push).observe(statusEl, {childList:true, characterData:true, subtree:true});
+  }
+
   /* The 3D robot is only mounted when the Chat page is actually opened —
      no reason to spin up WebGL for someone who never visits it. */
   function ensure3d(){
@@ -2541,6 +2560,7 @@ if(osLight){
       use3d = true;
       if(fallbackBody) fallbackBody.hidden = true;
       window.Robot3D.setHealth(shownHp);
+      mirrorStatusToChest();
     }else{
       // No WebGL (old device, disabled, software renderer refused) — show
       // the flat robot instead of an empty box.
@@ -2833,7 +2853,7 @@ if(osLight){
 
 /* ============================================================
    THE ROBOT'S VOICE
-   UNIT-01 reads new chat messages aloud. It only ever speaks messages that
+   T-700V reads new chat messages aloud. It only ever speaks messages that
    arrive while you are watching — the backlog you get on opening the page
    is not read out, because arriving to twenty queued messages being recited
    at you is the same mistake the hit-sound backlog was.

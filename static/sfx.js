@@ -460,6 +460,65 @@
       noise(0.13, 0.026, 520*j, 1.1, 0.01, 260);           // the housing settling
     },
 
+    /* ---- THE ROBOT'S OWN MOVING PARTS ------------------------------
+       UNIT-01 turns its head to follow the cursor, rolls on rubber
+       treads and blinks two antennae. Those are all things that make a
+       noise in the real world, and the robot reads as a prop rather than
+       a machine if it does them in silence.
+
+       Every voice here is deliberately below the level of a click. They
+       fire from an animation loop rather than from a press — nobody ASKED
+       for them — so the rule is the same as for hover: present enough to
+       notice, quiet enough that you never catch yourself listening to it.
+
+       SERVO — a small geared motor turning and stopping.
+
+       The shape that matters is the STOP. A motor run is easy (a buzzy
+       glide); what tells you it is a servo and not a hum is that it
+       arrives somewhere and the gearbox takes up its backlash with a
+       tiny click. The glide plus that click is the whole sound; without
+       the click it is a kazoo. */
+    servo(){
+      if(!gate("servo", 240)) return;
+      const j = 0.9 + Math.random()*0.2;
+      tone("sawtooth", 148*j, 232*j, 0.085, 0.017);          // the motor run
+      tone("square",   296*j, 460*j, 0.070, 0.006);          // gear whine on top
+      noise(0.075, 0.010, 1500*j, 1.6, 0, 900);              // brush hiss
+      noise(0.012, 0.030, 2600*j, 1.1, 0.082, 1800, "hit", "highpass");  // backlash
+    },
+
+    /* TREAD — rubber turning over grit. Low, short, no pitch of its own:
+       treads are a texture, not a note. */
+    tread(){
+      if(!gate("tread", 320)) return;
+      const j = 0.88 + Math.random()*0.24;
+      noise(0.22, 0.030, 220*j, 0.7, 0, 90, "tail");
+      thock(78*j, 52, 0.16, 0.022);
+    },
+
+    /* PING — an antenna tip blinking. One clean inharmonic blip with a
+       breath of air under it, quiet and far away. */
+    ping(){
+      if(!gate("ping", 900)) return;
+      const j = 0.97 + Math.random()*0.06;
+      ring([[2180*j, 0.016, 0.22], [3290*j, 0.009, 0.16]], 0);
+      noise(0.05, 0.008, 5200, 1.0, 0, 8000, "tail");
+    },
+
+    /* BOOT — the robot coming online: power rail winding up, then three
+       rising tones and the eyes lighting. Played once when the model
+       mounts and again on a revive, so a rebuild is something you hear
+       finish rather than just watch. */
+    bootup(){
+      if(!gate("bootup", 1200)) return;
+      tone("sawtooth", 48, 170, 0.34, 0.026);                 // rail spinning up
+      noise(0.30, 0.018, 380, 0.9, 0, 1400, "tail");
+      tone("triangle", 523, 523, 0.13, 0.042, 0.20);
+      tone("triangle", 659, 659, 0.13, 0.042, 0.30);
+      tone("triangle", 880, 880, 0.30, 0.048, 0.40);
+      ring([[1760, 0.020, 0.40], [2637, 0.013, 0.30]], 0.40);
+    },
+
     /* HOVER — the cursor or a finger ARRIVING on a control.
 
        The hardest voice here to get right, because it fires without
