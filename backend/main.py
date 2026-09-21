@@ -1956,6 +1956,10 @@ def asset_version() -> str:
 
 _ASSET_QS = re.compile(r"(\.(?:css|js))\?v=[A-Za-z0-9._-]*")
 
+# href on an icon/manifest <link>, captured so the value can be rewritten
+# without disturbing the rest of the tag.
+_ICON_HREF = re.compile(r'(<link[^>]*rel="(?:icon|apple-touch-icon)"[^>]*href=)"(/[^"?]+)"')
+
 
 def _stamp_assets(html: str) -> str:
     """Rewrite every `?v=...` on a local asset to the current fingerprint.
@@ -2000,6 +2004,19 @@ def _render_index(db: Session, request: Request) -> HTMLResponse:
         html = set_meta(html, r'(<meta property="og:description" content=")[^"]*"', safe)
         html = set_meta(html, r'(<meta name="twitter:description" content=")[^"]*"', safe)
 
+    # Stamp the icon links with the icon's own content hash.
+    #
+    # This is what stops the tab going blank for a moment on refresh. An
+    # unstamped icon is served with a one-hour cache, so a refresh after that
+    # hour — or a reload that revalidates — has to go to the network before
+    # the tab can paint anything, and the gap is visible. A stamped URL is
+    # content-addressed, so it can be served `immutable` and the browser
+    # paints it straight from disk without asking anyone.
+    #
+    # The hash changes only when the picture does, so a crawler is not sent
+    # chasing a new icon URL on every deploy.
+    version = _icon_version(db)
+    html = _ICON_HREF.sub(lambda m: f'{m.group(1)}"{m.group(2)}?v={version}"', html)
     html = _stamp_assets(_inject_livereload(html))
     return HTMLResponse(html, headers={"Cache-Control": "no-cache, must-revalidate"})
 
@@ -2167,6 +2184,45 @@ except Exception:   # pragma: no cover - the site must boot without it
 
 _ICON_HIT_CACHE = "public, max-age=3600"
 
+# A request that carries ?v=<content hash> is asking for one exact version of
+# the icon, so it can be cached effectively forever. `immutable` is the part
+# that matters here: without it a browser REVALIDATES on reload even when the
+# copy it holds is fresh, and that round trip is the blank moment in the tab
+# during a refresh. With it, the icon is painted from disk before the network
+# is touched at all.
+_ICON_IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
+
+
+# The version string is the icon's own content hash, not the deploy time.
+# A deploy-stamped URL would make every crawler re-fetch the icon on every
+# deploy for no reason; a content hash changes only when the picture does.
+_ICON_VERSION_CACHE: dict[str, str] = {}
+
+
+def _icon_version(db: Session) -> str:
+    """A short hash identifying the icon currently being served."""
+    row = db.get(models.Setting, "favicon_url")
+    key = (row.value if row else "") or ""
+    hit = _ICON_VERSION_CACHE.get(key)
+    if hit:
+        return hit
+    stored = _stored_icon(db)
+    if stored:
+        version = hashlib.sha256(stored[0]).hexdigest()[:12]
+    else:
+        # No upload: the bundled files decide, so fingerprint those instead.
+        parts = []
+        for name in ("favicon.ico", "icon-192.png", "icon-512.png"):
+            f = STATIC_DIR / name
+            if f.is_file():
+                st = f.stat()
+                parts.append(f"{name}:{st.st_mtime_ns}:{st.st_size}")
+        version = hashlib.sha256("|".join(parts).encode()).hexdigest()[:12] if parts else "bundled"
+    if len(_ICON_VERSION_CACHE) > 8:
+        _ICON_VERSION_CACHE.clear()
+    _ICON_VERSION_CACHE[key] = version
+    return version
+
 # A MISSING icon must never be cached, anywhere, for any length of time.
 #
 # This is the bug that outlived two rounds of fixes. There is a CDN in front
@@ -2216,18 +2272,19 @@ def _rounded_stored(data: bytes, mime: str) -> tuple[bytes, str]:
     return result
 
 
-def _serve_icon(path: str, db: Session) -> Response:
+def _serve_icon(path: str, db: Session, versioned: bool = False) -> Response:
+    cache = _ICON_IMMUTABLE_CACHE if versioned else _ICON_HIT_CACHE
     stored = _stored_icon(db)
     if stored:
         data, stored_mime = _rounded_stored(*stored)
         return Response(data, media_type=stored_mime,
-                        headers={"Cache-Control": _ICON_HIT_CACHE})
+                        headers={"Cache-Control": cache})
 
     for name in _ICON_FALLBACKS[path]:
         file = STATIC_DIR / name
         if file.is_file():
             return FileResponse(file, media_type=_ICON_MIME.get(file.suffix.lower(), "image/png"),
-                                headers={"Cache-Control": _ICON_HIT_CACHE})
+                                headers={"Cache-Control": cache})
 
     # The floor: a copy of the icon that lives in the SOURCE TREE, as text.
     #
@@ -2239,7 +2296,7 @@ def _serve_icon(path: str, db: Session) -> Response:
     # state where this route has nothing to return.
     if icon_data is not None:
         return Response(icon_data.ICON_PNG, media_type=icon_data.ICON_MIME,
-                        headers={"Cache-Control": _ICON_HIT_CACHE})
+                        headers={"Cache-Control": cache})
 
     # Only reachable if the embedded module was deliberately deleted. Return
     # it uncacheable, so whatever is in front of this app cannot hold on to
@@ -2252,48 +2309,48 @@ def _serve_icon(path: str, db: Session) -> Response:
 
 
 @app.get("/favicon.ico", include_in_schema=False)
-def serve_favicon_ico(db: Session = Depends(get_db)):
-    return _serve_icon("/favicon.ico", db)
+def serve_favicon_ico(v: str = "", db: Session = Depends(get_db)):
+    return _serve_icon("/favicon.ico", db, versioned=bool(v))
 
 
 @app.get("/icon-96.png", include_in_schema=False)
-def serve_icon_96(db: Session = Depends(get_db)):
-    return _serve_icon("/icon-96.png", db)
+def serve_icon_96(v: str = "", db: Session = Depends(get_db)):
+    return _serve_icon("/icon-96.png", db, versioned=bool(v))
 
 
 @app.get("/icon-192.png", include_in_schema=False)
-def serve_icon_192(db: Session = Depends(get_db)):
-    return _serve_icon("/icon-192.png", db)
+def serve_icon_192(v: str = "", db: Session = Depends(get_db)):
+    return _serve_icon("/icon-192.png", db, versioned=bool(v))
 
 
 @app.get("/icon-512.png", include_in_schema=False)
-def serve_icon_512(db: Session = Depends(get_db)):
-    return _serve_icon("/icon-512.png", db)
+def serve_icon_512(v: str = "", db: Session = Depends(get_db)):
+    return _serve_icon("/icon-512.png", db, versioned=bool(v))
 
 
 @app.get("/apple-touch-icon.png", include_in_schema=False)
-def serve_apple_touch_icon(db: Session = Depends(get_db)):
-    return _serve_icon("/apple-touch-icon.png", db)
+def serve_apple_touch_icon(v: str = "", db: Session = Depends(get_db)):
+    return _serve_icon("/apple-touch-icon.png", db, versioned=bool(v))
 
 
 @app.get("/brand-icon.png", include_in_schema=False)
-def serve_brand_icon(db: Session = Depends(get_db)):
-    return _serve_icon("/brand-icon.png", db)
+def serve_brand_icon(v: str = "", db: Session = Depends(get_db)):
+    return _serve_icon("/brand-icon.png", db, versioned=bool(v))
 
 
 @app.get("/brand-icon-512.png", include_in_schema=False)
-def serve_brand_icon_512(db: Session = Depends(get_db)):
-    return _serve_icon("/brand-icon-512.png", db)
+def serve_brand_icon_512(v: str = "", db: Session = Depends(get_db)):
+    return _serve_icon("/brand-icon-512.png", db, versioned=bool(v))
 
 
 @app.get("/brand-icon-touch.png", include_in_schema=False)
-def serve_brand_icon_touch(db: Session = Depends(get_db)):
-    return _serve_icon("/brand-icon-touch.png", db)
+def serve_brand_icon_touch(v: str = "", db: Session = Depends(get_db)):
+    return _serve_icon("/brand-icon-touch.png", db, versioned=bool(v))
 
 
 @app.get("/brand-icon.ico", include_in_schema=False)
-def serve_brand_icon_ico(db: Session = Depends(get_db)):
-    return _serve_icon("/brand-icon.ico", db)
+def serve_brand_icon_ico(v: str = "", db: Session = Depends(get_db)):
+    return _serve_icon("/brand-icon.ico", db, versioned=bool(v))
 
 
 @app.get("/site.webmanifest", include_in_schema=False)
@@ -2302,7 +2359,7 @@ def serve_webmanifest(request: Request, db: Session = Depends(get_db)):
     Built here rather than shipped as a static file so the title tracks the
     one set in the editor."""
     settings = _settings_map(db)
-    name = (settings.get("site_title") or "Johndaleverth P. Echanova").strip()
+    name = (settings.get("site_title") or "Engr. Johndaleverth Pastorfide Echanova").strip()
     # A home-screen label is shown under an icon, so it has to be SHORT —
     # "Dale — Dynamic Stack Por" is what a naive truncation produces. The
     # segment before the first dash is almost always the actual name.

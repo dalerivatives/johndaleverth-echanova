@@ -355,7 +355,7 @@ DEFAULT_SETTINGS = {
 
     # --- SEO / link previews ---
     "site_url": "",
-    "site_title": "Dale — Dynamic Stack Portfolio",
+    "site_title": "Engr. Johndaleverth Pastorfide Echanova",
     "meta_description": (
         "Johndaleverth “Dale” Echanova — Computer Engineer and full-stack "
         "developer building web apps, embedded prototypes, and computer-vision systems "

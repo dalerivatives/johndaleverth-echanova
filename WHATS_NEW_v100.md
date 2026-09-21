@@ -1,4 +1,4 @@
-# Portfolio v99 — what changed
+# Portfolio v100 — what changed
 
 ## 1. The robot is now the Travelade EXPLORER-BOT T-700V
 
@@ -460,6 +460,54 @@ which a hard refresh does not clear. If the old square lingers for you after
 deploying, open the site in an Incognito window to see the truth. The URL
 change should sidestep it entirely, but that is how to tell a stale cache
 from a real problem.
+
+### v100: the name, and the blank moment on refresh
+
+**"P." is now "Pastorfide".** The title reads **Engr. Johndaleverth
+Pastorfide Echanova** in the browser tab, the search result, the link
+preview and the home-screen label.
+
+One thing to know about where that text lives: the title on your live site
+comes from the **database**, set through the editor — not from the code. So
+changing the code changes what a *fresh* database gets, and your existing
+row keeps whatever it already holds. On a host with an ephemeral disk that
+resolves itself on the next deploy, but the reliable move is to open the
+editor and set the site title there too. I have updated every place the code
+decides it: the seeded default, the `<title>` in the HTML, the og and
+twitter titles, and the manifest fallback.
+
+**The blank flash when you refresh.**
+
+The icon was being served with a one-hour cache and no `immutable`. Without
+`immutable` a browser revalidates the icon on reload even when the copy it
+already holds is perfectly fresh — and that round trip to the server is the
+blank moment. The tab has nothing to draw until the response comes back.
+
+Icons are now served **content-addressed**: the page's icon links carry
+`?v=<hash of the icon itself>`, and a request with that parameter gets
+`max-age=31536000, immutable`. The browser paints the icon from disk before
+it touches the network.
+
+The version is a hash of the picture, deliberately, not a deploy stamp. A
+deploy-stamped URL would send every crawler chasing a "new" icon on every
+deploy for no reason; a content hash changes only when the picture actually
+changes — verified by uploading a different image and watching it go from
+`a28e0b05d927` to `5bf6d04add8d`.
+
+Unstamped requests — a crawler probing `/favicon.ico` by convention — still
+get the modest one-hour cache, because those URLs are not content-addressed
+and must not be pinned for a year.
+
+Measured by counting what the **server** received across three page loads
+(one fresh, two refreshes):
+
+```
+GET /brand-icon.ico?v=5bf6d04add8d   1
+GET /brand-icon.png?v=5bf6d04add8d   1
+```
+
+Once each. The two refreshes never reached the server at all — the icon came
+from disk, which is why there is no gap to see.
 
 ### What you still have to do yourself
 
