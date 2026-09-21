@@ -2003,6 +2003,24 @@ _NO_STORE = {
 }
 
 
+def _apply_icons(html: str, db: Session) -> str:
+    """Version the icon URLs and splice the inline copy in above them.
+
+    Shared by the public site and the editor. The editor used to carry an
+    EMPTY placeholder SVG as its icon, on the assumption that favicon.js
+    would paint over it later; when that script stopped painting tab icons,
+    the editor was left showing the blank forever. Running both pages
+    through one function is what stops that happening again.
+    """
+    version = _icon_version(db)
+    html = _ICON_HREF.sub(lambda m: f'{m.group(1)}"{m.group(2)}?v={version}"', html)
+    inline = _inline_icon(db, version)
+    if inline and _ICON_ANCHOR in html:
+        tag = f'<link rel="icon" type="image/png" sizes="32x32" href="{inline}">\n'
+        html = html.replace(_ICON_ANCHOR, tag + _ICON_ANCHOR, 1)
+    return html
+
+
 def _render_index(db: Session, request: Request) -> HTMLResponse:
     html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
     settings = _settings_map(db)
@@ -2041,14 +2059,7 @@ def _render_index(db: Session, request: Request) -> HTMLResponse:
     #
     # The hash changes only when the picture does, so a crawler is not sent
     # chasing a new icon URL on every deploy.
-    version = _icon_version(db)
-    html = _ICON_HREF.sub(lambda m: f'{m.group(1)}"{m.group(2)}?v={version}"', html)
-
-    # Put the inline copy FIRST, at the exact size a tab asks for.
-    inline = _inline_icon(db, version)
-    if inline:
-        tag = f'<link rel="icon" type="image/png" sizes="32x32" href="{inline}">\n'
-        html = html.replace(_ICON_ANCHOR, tag + _ICON_ANCHOR, 1)
+    html = _apply_icons(html, db)
     html = _stamp_assets(_inject_livereload(html))
     return HTMLResponse(html, headers=dict(_NO_STORE))
 
@@ -2090,13 +2101,13 @@ def redirect_legacy_index():
 
 
 @app.get("/editor.html", include_in_schema=False)
-def serve_editor():
+def serve_editor(db: Session = Depends(get_db)):
     """Served by hand only so live reload can be injected into it too — the
     editor is where most of the editing happens, so it's the page that most
     wants to refresh itself. In production this is the same bytes the static
     mount would have returned."""
     html = (STATIC_DIR / "editor.html").read_text(encoding="utf-8")
-    return HTMLResponse(_stamp_assets(_inject_livereload(html)),
+    return HTMLResponse(_apply_icons(_stamp_assets(_inject_livereload(html)), db),
                         headers=dict(_NO_STORE))
 
 

@@ -385,31 +385,39 @@ def seed_settings(db: Session):
 
 
 def _expand_middle_initial(db: Session):
-    """Write the owner's middle name out in full in the stored site title.
+    """Write the owner's middle name out in full, everywhere it is stored.
 
-    The title shown in the tab, in search results and on a link preview
-    comes from the DATABASE, not from the default above — it is whatever was
-    typed into the editor. So changing the default fixes a fresh install and
-    leaves an existing one displaying the old text forever, which is exactly
-    what happened: the code said "Pastorfide" and the live site went on
-    saying "P.".
+    The name is shown in more than one place and each place is a separate
+    row in the settings table: the browser tab and search result come from
+    `site_title`, and the big name on the page itself comes from
+    `hero_name_rest`. Fixing only the first left the second still reading
+    "P." on the page — which is exactly what happened.
 
-    This is deliberately narrow. It only touches the one setting, only when
-    the value still carries the abbreviated initial between those two exact
-    names, and it writes the owner's own name rather than anything invented.
-    Once it has run the pattern no longer matches, so it is a no-op from
-    then on and cannot fight an edit made later in the editor.
+    So this walks every setting rather than one named key. The two patterns
+    are narrow enough to be safe anywhere: "P." only ever stands for
+    "Pastorfide" when it sits between those names or directly before the
+    surname. Once expanded, nothing matches any more, so this is a no-op on
+    every later start and cannot fight an edit made in the editor.
     """
-    row = db.get(models.Setting, "site_title")
-    if not row or not row.value:
-        return
-    updated = re.sub(r"\bJohndaleverth\s+P\.\s+Echanova\b",
-                     "Johndaleverth Pastorfide Echanova", row.value)
-    # "Engr.Johndaleverth" -> "Engr. Johndaleverth": a missing space after an
-    # abbreviation, from the same typing.
-    updated = re.sub(r"\bEngr\.(?=\S)", "Engr. ", updated)
-    if updated != row.value:
-        row.value = updated
+    patterns = (
+        (re.compile(r"\bJohndaleverth\s+P\.\s+Echanova\b"), "Johndaleverth Pastorfide Echanova"),
+        (re.compile(r"\bP\.\s+Echanova\b"), "Pastorfide Echanova"),
+        # "Engr.Johndaleverth" -> "Engr. Johndaleverth": a missing space
+        # after the abbreviation, from the same typing.
+        (re.compile(r"\bEngr\.(?=\S)"), "Engr. "),
+    )
+    changed = False
+    for row in db.query(models.Setting).all():
+        value = row.value or ""
+        if not value:
+            continue
+        updated = value
+        for pattern, replacement in patterns:
+            updated = pattern.sub(replacement, updated)
+        if updated != value:
+            row.value = updated
+            changed = True
+    if changed:
         db.commit()
 
 

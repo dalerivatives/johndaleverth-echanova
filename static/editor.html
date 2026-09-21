@@ -4,7 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'/%3E">
+<!-- The editor gets the same icon as the site. This used to be an EMPTY
+     64x64 SVG, filled in later by favicon.js drawing into a canvas — so
+     when that script stopped drawing the tab icon, this page was left
+     showing the blank placeholder and nothing ever replaced it. The
+     backend splices a 32x32 data: URI in above these, so the icon is in
+     the document itself and the tab is never empty, even mid-refresh. -->
+<link rel="icon" type="image/png" sizes="192x192" href="/brand-icon.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/brand-icon-512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/brand-icon-touch.png">
 <title>Portfolio Editor</title>
 <link rel="stylesheet" href="vendor/fontawesome/all.min.css?v=78">
 <link rel="stylesheet" href="style.css?v=88">

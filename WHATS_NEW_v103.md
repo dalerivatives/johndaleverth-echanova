@@ -1,4 +1,4 @@
-# Portfolio v102 — what changed
+# Portfolio v103 — what changed
 
 ## 1. The robot is now the Travelade EXPLORER-BOT T-700V
 
@@ -627,6 +627,63 @@ what either of us ships:
    The title should read **Engr. Johndaleverth Pastorfide Echanova**. If a
    `?cachebust=1` version shows the new title and the bare URL does not, the
    purge did not take.
+
+### v103: the editor's tab icon (my regression) and the second "P."
+
+Two separate things, both real, neither of them the CDN.
+
+**The blank tab was the EDITOR, not the portfolio.** The screenshot said
+"Portfolio Editor" — a different page with its own `<head>`, and I had only
+ever fixed `index.html`. `editor.html` still carried this from before any of
+this work started:
+
+```html
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,...viewBox='0 0 64 64'/...">
+```
+
+An **empty** 64x64 SVG. It was a deliberate placeholder back when
+`favicon.js` painted the real icon into a canvas afterwards — so when I
+stopped that script painting tab icons in v97, I left the editor showing a
+blank with nothing to replace it. That one is mine.
+
+Fixed at the source rather than by patching one more file: the editor is now
+rendered through the **same** icon path as the site, so it gets the inline
+32x32 `data:` URI and the versioned URLs exactly as the portfolio does. The
+404 page got real icon links too. A page added later cannot quietly miss out.
+
+**The second "P." was a second setting.** The name appears in two different
+database rows: `site_title` drives the tab and the search result,
+`hero_name_rest` drives the big name on the page. The v101 migration only
+rewrote the first, so the tab said "Pastorfide" and the page still said
+"P." — which is precisely what you were looking at.
+
+The migration now walks every setting rather than one named key:
+
+```
+site_title      'Engr.Johndaleverth P. Echanova'  ->  'Engr. Johndaleverth Pastorfide Echanova'
+hero_name_rest  'P. Echanova'                     ->  'Pastorfide Echanova'
+```
+
+Both patterns are narrow enough to be safe anywhere — "P." only ever stands
+for "Pastorfide" when it sits between those names or directly before the
+surname — and once expanded nothing matches, so it is a no-op on every later
+start.
+
+**Measured on both tabs**, four loads each (one fresh, three refreshes):
+
+```
+portfolio  first icon at t=47ms | tab-icon network fetches over 4 loads: 0
+editor     first icon at t=61ms | tab-icon network fetches over 4 loads: 0
+```
+
+Zero fetches. The icon is in the document, so there is nothing to wait for
+on either page.
+
+**One correction to something I broke and fixed quietly:** while editing
+`seed.py` I truncated the file, which removed `seed_if_empty` and stopped
+the app booting. It is restored and verified byte-identical to the original,
+and the seed data above it is untouched. Flagging it because you would have
+no way to know otherwise.
 
 ### What you still have to do yourself
 
