@@ -323,12 +323,25 @@ def speech_status():
             "engine": "john-neural" if SPEECH_MODE == "dynamic" else "male-robot-lite"}
 
 
+# Never let anything cache these. A CDN that decides to hold on to
+# /api/health/db turns every keep-alive ping into a request that is answered
+# at the edge and never reaches Render at all — the monitor goes green, the
+# workflow goes green, and the service sleeps anyway. That failure is
+# invisible from outside, which is exactly why it is worth a header.
+_NO_STORE = {
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "CDN-Cache-Control": "no-store",
+    "Cloudflare-CDN-Cache-Control": "no-store",
+    "Pragma": "no-cache",
+}
+
+
 @app.get("/api/health")
 def health():
     """Liveness only. Returns a constant and opens no database connection, so
     it stays cheap enough to poll every few minutes. See /api/health/db for the
     one a keep-alive monitor should actually use."""
-    return {"status": "ok"}
+    return JSONResponse({"status": "ok"}, headers=dict(_NO_STORE))
 
 
 @app.get("/api/health/db")
@@ -354,8 +367,9 @@ def health_db(db: Session = Depends(get_db)):
         return JSONResponse(
             status_code=503,
             content={"status": "degraded", "db": "unreachable", "detail": str(exc)[:200]},
+            headers=dict(_NO_STORE),
         )
-    return {"status": "ok", "db": "ok"}
+    return JSONResponse({"status": "ok", "db": "ok"}, headers=dict(_NO_STORE))
 
 
 @app.get("/api/health/awake")
@@ -381,7 +395,7 @@ def health_awake():
     report = keepalive.state.report()
     fresh = report["seconds_since_success"]
     report["healthy"] = bool(report["enabled"] and fresh is not None and fresh < 900)
-    return report
+    return JSONResponse(report, headers=dict(_NO_STORE))
 
 
 @app.get("/api/admin/check", dependencies=[Depends(require_admin)])
@@ -2027,14 +2041,6 @@ def _settings_map(db: Session) -> dict:
 # under a "Cache Everything" rule that would otherwise ignore the origin's
 # own caching directives. Sending all three costs nothing and means the
 # page cannot be pinned by the edge again.
-_NO_STORE = {
-    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-    "CDN-Cache-Control": "no-store",
-    "Cloudflare-CDN-Cache-Control": "no-store",
-    "Pragma": "no-cache",
-}
-
-
 def _apply_icons(html: str, db: Session) -> str:
     """Version the icon URLs and splice the inline copy in above them.
 
