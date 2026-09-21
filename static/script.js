@@ -109,10 +109,8 @@ async function applySiteSettings(){
   if((settings.site_title || "").trim()) document.title = settings.site_title;
   const metaDesc = document.querySelector('meta[name="description"]');
   if(metaDesc && (settings.meta_description || "").trim()) metaDesc.content = settings.meta_description;
-
-  // The upload is ONLY a tab icon, never an extra avatar in the viewer bar.
-  const logo = (settings.favicon_url || "").trim();
-  if(window.PortfolioFavicon) window.PortfolioFavicon.apply(logo);
+  // Browser/search branding is the fixed portrait bundled with this build.
+  if(window.PortfolioFavicon) window.PortfolioFavicon.apply();
 
   /* 7. Link-preview URLs. Facebook and friends read these tags from the raw
         HTML before any JavaScript runs, so rewriting them here does NOT make

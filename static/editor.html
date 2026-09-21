@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'/%3E">
+<link rel="icon" type="image/png" sizes="192x192" href="/brand-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/brand-icon-touch.png">
 <title>Portfolio Editor</title>
 <link rel="stylesheet" href="vendor/fontawesome/all.min.css?v=78">
 <link rel="stylesheet" href="style.css?v=88">
@@ -82,22 +83,6 @@
          ========================================================== -->
     <main class="editor-main settings-pane" id="settingsPane" hidden>
       <p class="editor-hint">Everything on the site that isn't a card lives here. Changes appear on the site the next time it loads.</p>
-
-      <section class="settings-group">
-        <h3><i class="fa-solid fa-image" aria-hidden="true"></i> Browser-tab icon</h3>
-        <p class="settings-note">Shown only in the browser tab, not beside the viewer count. PNG, JPG, WebP or ICO, up to 5 MB. Automatically centre-cropped into a circle with transparent corners; your original upload stays unchanged. Saved immediately.</p>
-        <div class="logo-upload">
-          <div class="logo-preview"><img id="faviconPreview" alt="Website logo preview" width="64" height="64" hidden><span id="faviconDefault" aria-label="No custom website logo"><i class="fa-solid fa-image" aria-hidden="true"></i></span></div>
-          <div>
-            <p id="faviconState" role="status">No custom logo uploaded yet</p>
-            <div class="upload-row-actions">
-              <button type="button" class="file-btn" data-upload="favicon_url" data-accept="image/png,image/jpeg,image/webp,image/x-icon,image/vnd.microsoft.icon"><i class="fa-solid fa-upload" aria-hidden="true"></i> Upload photo</button>
-              <button type="button" class="text-btn" data-clear="favicon_url" hidden>Remove logo</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section class="settings-group">
         <h3><i class="fa-solid fa-id-badge" aria-hidden="true"></i> Who you are</h3>
         <p class="settings-note">The heading block at the top of the profile page.</p>

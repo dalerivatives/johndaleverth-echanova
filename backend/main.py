@@ -555,7 +555,6 @@ def update_settings(payload: dict, db: Session = Depends(get_db)):
 # endpoint below just looks it up rather than hard-coding one key.
 UPLOADABLE_SETTINGS = {
     "resume_url": {"kind": "pdf"},
-    "favicon_url": {"kind": "image", "max_bytes": 5 * 1024 * 1024},  # 5 MB, matches the editor's copy
 }
 
 
@@ -585,23 +584,6 @@ def upload_setting_file(
         if not is_icon and not content_type.startswith("image/"):
             raise HTTPException(status_code=400, detail="The logo must be a PNG, JPG, WebP or ICO image")
         _, media_url = _save_upload(file, max_bytes=spec.get("max_bytes"))
-
-    if key == "favicon_url":
-        original = UPLOAD_DIR / Path(media_url).name
-        raw = original.read_bytes()
-        mime = ("image/png" if raw.startswith(b"\x89PNG\r\n\x1a\n") else
-                "image/jpeg" if raw.startswith(b"\xff\xd8\xff") else
-                "image/webp" if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP" else
-                "image/x-icon" if raw[:4] == b"\x00\x00\x01\x00" else "")
-        if not mime:
-            original.unlink(missing_ok=True)
-            raise HTTPException(status_code=400, detail="Choose a valid PNG, JPG, WebP or ICO image")
-        digest = hashlib.sha256(raw).hexdigest()
-        stored_asset = db.get(models.Setting, "_asset_favicon")
-        value = json.dumps({"hash":digest,"mime":mime,"data":base64.b64encode(raw).decode("ascii")})
-        if stored_asset: stored_asset.value = value
-        else: db.add(models.Setting(key="_asset_favicon", value=value))
-        media_url = f"/api/favicon/{digest}"
 
     setting = db.get(models.Setting, key)
     if setting:
@@ -2115,9 +2097,8 @@ def _stored_icon(db: Session):
     return None
 
 
-# A found icon is cached for an hour, not a day: short enough that
-# re-uploading one in the editor shows up the same session, long enough that
-# the edge is still doing its job.
+# The fixed portrait icon is cached for an hour: long enough for the edge
+# to help, short enough that a future deployment can replace the file cleanly.
 _ICON_HIT_CACHE = "public, max-age=3600"
 
 # A MISSING icon must never be cached, anywhere, for any length of time.
@@ -2136,12 +2117,9 @@ _ICON_MISS_CACHE = "no-store, no-cache, must-revalidate, max-age=0"
 
 
 def _serve_icon(path: str, db: Session) -> Response:
-    stored = _stored_icon(db)
-    if stored:
-        data, stored_mime = stored
-        return Response(data, media_type=stored_mime,
-                        headers={"Cache-Control": _ICON_HIT_CACHE})
-
+    # The owner portrait is intentionally fixed in the deployed build.
+    # Old favicon_url rows may still exist in an existing database, but they
+    # are ignored so they cannot override the portrait selected for tabs/search.
     for name in _ICON_FALLBACKS[path]:
         file = STATIC_DIR / name
         if file.is_file():
