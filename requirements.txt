@@ -1,4 +1,4 @@
-# Direct dependencies pinned to the versions verified for v83 (Python 3.12).
+# Compact deployment dependencies (Python 3.12).
 fastapi==0.141.1
 uvicorn[standard]==0.53.0
 SQLAlchemy==2.0.54
@@ -10,9 +10,7 @@ pydantic==2.13.5
 # it costs a local run nothing but an install.
 psycopg2-binary==2.9.13
 
-# Local neural male voice; model ships in voices/.
-piper-tts==1.3.0
-onnxruntime==1.30.0
+# Optional neural voice dependencies are in requirements-neural.txt.
 
 # Small male robot voice for dynamic chat in the default memory-safe mode.
 espeakng-loader==0.2.4

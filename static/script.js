@@ -243,19 +243,15 @@ function activate(id,{historyMode="push",scroll=true}={}){
  const foundIndex=items.findIndex(x=>x.id===id);
  const found=items[foundIndex];
  if(!found)return;
- items.splice(foundIndex,1); items.unshift(found);
- /* Reorder with flex `order`, NEVER by rebuilding the DOM.
-    renderStack() wipes innerHTML and creates five fresh elements. A brand-new
-    .nav-item starts at height:0 / opacity:0 / translateY(8px) and plays its
-    enter transition — that upward flicker on every navigation. On a pointer
-    device the cursor is still over the rail afterwards, so .stack:hover holds
-    the items open and the animation is never seen, which is exactly why this
-    only ever appeared on a phone. Changing `order` moves nothing structurally,
-    so nothing re-animates. */
- items.forEach((item,index)=>{
-   const el=stack.querySelector('.nav-item[data-id="'+item.id+'"]');
-   if(el) el.style.order=String(index);
- });
+ // Keep touch targets in a fixed position while the rail is open.
+ // Desktop retains its existing most-recent-section ordering.
+ if(!navIsTouch()){
+   items.splice(foundIndex,1); items.unshift(found);
+   items.forEach((item,index)=>{
+     const el=stack.querySelector('.nav-item[data-id="'+item.id+'"]');
+     if(el) el.style.order=String(index);
+   });
+ }
  document.querySelectorAll(".nav-item").forEach(x=>{
    x.classList.remove("active");
    x.querySelector('.nav-btn').removeAttribute('aria-current');

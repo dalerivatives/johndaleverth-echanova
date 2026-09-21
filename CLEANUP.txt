@@ -1,0 +1,29 @@
+Excluded from the v88 deployment package:
+DEPLOY_v83.md
+DEPLOY_v85.md
+EXTRACT_BOTH_ZIPS_FIRST.txt
+TEST_REPORT.md
+UPDATE_v66.md
+UPDATE_v67.md
+UPDATE_v68.md
+UPDATE_v69.md
+UPDATE_v70.md
+UPDATE_v72.md
+UPDATE_v73.md
+UPDATE_v74.md
+UPDATE_v79.md
+UPDATE_v80.md
+UPDATE_v81.md
+UPDATE_v83.md
+UPDATE_v84.md
+UPDATE_v85.md
+static/assets/human-coded-exact-outline.svg
+static/assets/human-silhouette-reference.png
+tests/
+voices/en_US-john-medium.onnx.part01
+voices/en_US-john-medium.onnx.part02
+voices/en_US-john-medium.onnx.part03
+voices/en_US-john-medium.onnx.part04
+
+Piper/ONNX moved out of default requirements; optional requirements retained.
+No runtime JS/CSS was minified or stripped; source remains editable.

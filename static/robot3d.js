@@ -59,7 +59,8 @@
     // a chunky toy robot made of hard-edged boxes reads as a cardboard box.
     // BoxGeometry with a high segment count + vertex rounding gets there
     // without pulling in an extra geometry library.
-    const geo = new THREE.BoxGeometry(w, h, d, seg||6, seg||6, seg||6);
+    r = Math.min(r,w/2,h/2,d/2)*0.99;
+    const geo = new THREE.BoxGeometry(w,h,d,Math.max(seg||6,12),Math.max(seg||6,12),Math.max(seg||6,12));
     const pos = geo.attributes.position;
     const v = new THREE.Vector3();
     const half = new THREE.Vector3(w/2 - r, h/2 - r, d/2 - r);
@@ -82,8 +83,9 @@
   }
 
   function shellMat(color, rough){
-    return new THREE.MeshStandardMaterial({
-      color, roughness: rough === undefined ? 0.32 : rough, metalness: 0.05
+    return new THREE.MeshPhysicalMaterial({
+      clearcoat:0.65, clearcoatRoughness:0.22, envMapIntensity:0.5,
+      color, roughness: rough === undefined ? 0.32 : rough, metalness: 0.1
     });
   }
 
@@ -114,7 +116,7 @@
       color: PALETTE.eye, emissive: PALETTE.eye, emissiveIntensity: 1.6, roughness: 0.28
     });
     eyeL = new THREE.Mesh(eyeGeo, eyeMat);
-    eyeL.position.set(-0.31, -0.01, 0.76);
+    eyeL.position.set(-0.31, -0.01, 0.84);
     eyeL.scale.set(1, 1.06, 0.6);
     eyeR = eyeL.clone();
     eyeR.position.x = 0.31;
@@ -127,11 +129,13 @@
     });
     [-1, 1].forEach(side=>{
       const glint = new THREE.Mesh(new THREE.SphereGeometry(0.062, 14, 14), glintMat);
-      glint.position.set(side*0.31 - 0.05, 0.08, 0.86);
+      glint.position.set(side*0.31 - 0.05, 0.08, 0.96);
       glint.scale.set(1, 1, 0.5);
       head.add(track(glint));
     });
 
+    const smilePath=new THREE.CatmullRomCurve3([new THREE.Vector3(-.18,-.25,.817),new THREE.Vector3(0,-.3,.827),new THREE.Vector3(.18,-.25,.817)]);
+    head.add(track(new THREE.Mesh(new THREE.TubeGeometry(smilePath,24,.018,8,false),new THREE.MeshStandardMaterial({color:PALETTE.eye,emissive:PALETTE.eye,emissiveIntensity:.5}))));
     // ear pods
     const podGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.17, 24);
     const podMat = shellMat(PALETTE.shell, 0.3);
@@ -181,10 +185,12 @@
     torso.castShadow = true;
     body.add(track(torso));
 
+    const chest=new THREE.Mesh(rounded(.68,.46,.09,.04,12),shellMat(PALETTE.shellDk,.32));
+    chest.position.set(0,.32,.425);body.add(track(chest));
     core = new THREE.Mesh(rounded(0.3, 0.13, 0.06, 0.05, 4), new THREE.MeshStandardMaterial({
       color: PALETTE.eye, emissive: PALETTE.eye, emissiveIntensity: 1.4, roughness: 0.3
     }));
-    core.position.set(0, 0.3, 0.41);
+    core.position.set(0, 0.3, 0.49);
     body.add(track(core));
 
     // shoulders
@@ -199,21 +205,24 @@
 
     // ---- arms ----------------------------------------------------------
     function makeArm(side){
-      const arm = new THREE.Group();
-      const upper = new THREE.Mesh(rounded(0.3, 0.5, 0.3, 0.14, 6), shellMat(PALETTE.shell, 0.3));
-      upper.position.y = -0.25;
-      arm.add(track(upper));
-      const joint = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 14), shellMat(PALETTE.metal, 0.45));
-      joint.position.y = -0.52;
-      arm.add(track(joint));
-      const lower = new THREE.Mesh(rounded(0.27, 0.44, 0.27, 0.13, 6), shellMat(PALETTE.shell, 0.3));
-      lower.position.y = -0.76;
-      arm.add(track(lower));
-      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 16),
-        new THREE.MeshStandardMaterial({color: PALETTE.accent, roughness:0.4}));
-      hand.position.y = -1.02;
-      arm.add(track(hand));
-      arm.position.set(side*0.72, 0.66, 0);
+      const arm=new THREE.Group();
+      const jointMat=shellMat(PALETTE.metal,.34);
+      const shoulder=new THREE.Mesh(new THREE.SphereGeometry(.17,32,24),jointMat);
+      arm.add(track(shoulder));
+      const upper=new THREE.Mesh(new THREE.CapsuleGeometry(.145,.18,8,24),shellMat(PALETTE.shell,.26));
+      upper.position.y=-.21;upper.castShadow=true;arm.add(track(upper));
+      const elbow=new THREE.Mesh(new THREE.SphereGeometry(.12,24,20),jointMat);
+      elbow.position.y=-.43;arm.add(track(elbow));
+      const forearm=new THREE.Group();forearm.position.y=-.43;forearm.rotation.x=-.2;
+      const lower=new THREE.Mesh(new THREE.CapsuleGeometry(.13,.16,8,24),shellMat(PALETTE.shell,.26));
+      lower.position.y=-.2;lower.castShadow=true;forearm.add(track(lower));
+      const wrist=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.1,24),jointMat);
+      wrist.position.y=-.4;forearm.add(track(wrist));
+      const hand=new THREE.Mesh(rounded(.26,.22,.28,.1,12),shellMat(PALETTE.shell,.24));
+      hand.position.set(0,-.53,.02);hand.castShadow=true;forearm.add(track(hand));
+      const thumb=new THREE.Mesh(new THREE.SphereGeometry(.065,20,16),shellMat(PALETTE.accent,.3));
+      thumb.position.set(-side*.13,-.49,.08);forearm.add(track(thumb));
+      arm.add(forearm);arm.position.set(side*.75,.67,0);
       return arm;
     }
     armL = makeArm(-1); armR = makeArm(1);
@@ -251,18 +260,29 @@
     }));
   }
 
+  function buildStudio(){
+    const studio=new THREE.Scene();studio.background=new THREE.Color(0x45505c);
+    for(const [x,y,z,w,h,intensity] of [[-3,4,4,3,5,3],[4,2,1,2,4,2],[0,5,-3,4,2,3]]){
+      const panel=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color:new THREE.Color().setScalar(intensity),side:THREE.DoubleSide}));
+      panel.position.set(x,y,z);panel.lookAt(0,0,0);studio.add(panel);
+    }
+    const pmrem=new THREE.PMREMGenerator(renderer),reflection=pmrem.fromScene(studio,.04);
+    scene.environment=reflection.texture;scene.userData.reflection=reflection;pmrem.dispose();
+    studio.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}});
+  }
   function buildLights(){
     scene.add(new THREE.HemisphereLight(0xffffff, 0x4a5560, 1.15));
 
     const key = new THREE.DirectionalLight(0xffffff, 2.1);
     key.position.set(3.4, 5.2, 4.2);
     key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.mapSize.set(2048, 2048);
     key.shadow.camera.near = 1;
     key.shadow.camera.far = 20;
     key.shadow.camera.left = -4; key.shadow.camera.right = 4;
     key.shadow.camera.top = 4;   key.shadow.camera.bottom = -4;
-    key.shadow.bias = -0.0012;
+    key.shadow.bias = -0.0002;
+    key.shadow.normalBias=0.025;
     scene.add(key);
 
     // A cool rim from behind separates the white shell from a dark page.
@@ -294,16 +314,18 @@
     container = el;
 
     try{
-      renderer = new THREE.WebGLRenderer({ antialias: !window.PortfolioPerformance?.lite, alpha: true, powerPreference: "low-power" });
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
     }catch(err){
       return false;   // no WebGL — the caller falls back to the flat robot
     }
     if(!renderer || !renderer.getContext()) return false;
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.PortfolioPerformance?.lite?1:1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(el.clientWidth || 320, el.clientHeight || 240);
-    renderer.shadowMap.enabled = !window.PortfolioPerformance?.lite;
+    renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping=THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure=1;
     if(THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.domElement.style.width = "100%";
     renderer.domElement.style.height = "100%";
@@ -316,6 +338,7 @@
     camera.lookAt(0, 0.42, 0);
 
     clock = new THREE.Clock();
+    buildStudio();
     buildLights();
     buildGround();
     buildRobot();
@@ -341,7 +364,7 @@
        but devicePixelRatio changes when the page is zoomed or the window is
        dragged to a different-density monitor — and a canvas still rendering
        at the old ratio is exactly the "blurry screen" you then see. */
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.PortfolioPerformance?.lite?1:1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(w, h);
     camera.aspect = w/h;
     camera.updateProjectionMatrix();
@@ -433,7 +456,7 @@
     rafId = requestAnimationFrame(loop);
     if(!container?.getClientRects().length){clock.getDelta();return;}
     const bounds=container.getBoundingClientRect();
-    if(bounds.bottom<0 || bounds.top>innerHeight || now-renderedAt<1000/30){return;}
+    if(bounds.bottom<0 || bounds.top>innerHeight || now-renderedAt<1000/60){return;}
     renderedAt=now;
     const dt = Math.min(clock.getDelta(), 0.05);
     const t = clock.elapsedTime;
@@ -475,8 +498,8 @@
       // Arms swing gently, and flail when badly damaged.
       armL.rotation.x = Math.sin(t*1.2) * 0.16 - hurt*0.5;
       armR.rotation.x = Math.sin(t*1.2 + Math.PI) * 0.16 - hurt*0.5;
-      armL.rotation.z = 0.1 + Math.sin(t*0.8)*0.05 + hurt*0.35;
-      armR.rotation.z = -0.1 - Math.sin(t*0.8)*0.05 - hurt*0.35;
+      armL.rotation.z = -0.12 + Math.sin(t*0.8)*0.035 - hurt*0.35;
+      armR.rotation.z = 0.12 - Math.sin(t*0.8)*0.035 + hurt*0.35;
 
       // Recoil from a hit, springing back to rest.
       if(recoil.power > 0.001){
@@ -521,6 +544,7 @@
     if(renderObserver)renderObserver.disconnect();
     document.removeEventListener('visibilitychange',resumeRendering);
     window.removeEventListener("resize", onResize);
+    if(scene?.userData.reflection)scene.userData.reflection.dispose();
     if(renderer){
       renderer.dispose();
       if(renderer.domElement && renderer.domElement.parentNode){

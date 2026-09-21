@@ -529,7 +529,7 @@ def get_settings(db: Session = Depends(get_db)):
     """Public: the site reads this on load to fill in its own text. Defaults
     are merged in so a key added in a newer version still answers with
     something sensible before it's ever been saved."""
-    stored = {s.key: (s.value or "") for s in db.query(models.Setting).all()}
+    stored = {s.key: (s.value or "") for s in db.query(models.Setting).all() if not s.key.startswith("_asset_")}
     return {**seed.DEFAULT_SETTINGS, **stored}
 
 
@@ -546,7 +546,7 @@ def update_settings(payload: dict, db: Session = Depends(get_db)):
         else:
             db.add(models.Setting(key=key, value="" if value is None else str(value)))
     db.commit()
-    stored = {s.key: (s.value or "") for s in db.query(models.Setting).all()}
+    stored = {s.key: (s.value or "") for s in db.query(models.Setting).all() if not s.key.startswith("_asset_")}
     return {**seed.DEFAULT_SETTINGS, **stored}
 
 
@@ -586,6 +586,23 @@ def upload_setting_file(
             raise HTTPException(status_code=400, detail="The logo must be a PNG, JPG, WebP or ICO image")
         _, media_url = _save_upload(file, max_bytes=spec.get("max_bytes"))
 
+    if key == "favicon_url":
+        original = UPLOAD_DIR / Path(media_url).name
+        raw = original.read_bytes()
+        mime = ("image/png" if raw.startswith(b"\x89PNG\r\n\x1a\n") else
+                "image/jpeg" if raw.startswith(b"\xff\xd8\xff") else
+                "image/webp" if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP" else
+                "image/x-icon" if raw[:4] == b"\x00\x00\x01\x00" else "")
+        if not mime:
+            original.unlink(missing_ok=True)
+            raise HTTPException(status_code=400, detail="Choose a valid PNG, JPG, WebP or ICO image")
+        digest = hashlib.sha256(raw).hexdigest()
+        stored_asset = db.get(models.Setting, "_asset_favicon")
+        value = json.dumps({"hash":digest,"mime":mime,"data":base64.b64encode(raw).decode("ascii")})
+        if stored_asset: stored_asset.value = value
+        else: db.add(models.Setting(key="_asset_favicon", value=value))
+        media_url = f"/api/favicon/{digest}"
+
     setting = db.get(models.Setting, key)
     if setting:
         _delete_uploaded_file(setting.value)
@@ -594,6 +611,19 @@ def upload_setting_file(
         db.add(models.Setting(key=key, value=media_url))
     db.commit()
     return {"key": key, "value": media_url}
+
+
+@app.get("/api/favicon/{digest}")
+def favicon_asset(digest: str, db: Session = Depends(get_db)):
+    row = db.get(models.Setting, "_asset_favicon")
+    active = db.get(models.Setting, "favicon_url")
+    if not row or not active or active.value != f"/api/favicon/{digest}":
+        raise HTTPException(status_code=404, detail="Icon not found")
+    asset = json.loads(row.value)
+    if asset["hash"] != digest:
+        raise HTTPException(status_code=404, detail="Icon not found")
+    return Response(base64.b64decode(asset["data"]), media_type=asset["mime"],
+                    headers={"Cache-Control":"public, max-age=31536000, immutable"})
 
 
 # ---------------------------------------------------------------------------
@@ -1903,7 +1933,7 @@ def _stamp_assets(html: str) -> str:
 
 
 def _settings_map(db: Session) -> dict:
-    stored = {s.key: (s.value or "") for s in db.query(models.Setting).all()}
+    stored = {s.key: (s.value or "") for s in db.query(models.Setting).all() if not s.key.startswith("_asset_")}
     return {**seed.DEFAULT_SETTINGS, **stored}
 
 

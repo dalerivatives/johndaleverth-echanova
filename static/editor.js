@@ -290,23 +290,34 @@ function renderUploadStates({broadcast=false}={}){
   const revision = ++faviconRenderRevision;
   const logo = (settingsSnapshot.favicon_url || "").trim();
   const preview = $("#faviconPreview");
-  preview.hidden = !logo;
-  if(logo) preview.src = logo; else preview.removeAttribute("src");
-  $("#faviconDefault").hidden = !!logo;
-  $("#faviconState").textContent = logo ? "Circular tab icon saved" : "No custom logo uploaded yet";
+  preview.hidden = true;
+  preview.removeAttribute('src');
+  $("#faviconDefault").hidden = false;
+  $("#faviconState").textContent = logo ? "Loading saved icon…" : "No custom logo uploaded yet";
   document.querySelector('[data-clear="favicon_url"]').hidden = !logo;
-  if(window.PortfolioFavicon){
-    window.PortfolioFavicon.apply(logo, {broadcast}).then(png=>{
-      if(revision!==faviconRenderRevision || !logo) return;
-      if(png){
-        preview.src=png;
-      }else{
-        preview.hidden=true;
-        $("#faviconDefault").hidden=false;
-        $("#faviconState").textContent="Saved, but the image could not be loaded. Please try uploading it again.";
-      }
-    });
+  if(logo){
+    const image=new Image();
+    image.onload=()=>{
+      if(revision!==faviconRenderRevision)return;
+      preview.onload=()=>{
+        if(revision!==faviconRenderRevision)return;
+        preview.hidden=false;$("#faviconDefault").hidden=true;
+        $("#faviconState").textContent="Circular tab icon saved";
+      };
+      preview.onerror=()=>{
+        if(revision!==faviconRenderRevision)return;
+        preview.hidden=true;$("#faviconDefault").hidden=false;
+        $("#faviconState").textContent="Saved icon is unavailable. Please upload the photo again.";
+      };
+      preview.src=logo;
+    };
+    image.onerror=()=>{
+      if(revision!==faviconRenderRevision)return;
+      $("#faviconState").textContent="Saved icon is unavailable. Please upload the photo again.";
+    };
+    image.src=logo;
   }
+  if(window.PortfolioFavicon)window.PortfolioFavicon.apply(logo,{broadcast});
   const rows = {
     resume_url: {el:$("#resumeState"), empty:"Not uploaded yet — the download button stays hidden"}
   };
@@ -629,6 +640,15 @@ $("#settingsFileInput").addEventListener("change", async e=>{
   fd.append("key", key);
   fd.append("file", file);
   try{
+    if(key==='favicon_url'){
+      if(file.size>5*1024*1024)throw new Error('The icon must be 5 MB or smaller.');
+      await new Promise((resolve,reject)=>{
+        const url=URL.createObjectURL(file),image=new Image();
+        image.onload=()=>{URL.revokeObjectURL(url);resolve();};
+        image.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('This image cannot be opened. Choose a PNG, JPG, WebP or ICO.'));};
+        image.src=url;
+      });
+    }
     const res = await api("/api/settings/upload", {method:"POST", body: fd});
     if(!res.ok){
       const detail = await res.json().catch(()=>({}));

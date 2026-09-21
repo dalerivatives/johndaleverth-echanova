@@ -3039,3 +3039,9 @@ a.btn:active{
 #presenceFaces .fa-circle-user::before{content:"\f2bd"}
 @media(max-width:560px){#presenceFaces .fa-circle-user{font-size:19px}}
 @media(max-width:380px){#presenceFaces .fa-circle-user{font-size:17px}}
+
+/* Equal row height prevents the newly active touch target shifting the rail. */
+@media (hover:none), (pointer:coarse){
+  .stack.open .nav-item,.stack.open .nav-item.active{height:52px;flex:0 0 52px}
+  .stack.open .nav-item.active .nav-btn{transform:none}
+}

@@ -21,10 +21,10 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.14
-      # The bundled Piper model can exceed a Free instance's memory. The
+      # The optional Piper model can exceed a Free instance's memory. The
       # public terminal and whoami use pre-generated WAV files; arbitrary chat
       # uses lightweight eSpeak NG male robot audio in this mode.
-      # Change to "dynamic" only after moving to a larger-memory instance.
+      # For optional neural mode, follow voices/README.md first.
       - key: SPEECH_MODE
         value: static
       - key: ADMIN_KEY
