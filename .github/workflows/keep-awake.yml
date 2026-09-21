@@ -1,33 +1,91 @@
+# ---------------------------------------------------------------------------
+# THE HALF THAT CAN WAKE A SLEEPING SERVICE
+#
+# Render spins a free web service down after 15 minutes without inbound
+# traffic. The app keeps ITSELF awake from the inside (backend/keepalive.py),
+# which is the reliable half — but nothing inside a sleeping process can run,
+# so if the service ever does go down, only an outside request brings it back.
+# That is this file's job, and it is why both halves exist.
+#
+# Read the schedule honestly: GitHub's floor is every 5 minutes, and runs
+# "may be delayed during periods of high loads", most often near the top of
+# an hour. The cron below is offset to :03 and away from :00 and :30 for that
+# reason. It still cannot be relied on to land inside a 15-minute window, and
+# it is not asked to.
+# ---------------------------------------------------------------------------
 name: keep-awake
+
 on:
   schedule:
+    # Every five minutes, offset off the hour where the queue is shortest.
     - cron: '3-58/5 * * * *'
   workflow_dispatch:
+
 permissions:
   contents: read
+
 concurrency:
   group: keep-awake
   cancel-in-progress: false
+
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 5
     steps:
-      - name: Check website and database
+      - name: Wake the service and check the database
         env:
+          # /api/health/db rather than /api/health: it runs one SELECT, so a
+          # single request counts as activity on the web service AND on the
+          # database, which pauses on its own schedule if left untouched.
           TARGET: ${{ vars.KEEP_AWAKE_URL || 'https://johndaleverthechanova.com/api/health/db' }}
         shell: bash
         run: |
           set -euo pipefail
+          # --max-time is generous on purpose: if the service IS asleep this
+          # request is the one paying for the cold start, and Render quotes
+          # about a minute for that. Timing out at 30s would abandon the wake
+          # halfway and report a failure for the one case this job exists for.
           curl --fail-with-body --silent --show-error --location \
-            --connect-timeout 15 --max-time 90 \
-            --retry 1 --retry-delay 5 --retry-all-errors \
-            "$TARGET" -o /tmp/portfolio-health.json
+            --connect-timeout 20 --max-time 120 \
+            --retry 3 --retry-delay 10 --retry-all-errors \
+            -H 'Cache-Control: no-cache' \
+            -A 'portfolio-keep-awake/1.0 (+github-actions)' \
+            "$TARGET" -o /tmp/health.json
           python3 - <<'PY'
           import json
-          with open('/tmp/portfolio-health.json') as stream:
+          with open('/tmp/health.json') as stream:
               body = json.load(stream)
           if body.get('status') != 'ok':
-              raise SystemExit('Health check failed: inspect Render and database status.')
-          print('Website and database responded successfully.')
+              raise SystemExit(f'Health check failed: {body}')
+          print('Web service and database both responded.')
+          PY
+
+      - name: Report whether the in-app heartbeat is alive
+        # Never fails the job. The ping above is what matters; this is a
+        # readout, and a service that has only just been woken legitimately
+        # has no heartbeat history yet.
+        continue-on-error: true
+        env:
+          TARGET: ${{ vars.KEEP_AWAKE_URL || 'https://johndaleverthechanova.com/api/health/db' }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          AWAKE="${TARGET%/api/health/db}/api/health/awake"
+          curl --silent --show-error --location --max-time 45 "$AWAKE" \
+            -o /tmp/awake.json || exit 0
+          python3 - <<'PY'
+          import json
+          try:
+              body = json.load(open('/tmp/awake.json'))
+          except Exception:
+              raise SystemExit(0)
+          if not body.get('enabled'):
+              print('In-app heartbeat: OFF. Set KEEPALIVE_URL, or check the deploy.')
+          else:
+              age = body.get('seconds_since_success')
+              print(f"In-app heartbeat: on, {body.get('pings')} pings, "
+                    f"{body.get('failures')} failures, last success {age}s ago.")
+              if age is not None and age > 900:
+                  print('WARNING: no successful self-ping inside the 15 minute window.')
           PY

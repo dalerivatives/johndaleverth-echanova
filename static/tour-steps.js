@@ -309,9 +309,13 @@
         action: {
           hint: "<b>Try it:</b> click the robot to take its health down.",
           ok: "Direct hit — keep going to destroy it and unlock the chat.",
-          arm: w.event("robot-hp", function (e) {
-            return e && e.detail && typeof e.detail.hp === "number" && e.detail.hp < 100;
-          })
+          /* Your own hit, not the arena's health. `robot-hp` fires for
+             every hit anyone lands, and the robot is shared \u2014 so on a
+             unit somebody else had already damaged, the old watcher fired
+             on the first poll and the tour congratulated the visitor for a
+             swing they never took. This one only fires when the server has
+             accepted a hit from THIS visitor. */
+          arm: w.event("robot-hit-self")
         }
       },
       {

@@ -184,7 +184,15 @@
 
     document.addEventListener("keydown", onKey, true);
     window.addEventListener("resize", reposition);
-    window.addEventListener("scroll", reposition, { passive: true });
+    /* Capture phase on the document, not a listener on `window`. Scroll
+       events do not bubble, so a window listener only ever hears the PAGE
+       scrolling — and several of the things this tour points at live
+       inside their own scrolling panel. When one of those scrolled, the
+       spotlight and the hand stayed where they were and the tracker only
+       caught up on its next 250ms tick, which is long enough to see the
+       finger sitting beside the control instead of on it. Capture hears
+       every scroll in the page, whichever element did it. */
+    document.addEventListener("scroll", reposition, { passive: true, capture: true });
   }
 
   function onKey(e) {
@@ -281,6 +289,11 @@
       var spot2 = null;
       try { spot2 = step.at(); } catch (e) {}
       if (spot2) { px = spot2.x; py = spot2.y; }
+      /* These are the only placements that should ease between positions;
+         see the note in tour.css. */
+      hand.setAttribute("data-glide", "");
+    } else {
+      hand.removeAttribute("data-glide");
     }
 
     /* Otherwise: a step may name the exact control to aim at, separately

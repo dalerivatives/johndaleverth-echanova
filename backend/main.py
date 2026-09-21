@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import github, linkpreview, models, schemas, seed
+from . import github, keepalive, linkpreview, models, schemas, seed
 from .database import IS_SQLITE, Base, SessionLocal, engine, get_db
 
 # ---------------------------------------------------------------------------
@@ -172,6 +172,12 @@ with SessionLocal() as _db:
     seed.seed_if_empty(_db)
 
 app = FastAPI(title="Portfolio Content API")
+
+# Keeps the free instance from ever reaching Render's 15-minute idle
+# cut-off by fetching its own public URL every few minutes. Does nothing
+# off Render unless KEEPALIVE_URL is set, so a local run is unaffected.
+# See backend/keepalive.py for why the GitHub cron alone is not enough.
+keepalive.attach(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -350,6 +356,32 @@ def health_db(db: Session = Depends(get_db)):
             content={"status": "degraded", "db": "unreachable", "detail": str(exc)[:200]},
         )
     return {"status": "ok", "db": "ok"}
+
+
+@app.get("/api/health/awake")
+def health_awake():
+    """Is the self-heartbeat actually running, and when did it last succeed?
+
+    Without this the only way to know the keep-alive works is to notice the
+    site was not slow — which is to say, by not noticing anything. This
+    reports the real counters: how many self-pings have gone out, how many
+    failed, and how long it has been since one succeeded.
+
+    `seconds_since_success` is the number that matters. Anything under
+    about 900 means the instance has had inbound traffic inside Render's
+    fifteen-minute window and cannot have spun down. A null means the loop
+    is not running: either this is not Render and no KEEPALIVE_URL was set,
+    or KEEPALIVE is switched off.
+
+    Deliberately public and free of secrets \u2014 it names the URL being
+    pinged, which is the site's own public address, and nothing else. An
+    external uptime monitor can point at this instead of /api/health/db and
+    get the database check plus proof the heartbeat is alive.
+    """
+    report = keepalive.state.report()
+    fresh = report["seconds_since_success"]
+    report["healthy"] = bool(report["enabled"] and fresh is not None and fresh < 900)
+    return report
 
 
 @app.get("/api/admin/check", dependencies=[Depends(require_admin)])

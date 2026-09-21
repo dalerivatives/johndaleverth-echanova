@@ -2503,6 +2503,14 @@ if(osLight){
       if(state.damage > 0){
         floatHit(myName(), state.damage, nx, ny, true);
         noteAttacker(myName(), state.damage);
+        /* YOUR hit, specifically. The `robot-hp` event fires for every hit
+           landed by anyone in the arena, so anything listening to that
+           cannot tell your swing from a stranger's — the guided tour was
+           crediting you for damage done by someone else on the other side
+           of the world and moving on before you had touched the robot. */
+        window.dispatchEvent(new CustomEvent("robot-hit-self", {
+          detail: {damage: state.damage, hp: state.hp}
+        }));
         // Mark it so the same hit arriving over the stream isn't drawn twice.
         if(state.event_id) myOwnHits.add(state.event_id);
       }
