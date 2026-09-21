@@ -1,4 +1,4 @@
-# Portfolio v101 — what changed
+# Portfolio v102 — what changed
 
 ## 1. The robot is now the Travelade EXPLORER-BOT T-700V
 
@@ -572,6 +572,61 @@ network requests for a tab icon:
 ```
 
 Not "fast". **None.** All four crawlable icon URLs still return round images.
+
+### v102: why "nothing happened" — you were reading a cached page
+
+I should have checked this several versions ago instead of shipping more
+code. Fetched in the same second, just now:
+
+| URL | `<title>` |
+|---|---|
+| `https://johndaleverthechanova.com/` | `Engr.Johndaleverth P. Echanova` |
+| `https://johndaleverthechanova.com/?cachebust=55912` | `Engr. Johndaleverth Pastorfide Echanova` |
+
+Same server. Same database. The only difference is a query string — so the
+old page is not being *produced* by your site, it is being *replayed* by a
+cache in front of it.
+
+**Your deploys have been working.** The name migration ran; the origin is
+serving the corrected title right now. Every fix since then is live there
+too. None of it reached your browser, because the bare URL kept returning a
+copy of the page from weeks ago. That is the whole reason each round of
+this looked like it did nothing.
+
+It is the same failure that trapped `/favicon.ico` earlier, one level up:
+then it was a cached 404 on one file, now it is a cached copy of the whole
+HTML page.
+
+**What changed in the code.** `Cache-Control: no-cache` clearly was not
+enough, so the HTML, the manifest, `robots.txt` and `sitemap.xml` now go out
+with:
+
+```
+Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+CDN-Cache-Control: no-store
+Cloudflare-CDN-Cache-Control: no-store
+Pragma: no-cache
+```
+
+Cloudflare ranks the last two above `Cache-Control` and honours them even
+under a "Cache Everything" rule, which normally ignores what the origin asks
+for. The icons are untouched by this — they are content-addressed, so they
+keep their one-year `immutable` cache.
+
+**What only you can do.** Headers govern what gets cached *from now on*.
+They cannot evict the copy the edge is already holding. That page has to be
+purged by hand, and until it is, you will keep seeing the old one no matter
+what either of us ships:
+
+1. Cloudflare → Caching → Configuration → **Purge Everything**.
+2. Then check Caching → Configuration and Rules for a **Cache Everything**
+   page rule on this domain. If one exists, either delete it or set its Edge
+   TTL to **Respect Existing Headers** — otherwise the edge will re-pin the
+   page and this recurs.
+3. Confirm with `https://johndaleverthechanova.com/` in a private window.
+   The title should read **Engr. Johndaleverth Pastorfide Echanova**. If a
+   `?cachebust=1` version shows the new title and the bare URL does not, the
+   purge did not take.
 
 ### What you still have to do yourself
 

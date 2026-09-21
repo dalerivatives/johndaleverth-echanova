@@ -1980,6 +1980,29 @@ def _settings_map(db: Session) -> dict:
     return {**seed.DEFAULT_SETTINGS, **stored}
 
 
+# Headers for HTML and other generated responses that must NEVER be cached
+# by anything in front of this app.
+#
+# "Cache-Control: no-cache" was not enough, and the evidence was unambiguous:
+# fetched in the same second, "/" returned a page with the OLD title while
+# "/?cachebust=1" returned the current one. Identical code, identical
+# database — the only difference was a query string, so the stale copy was
+# being served by a cache in front of the origin, not produced by it. Every
+# fix shipped for weeks was live at the origin and invisible to the person
+# looking at the site.
+#
+# Cloudflare ranks these headers above Cache-Control, and honours them even
+# under a "Cache Everything" rule that would otherwise ignore the origin's
+# own caching directives. Sending all three costs nothing and means the
+# page cannot be pinned by the edge again.
+_NO_STORE = {
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "CDN-Cache-Control": "no-store",
+    "Cloudflare-CDN-Cache-Control": "no-store",
+    "Pragma": "no-cache",
+}
+
+
 def _render_index(db: Session, request: Request) -> HTMLResponse:
     html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
     settings = _settings_map(db)
@@ -2027,7 +2050,7 @@ def _render_index(db: Session, request: Request) -> HTMLResponse:
         tag = f'<link rel="icon" type="image/png" sizes="32x32" href="{inline}">\n'
         html = html.replace(_ICON_ANCHOR, tag + _ICON_ANCHOR, 1)
     html = _stamp_assets(_inject_livereload(html))
-    return HTMLResponse(html, headers={"Cache-Control": "no-cache, must-revalidate"})
+    return HTMLResponse(html, headers=dict(_NO_STORE))
 
 
 def _inject_livereload(html: str) -> str:
@@ -2074,7 +2097,7 @@ def serve_editor():
     mount would have returned."""
     html = (STATIC_DIR / "editor.html").read_text(encoding="utf-8")
     return HTMLResponse(_stamp_assets(_inject_livereload(html)),
-                        headers={"Cache-Control": "no-cache, must-revalidate"})
+                        headers=dict(_NO_STORE))
 
 
 # ---------------------------------------------------------------------------
@@ -2452,8 +2475,7 @@ def serve_webmanifest(request: Request, db: Session = Depends(get_db)):
         "background_color": "#060c20",
         "display": "standalone",
         "start_url": "/",
-    }, media_type="application/manifest+json",
-       headers={"Cache-Control": "public, max-age=3600"})
+    }, media_type="application/manifest+json", headers=dict(_NO_STORE))
 
 
 @app.get("/robots.txt", include_in_schema=False)
@@ -2462,7 +2484,7 @@ def serve_robots(request: Request, db: Session = Depends(get_db)):
     site_url = _effective_site_url(db, request)
     if site_url:
         text = text.replace(PLACEHOLDER_ORIGIN, site_url)
-    return PlainTextResponse(text, headers={"Cache-Control": "no-cache, must-revalidate"})
+    return PlainTextResponse(text, headers=dict(_NO_STORE))
 
 
 @app.get("/sitemap.xml", include_in_schema=False)
@@ -2471,7 +2493,7 @@ def serve_sitemap(request: Request, db: Session = Depends(get_db)):
     site_url = _effective_site_url(db, request)
     if site_url:
         text = text.replace(PLACEHOLDER_ORIGIN, site_url)
-    return Response(text, media_type="application/xml", headers={"Cache-Control": "no-cache, must-revalidate"})
+    return Response(text, media_type="application/xml", headers=dict(_NO_STORE))
 
 
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
