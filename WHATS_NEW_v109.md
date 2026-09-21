@@ -1,4 +1,4 @@
-# Portfolio v108 — what changed
+# Portfolio v109 — what changed
 
 ## 1. The robot is now the Travelade EXPLORER-BOT T-700V
 
@@ -973,6 +973,61 @@ Both walkthroughs were walked end to end by a browser doing the real
 actions — 14 steps on the portfolio through four section changes, 10 on the
 editor behind the login gate — plus the card verified fully on screen at
 every step on a 390px phone.
+
+### v109: the editor's mute button, and a pointer that shows where to press
+
+**The mute button in the editor was wired twice.**
+
+`uisound.js` already owns `#soundToggle`, and when the editor started
+loading it in v106, `editorsound.js` was still attaching its own handler to
+the same button. One press called `toggle()` twice — muted, then
+immediately unmuted — so the button flipped exactly as far as it flipped
+back and looked dead.
+
+The duplicate is gone, with a note where it was so it does not get helpfully
+re-added. Measured, one press at a time:
+
+```
+start           muted=false  flips=0
+after 1st press muted=true   flips=1   icon: sound-toggle off
+after 2nd press muted=false  flips=2   icon: sound-toggle
+after 3rd press muted=true   flips=3   icon: sound-toggle off
+```
+
+One flip per press. The old bug produced two.
+
+**A navigator hand, on every step that is waiting for you.**
+
+The ring around a control says "this area matters". It does not say which
+pixel to press, and on a wide target — the navigation rail, a whole section
+panel — that is most of the instruction missing. There is now an animated
+hand that sits on the control itself and nudges toward it on a loop.
+
+It behaves the way a pointer should:
+
+- Only on a step with something to do. A read step gets no hand, because
+  pointing at a paragraph is noise.
+- It picks the corner with room, and the nudge always travels *toward* the
+  control rather than in a fixed direction.
+- It follows the target. The same tracking that keeps the spotlight honest
+  keeps the hand on the button when the layout shifts under it.
+- It disappears the instant the task is done — by then it would be pointing
+  at something you have already pressed.
+- Click-through, like the rest of the overlay, so it can never be the reason
+  a task cannot be completed.
+
+Verified: hidden on step 1 (a read step), shown on step 2, sitting **2px**
+from the control it points at, gone the moment the step completes, and back
+on the next task pointing somewhere new.
+
+**On whether the tour navigates for you: it does not, and that is
+deliberate.** You asked for every step to be tried by the user, so the
+section steps wait for *you* to open Projects, Achievements, Tools and Chat
+from the rail — the tour listens for the site's own routing event and
+advances only when the real navigation happened. The only thing it does to
+the page is hold the navigation rail open, because the theme dial and the
+sound switch are `display: none` while it is shut and a step cannot ask you
+to press something that has no layout box. It puts the rail back on exit.
 
 ### What you still have to do yourself
 

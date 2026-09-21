@@ -146,22 +146,15 @@
     }).observe(list, { childList: true });
   });
 
-  /* ---- 6. the master switch ------------------------------------------
-     Same control, same behaviour and the same stored preference as the
-     public site — muting there mutes here. */
-  var btn = document.getElementById("soundToggle");
-  if (btn) {
-    var paint = function () {
-      var off = S.muted;
-      btn.classList.toggle("off", off);
-      btn.setAttribute("aria-pressed", String(!off));
-      btn.setAttribute("aria-label", off ? "Turn sound on" : "Turn sound off");
-      btn.innerHTML = off
-        ? '<i class="fa-solid fa-volume-xmark" aria-hidden="true"></i>'
-        : '<i class="fa-solid fa-volume-high" aria-hidden="true"></i>';
-    };
-    btn.addEventListener("click", function () { S.toggle(); });
-    window.addEventListener("sfx-mute", paint);
-    paint();
-  }
+  /* ---- 6. the master switch — deliberately NOT wired here -------------
+     uisound.js already owns #soundToggle, and it is loaded on this page
+     too. Wiring it a second time here meant one press called toggle()
+     twice: muted, then immediately unmuted, so the button looked dead.
+     It flipped exactly as far as it flipped back.
+
+     Nothing to add — the handler in uisound.js paints the icon, stores
+     the preference and fires `sfx-mute`, all of which work unchanged on
+     the editor. This note exists so the block does not get helpfully
+     re-added. */
+
 })();

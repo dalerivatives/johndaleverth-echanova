@@ -315,3 +315,50 @@
   font-size: 13px;
   flex: 0 0 auto;
 }
+
+/* ---- the navigator hand ----------------------------------------------
+   A ring around a control says "this area matters". It does not say which
+   pixel to press, and on a wide target — the navigation rail, a whole
+   section panel — that is most of the instruction missing. The hand is the
+   part that points.
+
+   It only appears on a step that is waiting for you to do something, it
+   nudges toward the control on a loop, and it disappears the moment the
+   task is done, because by then it is pointing at something you have
+   already pressed. Click-through, like everything else in the overlay. */
+#tourHand {
+  position: fixed;
+  z-index: 9002;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 7px rgba(0,0,0,.5));
+  animation: tour-nudge-hand 1.35s ease-in-out infinite;
+}
+#tourHand[hidden] { display: none; }
+
+/* The nudge always travels toward the control, so the direction depends on
+   which corner the hand ended up in. */
+#tourHand[data-dir="br"] { animation-name: tour-hand-br; }
+#tourHand[data-dir="bl"] { animation-name: tour-hand-bl; }
+#tourHand[data-dir="tr"] { animation-name: tour-hand-tr; }
+#tourHand[data-dir="tl"] { animation-name: tour-hand-tl; }
+
+@keyframes tour-hand-br {
+  0%,100% { transform: translate(0,0)      rotate(-8deg); }
+  50%     { transform: translate(-7px,-7px) rotate(-8deg); }
+}
+@keyframes tour-hand-bl {
+  0%,100% { transform: translate(0,0)     rotate(8deg) scaleX(-1); }
+  50%     { transform: translate(7px,-7px) rotate(8deg) scaleX(-1); }
+}
+@keyframes tour-hand-tr {
+  0%,100% { transform: translate(0,0)     rotate(8deg) scaleY(-1); }
+  50%     { transform: translate(-7px,7px) rotate(8deg) scaleY(-1); }
+}
+@keyframes tour-hand-tl {
+  0%,100% { transform: translate(0,0)    rotate(-8deg) scale(-1,-1); }
+  50%     { transform: translate(7px,7px) rotate(-8deg) scale(-1,-1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #tourHand { animation: none !important; }
+}

@@ -40,7 +40,7 @@
   var PAD = 8;              // breathing room around a spotlit element
   var CARD_GAP = 14;        // between the ring and the card
 
-  var overlay, spot, card, steps = [], index = 0, open = false, lastFocus = null, armed = null, onEnd = null, trackId = null, rafId = null;
+  var overlay, spot, card, hand, steps = [], index = 0, open = false, lastFocus = null, armed = null, onEnd = null, trackId = null, rafId = null, taskDone = false;
 
   function seen() {
     try { return localStorage.getItem(SEEN_KEY) === "1"; } catch (e) { return false; }
@@ -111,6 +111,17 @@
     overlay.id = "tourOverlay";
     overlay.innerHTML =
       '<div id="tourSpot"></div>' +
+      /* The navigator: a hand that sits on the control a task step is
+         waiting for. The ring says "this area matters"; the hand says
+         "press HERE", which is a different sentence and the one a person
+         following instructions actually needs. */
+      '<div id="tourHand" hidden aria-hidden="true">' +
+        '<svg viewBox="0 0 24 24" width="36" height="36">' +
+          '<path d="M9 11.5V4.8a1.8 1.8 0 1 1 3.6 0v5.4m0-1.1a1.8 1.8 0 1 1 3.6 0v1.1m0-.5a1.8 1.8 0 1 1 3.6 0v5.4c0 3.6-2.4 6.3-6 6.3h-1.2c-2 0-3.2-.7-4.3-2L5 16.2c-.7-1-.5-2.2.4-2.8.8-.6 1.9-.4 2.6.4L9 14.7" ' +
+            'fill="var(--panel2,#0d1620)" stroke="var(--accent,#4dff91)" stroke-width="1.6" ' +
+            'stroke-linecap="round" stroke-linejoin="round"/>' +
+        '</svg>' +
+      '</div>' +
       '<div id="tourCard" role="dialog" aria-modal="false" aria-labelledby="tourTitle">' +
         '<span class="tour-step-count" id="tourCount"></span>' +
         '<h3 id="tourTitle"></h3>' +
@@ -131,6 +142,7 @@
     document.body.appendChild(overlay);
     spot = overlay.querySelector("#tourSpot");
     card = overlay.querySelector("#tourCard");
+    hand = overlay.querySelector("#tourHand");
 
     overlay.querySelector("#tourSkip").addEventListener("click", function () { stop(true); });
     overlay.querySelector("#tourBack").addEventListener("click", function () { go(index - 1); });
@@ -196,11 +208,30 @@
     spot.style.borderRadius = (getComputedStyle(el).borderRadius === "50%" ? "50%" : "14px");
 
     placeCard(top, left, w, h, step);
+    placeHand(top, left, w, h, step);
+  }
+
+  /* The hand points at the control from whichever corner has room, and is
+     hidden entirely on a step with nothing to press — pointing at a
+     paragraph would be noise. */
+  function placeHand(top, left, w, h, step) {
+    if (!step || !step.action || taskDone) { hand.hidden = true; return; }
+    hand.hidden = false;
+    var hw = 36, hh = 36;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var x = left + w - 4, y = top + h - 4;          // bottom-right by default
+    var dir = "br";
+    if (x + hw > vw - 6) { x = left - hw + 4; dir = "bl"; }
+    if (y + hh > vh - 6) { y = top - hh + 4; dir = dir === "bl" ? "tl" : "tr"; }
+    hand.style.left = Math.max(4, x) + "px";
+    hand.style.top = Math.max(4, y) + "px";
+    hand.setAttribute("data-dir", dir);
   }
 
   function placeCentred() {
     spot.classList.add("no-target");
     spot.style.width = spot.style.height = "0px";
+    if (hand) hand.hidden = true;
     card.removeAttribute("data-arrow");
     var cr = card.getBoundingClientRect();
     card.style.top = Math.max(12, (window.innerHeight - cr.height) / 2) + "px";
@@ -391,6 +422,7 @@
 
   function armStep(step) {
     disarm();
+    taskDone = false;
     if (!step.action || typeof step.action.arm !== "function") return;
     var fired = false;
     var mine = index;
@@ -403,6 +435,8 @@
          reads as the tour having moved on by itself. */
       var strip = overlay.querySelector("#tourTry");
       strip.classList.add("done");
+      taskDone = true;
+      if (hand) hand.hidden = true;
       overlay.querySelector("#tourTryText").textContent = step.action.ok || "Nice — that's it.";
       sfx("save");
       setTimeout(function () { if (open && index === mine) go(index + 1); }, 900);
