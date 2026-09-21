@@ -309,13 +309,18 @@ function renderUploadStates({broadcast=false}={}){
         preview.hidden=true;$("#faviconDefault").hidden=false;
         $("#faviconState").textContent="Saved icon is missing. On a host with an ephemeral disk this happens on every redeploy unless DATABASE_URL points at a real database — see SUPABASE.md. Upload the photo again to restore it.";
       };
-      preview.src=logo;
+      /* Preview the icon the SITE serves, not the raw stored file. The
+         server crops it to a circle on the way out, so pointing this at
+         the original upload showed the owner a square that no visitor
+         ever sees. The ?v= is what makes the browser refetch after a
+         change, since the URL is otherwise constant. */
+      preview.src='/brand-icon.png?v='+Date.now().toString(36);
     };
     image.onerror=()=>{
       if(revision!==faviconRenderRevision)return;
       $("#faviconState").textContent="Saved icon is missing. On a host with an ephemeral disk this happens on every redeploy unless DATABASE_URL points at a real database — see SUPABASE.md. Upload the photo again to restore it.";
     };
-    image.src=logo;
+    image.src='/brand-icon.png?v='+Date.now().toString(36);
   }
   if(window.PortfolioFavicon)window.PortfolioFavicon.apply(logo,{broadcast});
   const rows = {

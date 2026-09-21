@@ -1,4 +1,4 @@
-# Portfolio v96 — what changed
+# Portfolio v97 — what changed
 
 ## 1. The robot is now the Travelade EXPLORER-BOT T-700V
 
@@ -311,6 +311,55 @@ upload feature; it is the plan. `SUPABASE.md` covers pointing `DATABASE_URL`
 at a real Postgres database, which is what makes it stick. The editor now
 says this in place of the old bare "please upload the photo again", and the
 bundled circular icon means the site never looks broken in the meantime.
+
+### v97: no square phase, no empty phase — one icon, from first paint
+
+The three-stage flicker on refresh (square, then nothing, then the circle)
+had one cause behind both halves of it, and it was not in the browser.
+
+**The square was real, and it was coming from the server.** Cropping was
+added at UPLOAD time, which fixes every future upload and nothing already
+saved — and the icon a live site is serving is, by definition, one that was
+saved earlier. The page's `<link>` pointed at the icon route, the route
+handed back the original square photo untouched, and only then did the
+browser-side canvas redraw it as a circle. So: square first, circle second,
+with a gap in between while the swap happened.
+
+Two changes, and the whole sequence disappears.
+
+**The server now rounds on the way OUT as well as the way in.** An icon
+uploaded before any of this existed is served as a circle, with nothing to
+re-upload. Masking costs tens of milliseconds so the result is cached by
+content hash; the icon changes about once a year, so it is computed about
+once a year.
+
+**`favicon.js` no longer draws the tab icon at all.** It used to fetch the
+picture, paint it into a canvas with a circular mask, and hand the result to
+a `<link>` it created — which is exactly the swap that produced the empty
+moment. There is nothing left for it to fix: every URL the page points at
+already returns a circle. What it still does is small and worth keeping —
+when the icon is *changed* in the editor the URL has not changed, so a
+browser sitting on a cached copy would keep showing the old one; it bumps a
+version parameter to force a refetch, and tells other open tabs to do the
+same.
+
+Measured in a browser, sampling the icon links every 30ms from first paint,
+with a **raw square JPEG planted in the database** so the test ran against
+the live site's exact state:
+
+```
+distinct icon-link states during load: 2
+  t=   40ms  []                                     <- before the head is parsed
+  t=   71ms  ["/brand-icon.png", ...]               <- and it never changes again
+```
+
+Two states, where there used to be four. The first is the instant before the
+browser has parsed any HTML, which no site can do anything about. From 71ms
+the tab has the final, circular icon and nothing touches it again.
+
+The editor's preview was repointed too: it previewed the raw stored file, so
+it showed the owner a square that no visitor ever saw. It now previews what
+the site actually serves.
 
 ### What you still have to do yourself
 

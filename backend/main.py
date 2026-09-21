@@ -2159,10 +2159,44 @@ _ICON_HIT_CACHE = "public, max-age=3600"
 _ICON_MISS_CACHE = "no-store, no-cache, must-revalidate, max-age=0"
 
 
+# Masking costs tens of milliseconds, and the icon almost never changes, so
+# the result is kept per content hash rather than recomputed per request.
+# Bounded because it is keyed by content: at most a handful of entries can
+# ever exist for one site.
+_ROUNDED_CACHE: dict[str, tuple[bytes, str]] = {}
+
+
+def _rounded_stored(data: bytes, mime: str) -> tuple[bytes, str]:
+    """Round an icon that was stored before uploads were rounded.
+
+    Cropping at UPLOAD time fixes every future upload and nothing already
+    saved — and an icon saved a month ago is exactly the one a live site is
+    serving. That is the "square corners for a moment, then it turns round"
+    flicker: the page's own <link> points at this route, which handed back
+    the original square photo, and only then did the browser-side canvas
+    redraw it as a circle. The square was real and it was coming from here.
+
+    Rounding on the way OUT as well means an icon uploaded before any of
+    this existed is served correctly, with nothing to re-upload.
+    """
+    if iconify is None or not iconify.available():
+        return data, mime
+    key = hashlib.sha256(data).hexdigest()
+    hit = _ROUNDED_CACHE.get(key)
+    if hit is not None:
+        return hit
+    rounded = iconify.circular_png(data)
+    result = (rounded, "image/png") if rounded else (data, mime)
+    if len(_ROUNDED_CACHE) > 8:
+        _ROUNDED_CACHE.clear()
+    _ROUNDED_CACHE[key] = result
+    return result
+
+
 def _serve_icon(path: str, db: Session) -> Response:
     stored = _stored_icon(db)
     if stored:
-        data, stored_mime = stored
+        data, stored_mime = _rounded_stored(*stored)
         return Response(data, media_type=stored_mime,
                         headers={"Cache-Control": _ICON_HIT_CACHE})
 
