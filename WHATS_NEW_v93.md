@@ -1,4 +1,4 @@
-# Portfolio v92 — what changed
+# Portfolio v93 — what changed
 
 ## 1. The robot is now the Travelade EXPLORER-BOT T-700V
 
@@ -144,6 +144,43 @@ Two changes so that cannot happen again:
   so a site whose icon had been uploaded the old way fell straight past it
   to the bundled file. Both are read now, with the uploads path reduced to
   its bare filename first so it cannot be walked out of that directory.
+
+### v93: the real reason it survived two fixes — a cached 404
+
+`/favicon.ico` was still 404 on the live site after v92, while
+`/favicon.ico?cachebust=991` — same server, same route, same second —
+returned the image.
+
+That difference can only come from something in front of the origin. There
+is a CDN there (the code has always assumed one; see the asset-fingerprint
+note in `backend/main.py`), and `/favicon.ico` is one of the paths a CDN
+caches hardest — **including the 404**. So the whole sequence was:
+
+1. One deploy went out without `static/favicon.ico`.
+2. The route 404'd once.
+3. The edge stored that 404 against the bare URL.
+4. Every deploy after that was irrelevant, because nothing — not Google,
+   not a browser — reached the origin again. The origin was fixed and the
+   search result still showed a grey globe.
+
+Adding a query string bypassed the cached entry and hit the origin, which
+is how it showed up.
+
+**The code change:** a missing icon is now returned with
+`Cache-Control: no-store, no-cache, must-revalidate, max-age=0`, so a miss
+can never become sticky like that again — the edge is obliged to ask the
+origin every time until the origin has something to give it. A found icon
+caches for an hour rather than a day, so re-uploading one in the editor
+shows up the same session.
+
+**The change only you can make:** purge the CDN cache for that URL. Code
+cannot evict an entry the edge is already holding. In Cloudflare:
+Caching → Configuration → Purge Cache → either purge the single URL
+`https://johndaleverthechanova.com/favicon.ico` or Purge Everything.
+
+Verified locally in all three states: every icon file missing (404, and
+uncacheable), only `favicon.ico` missing (200, served as PNG — which is
+exactly production's state), and everything present (200, `image/x-icon`).
 
 ### What you still have to do yourself
 

@@ -2099,23 +2099,47 @@ def _stored_icon(db: Session):
     return None
 
 
+# A found icon is cached for an hour, not a day: short enough that
+# re-uploading one in the editor shows up the same session, long enough that
+# the edge is still doing its job.
+_ICON_HIT_CACHE = "public, max-age=3600"
+
+# A MISSING icon must never be cached, anywhere, for any length of time.
+#
+# This is the bug that outlived two rounds of fixes. There is a CDN in front
+# of this site, and /favicon.ico is one of the paths a CDN caches hardest —
+# including the 404. So the sequence was: one deploy shipped without
+# static/favicon.ico, the route 404'd once, the edge stored that 404, and
+# every later deploy was irrelevant because Google never reached the origin
+# again. The origin was fixed and the site still showed a grey globe.
+#
+# no-store on the failure path means a miss can never become sticky like
+# that again: the edge is obliged to ask the origin every time until the
+# origin has something to give it.
+_ICON_MISS_CACHE = "no-store, no-cache, must-revalidate, max-age=0"
+
+
 def _serve_icon(path: str, db: Session) -> Response:
     stored = _stored_icon(db)
     if stored:
         data, stored_mime = stored
         return Response(data, media_type=stored_mime,
-                        headers={"Cache-Control": "public, max-age=86400"})
+                        headers={"Cache-Control": _ICON_HIT_CACHE})
 
     for name in _ICON_FALLBACKS[path]:
         file = STATIC_DIR / name
         if file.is_file():
             return FileResponse(file, media_type=_ICON_MIME.get(file.suffix.lower(), "image/png"),
-                                headers={"Cache-Control": "public, max-age=86400"})
+                                headers={"Cache-Control": _ICON_HIT_CACHE})
 
     # Every candidate is missing, which means the deploy is broken rather
-    # than the request being wrong. Say so in the log instead of returning a
-    # silent 404 that looks like a routing problem.
-    raise HTTPException(status_code=404, detail="No icon file is present in static/")
+    # than the request being wrong. Return it uncacheable so the next deploy
+    # that fixes the deploy also fixes the icon, with no purge needed.
+    return JSONResponse(
+        {"detail": "No icon file is present in static/"},
+        status_code=404,
+        headers={"Cache-Control": _ICON_MISS_CACHE},
+    )
 
 
 @app.get("/favicon.ico", include_in_schema=False)
