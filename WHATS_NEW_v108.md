@@ -1,4 +1,4 @@
-# Portfolio v107 — what changed
+# Portfolio v108 — what changed
 
 ## 1. The robot is now the Travelade EXPLORER-BOT T-700V
 
@@ -892,6 +892,87 @@ Re-verified after all of it: every icon URL returns a round image, all three
 clips decode to their exact original durations, both tours walk end to end,
 the editor's sounds fire on the right events and nothing else, and the robot
 still mounts on the chat page.
+
+### v108: the tour is now something you DO, and the editor's is private
+
+**Every step you can act on now waits for you to act on it.**
+
+A task step has no Next button. It shows a live "Try it" strip, and it
+advances only when the thing has genuinely happened — the arrow key will
+not move past it either. Nothing is simulated: each step listens to the
+site's own events and state, so if the tour says you opened Projects, the
+router really ran.
+
+| Step | What it waits for |
+|---|---|
+| The navigation rail | the rail is measurably expanded |
+| The theme dial | a real click on it |
+| Sound | the site's own `sfx-mute` event |
+| The terminal | the portrait actually revealed — you typed `whoami` |
+| Projects / Achievements / Tools / Chat | `portfolio-section-change` for that section |
+| The robot | `robot-hp` reporting damage below 100 |
+
+Three steps stay read-only on purpose — the welcome, the live viewer count
+and the sign-off are things to notice, not press, and inventing busywork for
+them would be worse than a button. Any step can still be skipped, because a
+control can be broken, unreachable on a device, or already in the state
+being asked for.
+
+**Four real bugs surfaced only once the steps became interactive**, and none
+of them would ever have shown up in a click-through tour:
+
+1. *The overlay swallowed every click.* It covered the viewport to dim the
+   page, which is harmless when you only ever press Next and fatal when the
+   step asks you to press something underneath. The overlay is now
+   transparent to the pointer and only the card's buttons take clicks.
+   Clicking the dim area no longer exits either — on an interactive tour,
+   clicking the page *is* the task.
+2. *The page was frozen.* `overflow: hidden` on the body meant a step could
+   ask for a control you were unable to scroll to.
+3. *The card covered the control it was pointing at.* A tall target like the
+   rail leaves no room above or below, and the clamp that keeps the card on
+   screen pushed it straight back over the button. It now checks its final
+   position and moves to whichever side has room, and a step can name
+   something else to stay clear of.
+4. *An infinite oscillation.* The card rested on the cursor, which took
+   `:hover` away from the rail, which collapsed it, which moved the theme
+   dial 250px, which moved the card, which gave the hover back. Measured at
+   2Hz, the dial bounced between y=446 and y=697 forever. The card is now
+   hover-transparent, and the spotlight re-measures its target every frame
+   for the first 1.5 seconds and four times a second after.
+
+**The help button moved to the topbar.** It was in the navigation rail with
+the theme dial — which is where the site's *tools* belong, but this is for
+someone who has just arrived and does not know the rail exists. Inside a
+collapsed rail it was `display: none`, so the pulse meant to catch a
+first-timer's eye could not be seen by one. It is now always visible, at
+every width.
+
+**The editor's walkthrough is separated from the portfolio's.**
+
+The public tour ships as a plain file, because it describes a page anyone
+can already look at. The editor's does not: it is a labelled map of the
+admin interface — which control writes to the database, which one deletes
+without a second prompt, where the uploads live.
+
+It now comes from `/api/editor/tutorial`, behind the same admin dependency
+as every other editor endpoint. Verified: **401 with no key, 401 with a
+wrong key, 200 with the right one.** `tour-editor.js` contains no step text
+at all — confirmed by fetching the file in the browser and searching it —
+and what the endpoint returns is treated as data, never code: a step names
+what it wants to wait for and the browser maps that name to a listener, so
+an unrecognised one produces a step with no task rather than a step that
+does something unexpected.
+
+Worth being straight about the limit: `editor.html` is still a public URL,
+so its structure can be read by anyone determined to. This removes a
+ready-made explanation of that structure from the public bundle. The admin
+key remains the actual protection.
+
+Both walkthroughs were walked end to end by a browser doing the real
+actions — 14 steps on the portfolio through four section changes, 10 on the
+editor behind the login gate — plus the card verified fully on screen at
+every step on a 390px phone.
 
 ### What you still have to do yourself
 

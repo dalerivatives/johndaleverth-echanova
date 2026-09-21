@@ -15,11 +15,21 @@
    being a white box bolted on top.
    ============================================================ */
 
+/* The overlay must NOT swallow pointer events.
+   It covers the whole viewport, and the tour now asks people to press the
+   thing it is pointing at — so anything it intercepts is a task nobody can
+   complete. Every layer here is transparent to the pointer except the card
+   itself, which has the buttons.
+
+   This is also why clicking the dimmed area no longer closes the tour: on
+   an interactive walkthrough, clicking the page IS the task. Esc and the
+   Skip button are the ways out. */
 #tourOverlay {
   position: fixed;
   inset: 0;
   z-index: 9000;
   display: none;
+  pointer-events: none;
 }
 #tourOverlay.open { display: block; }
 
@@ -48,6 +58,19 @@
    drift apart when the page scrolls under them. */
 #tourCard {
   position: fixed;
+  /* The card is informational, so it does not take the pointer — only its
+     buttons do.
+
+     This is not a nicety. The card is fixed over the page, and the
+     navigation rail expands on :hover. A card resting on the cursor took
+     the hover away from the rail, which collapsed, which moved the control
+     the step was pointing at, which moved the card, which gave the hover
+     back — an oscillation that ran forever and left the spotlight chasing
+     a button that would not sit still. Measured at 2Hz, the theme dial was
+     bouncing between y=446 and y=697.
+
+     Letting hover pass straight through breaks the loop at its source. */
+  pointer-events: none;
   width: min(380px, calc(100vw - 32px));
   background: var(--panel2, #0d1620);
   color: var(--text, #e8f0f7);
@@ -112,6 +135,7 @@
 }
 .tour-actions .tour-spacer { flex: 1; }
 .tour-actions button {
+  pointer-events: auto;
   font: 600 13px/1 Inter, ui-sans-serif, system-ui, sans-serif;
   border-radius: 9px;
   padding: 9px 14px;
@@ -211,3 +235,83 @@
 }
 .editor-topbar-actions .sound-toggle.off { color: var(--muted, #93a4b3); opacity: .6; }
 .editor-topbar-actions .help-btn[hidden] { display: none; }
+
+/* ---- "try it" — the strip on a step you have to DO --------------------
+   A task step has no Next button, so this line is the only thing telling
+   the visitor what the tour is waiting for. It has to read as an
+   instruction rather than as more description, hence the accent rule down
+   the side and the pulsing mark: something is live and watching.
+
+   It turns green and stops pulsing the moment the thing is done, which is
+   what makes the causal link — you did that, and THAT is why the tour
+   moved. A step that advanced silently would read as the tour moving on
+   by itself. */
+.tour-try {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 12px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 1px solid var(--line, #24323f);
+  border-left: 3px solid var(--accent, #4dff91);
+  background: color-mix(in srgb, var(--accent, #4dff91) 7%, transparent);
+  font: 500 13px/1.5 Inter, ui-sans-serif, system-ui, sans-serif;
+  color: var(--text, #e8f0f7);
+}
+.tour-try-mark {
+  flex: 0 0 auto;
+  width: 9px; height: 9px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--accent, #4dff91);
+  animation: tour-live 1.5s ease-in-out infinite;
+}
+@keyframes tour-live {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: .35; transform: scale(.7); }
+}
+.tour-try.done {
+  border-left-color: var(--accent, #4dff91);
+  background: color-mix(in srgb, var(--accent, #4dff91) 15%, transparent);
+}
+.tour-try.done .tour-try-mark {
+  animation: none;
+  border-radius: 2px;
+  transform: rotate(45deg) scale(.95);
+  width: 5px; height: 10px;
+  margin-top: 2px;
+  background: transparent;
+  border: 2px solid var(--accent, #4dff91);
+  border-top: 0; border-left: 0;
+}
+
+/* The ring breathes while a step is waiting on you, so the thing to press
+   is obvious even if the card is being read rather than looked past. */
+#tourCard[data-task] ~ #tourSpot,
+#tourOverlay:has(#tourCard[data-task]) #tourSpot {
+  animation: tour-await 1.9s ease-in-out infinite;
+}
+@keyframes tour-await {
+  0%, 100% { box-shadow: 0 0 0 9999px rgba(3,7,14,.72), 0 0 0 2px var(--accent,#4dff91), 0 0 20px 3px rgba(77,255,145,.22); }
+  50%      { box-shadow: 0 0 0 9999px rgba(3,7,14,.72), 0 0 0 3px var(--accent,#4dff91), 0 0 30px 8px rgba(77,255,145,.42); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-try-mark { animation: none; }
+  #tourOverlay:has(#tourCard[data-task]) #tourSpot { animation: none; }
+}
+
+/* The help button in the topbar. Sized to match the social icons beside
+   it, and kept visible at every width — .socials disappears on a phone,
+   but a walkthrough is most useful on the screen with the least room. */
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.top-actions .help-btn {
+  width: 34px; height: 34px;
+  font-size: 13px;
+  flex: 0 0 auto;
+}

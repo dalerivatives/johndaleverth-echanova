@@ -174,6 +174,23 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
       </span>
     </div>
     <div class="top-actions">
+      <!-- The tour lives HERE, not in the navigation rail.
+
+           It was in the rail with the theme dial and the sound switch,
+           which is where the site's other tools belong — but those are
+           tools you go looking for once you already know the site. This is
+           the opposite: it is for someone who has just arrived and does
+           not know the rail exists yet. Inside a collapsed rail it was
+           `display:none`, so the pulse meant to catch a first-time
+           visitor's eye could not be seen by one.
+
+           Unlike .socials it stays visible on a phone, because that is
+           exactly where a guided tour is most useful. -->
+      <button class="help-btn" id="tourBtn" type="button"
+              aria-label="Take a guided tour of this site"
+              data-tooltip="Guided tour">
+        <i class="fa-solid fa-question" aria-hidden="true"></i>
+      </button>
       <!-- Filled from the social links list in Site settings — add as many
            as you like there and they all appear here. -->
       <div class="socials" id="topSocials"></div>
@@ -215,17 +232,6 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
                DARK on a device that is already dark, so without this that
                position looks like it does nothing. -->
           <span class="kb-readout" id="leverReadout" aria-hidden="true"></span>
-      </div>
-      <div class="nav-tool nav-tool-help">
-          <!-- Starts the guided tour. It sits with the other two tools for
-               the same reason they are here: this corner is where a visitor
-               already looks when they want the site to explain or change
-               something. It pulses until the tour has been taken once. -->
-          <button class="help-btn" id="tourBtn" type="button"
-                  aria-label="Take a guided tour of this site"
-                  data-tooltip="Guided tour">
-            <i class="fa-solid fa-question" aria-hidden="true"></i>
-          </button>
       </div>
       <div class="nav-tool nav-tool-sound">
           <!-- The master switch for every sound the site makes. -->

@@ -1,131 +1,214 @@
 /* ============================================================
-   WHAT THE TOUR SAYS — the portfolio
+   WHAT THE TOUR ASKS YOU TO DO — the portfolio
    ------------------------------------------------------------
-   The step list, kept apart from the engine so the wording can be edited
+   Kept apart from the engine so the wording and the tasks can change
    without touching any of the positioning logic.
 
-   Steps that live on another view carry a `before` that navigates there
-   and lets the transition finish. Steps whose control only exists in some
-   states — the resume button appears once a CV is uploaded, the chat
-   composer only after you have claimed a name — are marked `optional` and
-   quietly drop out when they are not on the page.
+   Almost every step here is a TASK: the card explains a control and then
+   waits for the visitor to use it. Nothing is simulated — each step
+   listens for the site's own event or its own state, so the tour can only
+   advance because the thing genuinely happened. That is the difference
+   between a walkthrough and a slideshow.
+
+   A few steps have no task on purpose. The welcome, the live viewer count
+   and the sign-off are things to read or notice, not things to press, and
+   inventing busywork for them would be worse than a Next button.
    ============================================================ */
 (function () {
   "use strict";
 
-  /* Navigate by clicking the real nav item, so the site's own routing,
-     history and animations run exactly as they would for a visitor. If the
-     rail has not rendered yet, fall back to the router directly. */
-  function goTo(view) {
-    return function () {
-      var item = document.querySelector('.nav-item[data-id="' + view + '"] a, .nav-item[data-id="' + view + '"] button, .nav-item[data-id="' + view + '"]');
-      if (item && item.click) { item.click(); return; }
-      if (window.PortfolioNav && window.PortfolioNav.activate) window.PortfolioNav.activate(view);
-    };
+  function W() { return window.PortfolioTour.watch; }
+
+  /* ---- the rail has to be OPEN for its tools to exist -----------------
+     `.nav-tool` is `display:none` until the rail opens, so the theme dial
+     and the sound switch have no layout box at all while it is shut —
+     nothing to spotlight and nothing to press. The tour opens it with the
+     same `.open` class the touch path uses, which works on a pointer
+     device too, and puts it back at the end so the rail behaves normally
+     afterwards. */
+  var railForced = false;
+  function openRail() {
+    var stack = document.getElementById("stack");
+    if (stack && !stack.classList.contains("open")) {
+      stack.classList.add("open");
+      railForced = true;
+    }
+  }
+  function releaseRail() {
+    if (!railForced) return;
+    railForced = false;
+    var stack = document.getElementById("stack");
+    /* Only on a pointer device: on touch, `.open` is how the rail is
+       genuinely opened and taking it away would shut it under the user. */
+    if (stack && window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+      stack.classList.remove("open");
+    }
+  }
+
+  /* True once the rail is expanded, however it was expanded. On a desktop
+     that happens through CSS :hover with no class to watch for, so the
+     only honest signal is that a tool now has a box on screen. */
+  function railIsOpen() {
+    var el = document.getElementById("themeLever");
+    if (!el) return false;
+    var r = el.getBoundingClientRect();
+    return r.width > 2 && r.height > 2;
   }
 
   function steps() {
+    var w = W();
     return [
       {
         target: null,
-        title: "Welcome — here's the two-minute version",
-        body: "I'll walk you through every part of this site: how to move between sections, " +
-              "the controls in the corner, the terminal, and the chat. " +
-              "Use <kbd>←</kbd> <kbd>→</kbd> to move, <kbd>Esc</kbd> to leave at any point. " +
-              "Everything stays clickable while we go."
+        title: "Let's go through it together",
+        body: "This isn't a slideshow — each step asks you to actually use the thing it " +
+              "describes, and moves on once you have. About two minutes. " +
+              "<kbd>Esc</kbd> leaves at any point, and any step can be skipped."
       },
       {
         target: "#stack",
+        avoid: "#stack",
         title: "The navigation rail",
-        body: "Every section of the site opens from here. On a desktop it expands when you " +
-              "hover; on a phone, tap the circle to open it. The section you're reading " +
-              "moves to the top, so the rail reorders itself around where you've been."
+        body: "Every section opens from here. On a desktop it expands when your cursor " +
+              "reaches it; on a phone you tap the circle.",
+        action: {
+          hint: "<b>Try it:</b> hover the rail (or tap it on a phone) to open it.",
+          ok: "That's the rail — the tools live at the top of it.",
+          arm: w.condition(railIsOpen)
+        }
       },
       {
         target: "#themeLever",
+        avoid: "#stack",
+        before: openRail,
         title: "The theme dial",
-        body: "A rotary switch with five stops, not a toggle. It steps through the palettes — " +
-              "<b>Auto</b> follows your device's dark or light setting, and the label under it " +
-              "names whichever stop you've landed on."
+        body: "A rotary switch with five stops rather than a light/dark toggle. Each press " +
+              "steps to the next palette, and the label underneath names where you landed. " +
+              "<b>Auto</b> follows whatever your device is set to.",
+        action: {
+          hint: "<b>Try it:</b> press the dial and watch the page change.",
+          ok: "The whole site repaints — including this card.",
+          arm: w.click("#themeLever")
+        }
       },
       {
         target: "#soundToggle",
+        avoid: "#stack",
+        before: openRail,
         title: "Sound",
         body: "The site answers presses, hovers and typing with small sounds. This is the " +
-              "master switch for all of them, and it remembers your choice on your next visit."
+              "master switch, and it remembers your choice for next time.",
+        action: {
+          hint: "<b>Try it:</b> press it once to hear it flip. Press again to put it back.",
+          ok: "Flipped — your choice is saved.",
+          arm: w.event("sfx-mute")
+        }
       },
       {
         target: "#presence",
         title: "Who else is here",
-        body: "A live count of people on the site right now — the face is you. It updates by " +
-              "itself, so you can watch it move when someone else arrives.",
+        body: "A live count of everyone on the site right now — the face is you. Nothing to " +
+              "press; it just updates by itself when someone arrives or leaves.",
         optional: true
       },
       {
         target: "#whoamiField",
-        title: "The terminal — try typing in it",
-        body: "This one is real, not decoration. Type <kbd>whoami</kbd> and press " +
-              "<kbd>Enter</kbd> to reveal the person behind the code. It reads the answer aloud, " +
-              "if sound is on."
+        title: "The terminal — this one is real",
+        body: "Not decoration. It takes commands, and the first one worth knowing reveals the " +
+              "person behind the code. It reads the answer aloud too, if sound is on.",
+        action: {
+          hint: "<b>Try it:</b> click the field, type <kbd>whoami</kbd> and press <kbd>Enter</kbd>.",
+          ok: "There he is. Type <kbd>code</kbd> to go back.",
+          arm: w.hasClass(".human-backdrop", "revealed")
+        }
       },
       {
         target: "#resumeBtn",
         title: "The CV",
         body: "Downloads the full résumé as a PDF. It only appears when there's a current one " +
-              "uploaded, so it's never a dead link.",
+              "uploaded, so it is never a dead link.",
         optional: true
       },
       {
-        target: "#projectsView",
-        title: "Projects",
-        body: "Work grouped by what it is — computer vision, full-stack, embedded. Open any card " +
-              "for the detail: what it does, what it's built with, and links to the code where " +
-              "there is code to show.",
-        before: goTo("projects")
+        target: "#stack",
+        avoid: "#stack",
+        before: openRail,
+        title: "Now open Projects",
+        body: "Work grouped by what it is — computer vision, full-stack, embedded. Every card " +
+              "opens for the detail: what it does, what it's built with, and a link to the " +
+              "code where there is code to show.",
+        action: {
+          hint: "<b>Try it:</b> open <b>Projects</b> from the rail.",
+          ok: "That's Projects — open any card to see inside.",
+          arm: w.section("projects")
+        }
       },
       {
-        target: "#achievementsView",
+        target: "#stack",
+        avoid: "#stack",
+        before: openRail,
         title: "Achievements",
-        body: "Education, awards and the things founded or shipped. Same card layout as Projects, " +
-              "so once you know one you know the other.",
-        before: goTo("achievements")
+        body: "Education, awards, and the things founded or shipped. Same card layout as " +
+              "Projects, so once you know one you know the other.",
+        action: {
+          hint: "<b>Try it:</b> open <b>Achievements</b> from the rail.",
+          ok: "Same layout, different content.",
+          arm: w.section("achievements")
+        }
       },
       {
-        target: "#toolsView",
+        target: "#stack",
+        avoid: "#stack",
+        before: openRail,
         title: "Tools",
-        body: "The stack — languages, frameworks, hardware and the platforms it all runs on. " +
-              "A quick read of what I actually work in day to day.",
-        before: goTo("tools")
+        body: "The stack — languages, frameworks, hardware, and the platforms it runs on. " +
+              "A quick read of what I actually work in.",
+        action: {
+          hint: "<b>Try it:</b> open <b>Tools</b> from the rail.",
+          ok: "That's the whole stack.",
+          arm: w.section("tools")
+        }
+      },
+      {
+        target: "#stack",
+        avoid: "#stack",
+        before: openRail,
+        title: "Last one — the chat",
+        body: "This is where the robot lives, and where the site stops being a portfolio and " +
+              "starts being a toy.",
+        action: {
+          hint: "<b>Try it:</b> open <b>Chat</b> from the rail.",
+          ok: "Meet UNIT T-700V.",
+          arm: w.section("chat")
+        }
       },
       {
         target: "#robotStage",
         title: "T-700V — and the captcha joke",
-        body: "A real 3D robot. Its head follows your cursor, and you can hit it: click anywhere " +
-              "on the unit to take its health down. It's an inverted captcha — you prove you're " +
-              "<i>not</i> a robot by destroying one.",
-        before: goTo("chat")
-      },
-      {
-        target: "#chatLog",
-        title: "World Chat",
-        body: "Genuinely public — pick a name, destroy the robot to unlock the composer, and " +
-              "anyone else on the site sees what you post. Everything clears itself after " +
-              "24 hours.",
-        optional: true
+        body: "A real 3D robot: its head follows your cursor, and it can be hit. This is an " +
+              "inverted captcha — you prove you are <i>not</i> a robot by destroying one, and " +
+              "that is what unlocks the chat composer.",
+        action: {
+          hint: "<b>Try it:</b> click the robot to take its health down.",
+          ok: "Direct hit — keep going to destroy it and unlock the chat.",
+          arm: w.event("robot-hp", function (e) {
+            return e && e.detail && typeof e.detail.hp === "number" && e.detail.hp < 100;
+          })
+        }
       },
       {
         target: "#boardList",
         title: "The leaderboard",
-        body: "Who has done the most damage to the current robot, and who landed the finishing " +
-              "blow on the last one. It resets the moment a unit goes down.",
+        body: "Who has done the most damage to the robot standing now, and who landed the " +
+              "finishing blow on the last one. It resets the moment a unit goes down.",
         optional: true
       },
       {
-        target: ".nav-tool-help",
-        title: "That's the whole site",
-        body: "This button brings the tour back any time — nothing here is one-time. " +
-              "Thanks for taking the time to look around.",
-        before: goTo("profile")
+        target: "#tourBtn",
+        title: "That's everything",
+        body: "You've used every part of the site. This button, up in the corner, brings the " +
+              "tour back whenever you want it — nothing here is one-time. Thanks for looking " +
+              "around."
       }
     ];
   }
@@ -135,7 +218,7 @@
     if (!btn) return;
     if (window.PortfolioTour && !window.PortfolioTour.seen()) btn.classList.add("unseen");
     btn.addEventListener("click", function () {
-      if (window.PortfolioTour) window.PortfolioTour.start(steps());
+      if (window.PortfolioTour) window.PortfolioTour.start(steps(), { onEnd: releaseRail });
     });
   }
 

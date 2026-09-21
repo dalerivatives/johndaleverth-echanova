@@ -2507,6 +2507,118 @@ def serve_webmanifest(request: Request, db: Session = Depends(get_db)):
     }, media_type="application/manifest+json", headers=dict(_NO_STORE))
 
 
+# ---------------------------------------------------------------------------
+# THE EDITOR'S WALKTHROUGH — served only to a signed-in admin.
+#
+# The public site's tour ships as a plain file, because it describes a page
+# anyone can already see. The editor's does not: it is a labelled map of the
+# admin interface — which control writes to the database, which one deletes
+# without asking twice, where the uploads live. That is a description of the
+# attack surface, and there is no reason for it to be downloadable by
+# everyone who can reach the domain.
+#
+# So it is behind the same admin dependency as every other editor endpoint,
+# and the file that fetches it contains no step text at all.
+#
+# What this does and does not buy: editor.html itself is still a public URL,
+# so its structure can be read by anyone determined to. This removes a
+# ready-made explanation of that structure from the public bundle and keeps
+# one less thing to forget. The admin key remains the actual protection.
+# ---------------------------------------------------------------------------
+@app.get("/api/editor/tutorial", dependencies=[Depends(require_admin)])
+def editor_tutorial():
+    """The editor walkthrough, as data. `wait` names what the step listens
+    for; the browser maps those to real listeners rather than running
+    anything that arrives from here."""
+    return {"steps": [
+        {
+            "title": "This is where the site is edited",
+            "body": "Everything on the public portfolio is written from here and stored in "
+                    "the database \u2014 no code changes, no redeploy. Each step asks you to "
+                    "actually do the thing, and moves on once you have.",
+        },
+        {
+            "target": ".editor-tabs",
+            "title": "The five areas",
+            "body": "<b>Projects</b>, <b>Achievements</b> and <b>Tools</b> are the three "
+                    "content sections of the site. <b>Chat</b> moderates the World Chat. "
+                    "<b>Settings</b> is everything else.",
+            "wait": {"kind": "click", "sel": ".editor-tab"},
+            "hint": "<b>Try it:</b> press any of the five tabs.",
+            "ok": "That's how you move between areas.",
+        },
+        {
+            "target": '.editor-tab[data-section="project"]',
+            "title": "Start with Projects",
+            "body": "Content is grouped under headings, and a heading has to exist before "
+                    "anything can go inside it.",
+            "wait": {"kind": "click", "sel": '.editor-tab[data-section="project"]'},
+            "hint": "<b>Try it:</b> open the <b>Projects</b> tab.",
+            "ok": "This is the section people land on first.",
+        },
+        {
+            "target": "#newCategoryName",
+            "title": "Headings come first",
+            "body": "Type a heading name here \u2014 \u201cEmbedded Systems\u201d, say. "
+                    "Nothing is created until you press Add, so it is safe to type and "
+                    "think about it.",
+            "wait": {"kind": "typed", "sel": "#newCategoryName", "min": 3},
+            "hint": "<b>Try it:</b> type at least three characters into the field.",
+            "ok": "Press <b>+ Add heading</b> when you actually want it \u2014 or clear it.",
+        },
+        {
+            "target": "#categoriesList",
+            "title": "Headings and their items",
+            "body": "Each heading lists its items, and each item opens for editing. This is "
+                    "also where you reorder and delete. Deletions are permanent and take the "
+                    "items inside with them, so it asks first.",
+        },
+        {
+            "target": '.editor-tab[data-section="settings"]',
+            "title": "Settings",
+            "body": "The parts of the site that are not a list of things: who you are, the "
+                    "terminal intro, social links, the background, your CV and the "
+                    "browser-tab icon.",
+            "wait": {"kind": "click", "sel": '.editor-tab[data-section="settings"]'},
+            "hint": "<b>Try it:</b> open the <b>Site settings</b> tab.",
+            "ok": "Everything below is saved together.",
+        },
+        {
+            "target": '[data-upload="favicon_url"]',
+            "title": "The browser-tab icon",
+            "body": "Upload a square photo and the server crops it to a circle, so the tab, "
+                    "search results and a phone's home screen all get the same round icon. "
+                    "A wide image gets centre-cropped.",
+            "optional": True,
+        },
+        {
+            "target": "#saveSettingsBtn",
+            "title": "Saving",
+            "body": "Nothing in Settings is written until this is pressed. The line beside it "
+                    "confirms the save, and you will hear it land.",
+            "wait": {"kind": "status", "sel": "#settingsStatus"},
+            "hint": "<b>Try it:</b> press <b>Save settings</b>.",
+            "ok": "Saved \u2014 reload the site in the other tab to see it.",
+            "optional": True,
+        },
+        {
+            "target": "#soundToggle",
+            "title": "Sound",
+            "body": "The editor answers presses, typing, saves and deletions. This switch is "
+                    "shared with the public site \u2014 mute in one and you are muted in both.",
+            "wait": {"kind": "event", "name": "sfx-mute"},
+            "hint": "<b>Try it:</b> press it once. Press again to put it back.",
+            "ok": "Flipped \u2014 and remembered.",
+        },
+        {
+            "title": "Lock when you are done",
+            "body": "The <b>Lock</b> button ends the session. Worth doing on any machine that "
+                    "is not yours \u2014 the key unlocks everything you have just seen. The "
+                    "help button brings this back any time.",
+        },
+    ]}
+
+
 @app.get("/robots.txt", include_in_schema=False)
 def serve_robots(request: Request, db: Session = Depends(get_db)):
     text = (STATIC_DIR / "robots.txt").read_text(encoding="utf-8")

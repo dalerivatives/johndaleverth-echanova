@@ -103,6 +103,11 @@ async function api(path, options={}){
   return res;
 }
 
+/* The walkthrough loader lives in its own file and needs the session token
+   to fetch admin-only content. Exposing the one function rather than the
+   token itself keeps the token inside this module. */
+window.editorApi = api;
+
 function clearSession(){
   sessionStorage.removeItem(SESSION_STORAGE_KEY);
   sessionToken="";
