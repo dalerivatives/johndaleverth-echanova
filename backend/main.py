@@ -2539,6 +2539,7 @@ def editor_tutorial():
         },
         {
             "target": ".editor-tabs",
+            "point": ".editor-tab",
             "title": "The five areas",
             "body": "<b>Projects</b>, <b>Achievements</b> and <b>Tools</b> are the three "
                     "content sections of the site. <b>Chat</b> moderates the World Chat. "

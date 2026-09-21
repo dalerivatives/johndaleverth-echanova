@@ -331,7 +331,18 @@
   z-index: 9002;
   pointer-events: none;
   filter: drop-shadow(0 3px 7px rgba(0,0,0,.5));
-  animation: tour-nudge-hand 1.35s ease-in-out infinite;
+  /* Overridden per direction below; this is the default corner. */
+  animation: tour-hand-br 1.35s ease-in-out infinite;
+  /* Glide rather than teleport. On the theme dial the hand is walked
+     around the face a stop at a time, and without this it reads as a
+     cursor blinking between positions instead of a knob being turned;
+     between steps it also means the finger visibly travels to the next
+     control rather than vanishing and reappearing somewhere else. The
+     nudge lives on `transform`, so the two never fight. */
+  transition: left .26s ease, top .26s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  #tourHand { transition: none; }
 }
 #tourHand[hidden] { display: none; }
 

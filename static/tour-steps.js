@@ -55,6 +55,44 @@
     return r.width > 2 && r.height > 2;
   }
 
+  /* ---- pointing AT a position on the theme dial ----------------------
+     The dial is not a button that advances a notch per press. It is a
+     rotary control read by ANGLE: wherever you press on its face, the
+     angle from the spindle to your finger is snapped to the nearest of
+     its nine detents. The consequence that catches people out is that
+     the dead centre — the obvious place to press a round thing — does
+     nothing at all, by design.
+
+     So this step cannot point at an element; it has to point at a PLACE
+     on one. The finger walks the arc, detent by detent, showing both
+     where the stops are and that the control turns. The geometry is read
+     from the same CSS custom property the dial itself uses, so the hand
+     cannot drift away from the drawn positions. */
+  var DIAL_STOPS = 9;
+
+  function dialSpot() {
+    var el = document.getElementById("themeLever");
+    if (!el) return null;
+    var r = el.getBoundingClientRect();
+    if (r.width < 8 || r.height < 8) return null;
+
+    var span = parseFloat(getComputedStyle(el).getPropertyValue("--kb-span"));
+    if (!isFinite(span) || span <= 0) span = 75;
+
+    /* One stop every 800ms, left to right and back, so it reads as a knob
+       being turned rather than a cursor jumping about. */
+    var tick = Math.floor(Date.now() / 800) % (DIAL_STOPS * 2 - 2);
+    var i = tick < DIAL_STOPS ? tick : (DIAL_STOPS * 2 - 2) - tick;
+    var deg = -span + i * (span * 2 / (DIAL_STOPS - 1));
+    var rad = deg * Math.PI / 180;
+
+    var radius = r.width * 0.33;
+    return {
+      x: r.left + r.width / 2 + Math.sin(rad) * radius,
+      y: r.top + r.height / 2 - Math.cos(rad) * radius
+    };
+  }
+
   function steps() {
     var w = W();
     return [
@@ -79,29 +117,68 @@
       },
       {
         target: "#themeLever",
+        at: dialSpot,
+        handScale: 0.58,
         avoid: "#stack",
         before: openRail,
-        title: "The theme dial",
-        body: "A rotary switch with five stops rather than a light/dark toggle. Each press " +
-              "steps to the next palette, and the label underneath names where you landed. " +
-              "<b>Auto</b> follows whatever your device is set to.",
+        title: "The theme dial \u2014 turn it, don't press it",
+        body: "This is a rotary dial with <b>nine</b> positions, and it is turned by " +
+              "<b>where</b> you press on its face, not by how many times. Press or drag " +
+              "toward the left of the knob for the light end, the right for the dark end, " +
+              "and straight up for <b>Auto</b>, which follows your device. Pressing the " +
+              "middle does nothing \u2014 there is no angle there to read.",
         action: {
-          hint: "<b>Try it:</b> press the dial and watch the page change.",
-          ok: "The whole site repaints — including this card.",
-          arm: w.click("#themeLever")
+          /* Live, because the whole point of this step is watching the
+             label change as the knob turns. A fixed sentence would be
+             describing something the person is looking straight at. */
+          hint: function () {
+            var readout = document.getElementById("leverReadout");
+            var now = (readout && readout.textContent || "").trim();
+            return "<b>Turn it</b> to the theme you want \u2014 follow the finger around the " +
+                   "face and press where you like it" +
+                   (now ? ". Currently <b>" + now + "</b>" : "") +
+                   ". The tour waits until you settle.";
+          },
+          ok: "Good \u2014 that one is remembered for your next visit.",
+          /* The dial's own position is the honest signal. A click watcher
+             would have passed on a press in the dead centre, which changes
+             nothing \u2014 the tour would have moved on from a step the
+             visitor had not actually managed to do. And settle rather than
+             first-turn, because nine stops means finding the one you like
+             takes a few goes and cutting in at the first would take the
+             choice away. */
+          arm: w.settle(w.attr("#themeLever", "data-mode"), 1700)
         }
       },
       {
         target: "#soundToggle",
+        point: "#soundToggle",
         avoid: "#stack",
         before: openRail,
         title: "Sound",
-        body: "The site answers presses, hovers and typing with small sounds. This is the " +
-              "master switch, and it remembers your choice for next time.",
+        body: "The site answers presses, hovers and typing with small sounds, and reads the " +
+              "terminal out loud. This is the master switch, and it remembers your choice.",
         action: {
-          hint: "<b>Try it:</b> press it once to hear it flip. Press again to put it back.",
-          ok: "Flipped — your choice is saved.",
-          arm: w.event("sfx-mute")
+          /* Ending this step muted would silence the rest of the tour \u2014
+             including the terminal reading itself out two steps later,
+             which is one of the better things on the site. So the task is
+             to flip it AND flip it back, which demonstrates the control
+             and leaves the sound on. */
+          hint: function () {
+            var muted = window.SFX && window.SFX.muted;
+            return muted
+              ? "<b>Now press it again</b> to turn sound back on \u2014 the next steps have " +
+                "something worth hearing."
+              : "<b>Try it:</b> press it once to mute, then again to bring it back.";
+          },
+          ok: "Sound is on \u2014 you will hear the rest of the tour.",
+          arm: function (done) {
+            /* Only finish on the transition back to ON, so the step cannot
+               complete with the site left silent. */
+            var fn = function () { if (window.SFX && !window.SFX.muted) done(); };
+            window.addEventListener("sfx-mute", fn);
+            return function () { window.removeEventListener("sfx-mute", fn); };
+          }
         }
       },
       {
@@ -113,6 +190,7 @@
       },
       {
         target: "#whoamiField",
+        point: "#whoamiField",
         title: "The terminal — this one is real",
         body: "Not decoration. It takes commands, and the first one worth knowing reveals the " +
               "person behind the code. It reads the answer aloud too, if sound is on.",
@@ -131,6 +209,7 @@
       },
       {
         target: "#stack",
+        point: '.nav-item[data-id="projects"] .nav-btn',
         avoid: "#stack",
         before: openRail,
         title: "Now open Projects",
@@ -145,6 +224,7 @@
       },
       {
         target: "#stack",
+        point: '.nav-item[data-id="achievements"] .nav-btn',
         avoid: "#stack",
         before: openRail,
         title: "Achievements",
@@ -158,6 +238,7 @@
       },
       {
         target: "#stack",
+        point: '.nav-item[data-id="tools"] .nav-btn',
         avoid: "#stack",
         before: openRail,
         title: "Tools",
@@ -171,6 +252,7 @@
       },
       {
         target: "#stack",
+        point: '.nav-item[data-id="chat"] .nav-btn',
         avoid: "#stack",
         before: openRail,
         title: "Last one — the chat",
@@ -183,7 +265,43 @@
         }
       },
       {
+        /* Before the robot, because the arena is inert until a name
+           exists \u2014 the gate sits ON the robot and swallows every swing.
+           Without this step the next one reads as broken: the card says
+           "click the robot", the visitor clicks the robot, and the site
+           shakes a label at them instead of taking damage. */
+        target: "#chatNameForm",
+        point: "#chatNameInput",
+        title: "Say who you are",
+        body: "The chat and the arena both need a name to put against what you do. It is " +
+              "not an account and there is no password \u2014 it is only what appears beside " +
+              "your messages and on the leaderboard.",
+        action: {
+          /* Live, because the one way this step can stall is a name
+             somebody else already has. The site says so under the field;
+             a fixed "type a name" sitting above that would be the tour
+             telling you to do the thing you just did. */
+          hint: function () {
+            var err = document.getElementById("chatNameError");
+            if (err && !err.hidden && (err.textContent || "").trim()) {
+              return "<b>That one is taken</b> \u2014 try a different name.";
+            }
+            return "<b>Try it:</b> type a name and press <kbd>Enter</kbd> to join.";
+          },
+          ok: "You are in \u2014 now the robot can be hit.",
+          /* The gate on the robot is the honest signal, and it is already
+             down for anyone who joined on a previous visit, so a returning
+             visitor is carried straight through instead of being asked for
+             a name they have already given. */
+          arm: w.condition(function () {
+            var gate = document.getElementById("robotNameGate");
+            return !!gate && gate.hidden;
+          })
+        }
+      },
+      {
         target: "#robotStage",
+        point: "#robot3dHost",
         title: "T-700V — and the captcha joke",
         body: "A real 3D robot: its head follows your cursor, and it can be hit. This is an " +
               "inverted captcha — you prove you are <i>not</i> a robot by destroying one, and " +

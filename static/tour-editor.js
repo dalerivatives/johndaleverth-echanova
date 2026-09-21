@@ -70,6 +70,10 @@
     return (payload && payload.steps || []).map(function (s) {
       return {
         target: s.target || null,
+        /* Where the pointing hand goes, when that is not the same as the
+           thing being outlined — a strip of tabs is outlined whole, but
+           the hand has to land on one tab. */
+        point: s.point || null,
         title: s.title || "",
         body: s.body || "",
         optional: !!s.optional,

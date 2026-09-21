@@ -98,6 +98,39 @@
         return !!el && el.classList.contains(cls);
       });
     },
+    /* Fires once the inner watcher has gone off AT LEAST once and then
+       stayed quiet for a beat. It is how a step can say "keep going until
+       you are happy" — the theme dial has nine stops, and cycling to the
+       one you actually want takes several presses. Advancing on the first
+       press would cut that off; waiting for a pause lets the person land
+       wherever they like and moves on when they stop. */
+    settle: function (inner, quietMs) {
+      return function (done) {
+        var timer = null;
+        var stop = inner(function () {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(done, quietMs || 1600);
+        });
+        return function () { if (timer) clearTimeout(timer); stop(); };
+      };
+    },
+    /* Fires whenever an attribute CHANGES value — for controls that are
+       not "pressed" so much as "set", where the thing worth waiting for is
+       the new value and not the gesture that produced it. */
+    attr: function (sel, name) {
+      return function (done) {
+        var el = document.querySelector(sel);
+        var last = el ? el.getAttribute(name) : null;
+        var id = setInterval(function () {
+          var now = document.querySelector(sel);
+          if (!now) return;
+          var value = now.getAttribute(name);
+          if (value !== last) { last = value; done(); }
+        }, 150);
+        return function () { clearInterval(id); };
+      };
+    },
+
     section: function (id) {
       return watch.event("portfolio-section-change", function (e) {
         return e && e.detail && e.detail.id === id;
@@ -192,7 +225,7 @@
     if (!open) return;
     var step = steps[index];
     var el = find(step);
-    if (!el) { placeCentred(); return; }
+    if (!el) { placeCentred(); placeHand(step); return; }
 
     var r = el.getBoundingClientRect();
     var top = Math.max(4, r.top - PAD);
@@ -208,30 +241,88 @@
     spot.style.borderRadius = (getComputedStyle(el).borderRadius === "50%" ? "50%" : "14px");
 
     placeCard(top, left, w, h, step);
-    placeHand(top, left, w, h, step);
+    placeHand(step);
   }
 
   /* The hand points at the control from whichever corner has room, and is
      hidden entirely on a step with nothing to press — pointing at a
      paragraph would be noise. */
-  function placeHand(top, left, w, h, step) {
+  /* The fingertip in the SVG sits about 40% across and 15% down its box,
+     so those offsets are what turn "put the hand here" into "point the
+     finger at this pixel". */
+  var TIP_X = 0.40, TIP_Y = 0.15, HAND = 36;
+
+  function placeHand(step) {
     if (!step || !step.action || taskDone) { hand.hidden = true; return; }
+
+    /* A step may ask for a smaller hand. The default is sized for buttons
+       around 44-60px, where the finger sits on the control and the rest of
+       the hand hangs off the edge of it. On something smaller — the theme
+       dial is 38px — a full-size hand blots out the whole control,
+       including the ticks and the pointer the step is asking the visitor to
+       read. Shrinking it there keeps the aim exactly where it was and gives
+       the dial back. */
+    var svg = hand.firstChild;
+    var size = Math.round(HAND * (step.handScale || 1));
+    if (svg && svg.getAttribute("width") !== String(size)) {
+      svg.setAttribute("width", size);
+      svg.setAttribute("height", size);
+    }
+
+    var px, py, r = null;
+
+    /* A step may work out its own pixel, which is the only way to point at
+       something that is not an element: a position ON a control rather
+       than the control itself. The theme dial is the case that needs it —
+       it is turned by WHERE you press on its face, so "press this button"
+       is the wrong instruction and the middle of the knob is the one place
+       that does nothing at all. */
+    if (typeof step.at === "function") {
+      var spot2 = null;
+      try { spot2 = step.at(); } catch (e) {}
+      if (spot2) { px = spot2.x; py = spot2.y; }
+    }
+
+    /* Otherwise: a step may name the exact control to aim at, separately
+       from what it spotlights. They are often not the same thing: "open
+       Projects from the rail" rings the whole rail, because that is the
+       thing being explained, but the finger has to land on the Projects
+       button. A hand hovering over the corner of a large container tells
+       you roughly where to look and nothing about where to press. */
+    if (px === undefined) {
+      var aim = null;
+      if (step.point) aim = document.querySelector(step.point);
+      if (!visible(aim)) aim = find(step);
+      if (!aim) { hand.hidden = true; return; }
+
+      r = aim.getBoundingClientRect();
+
+      /* Aim just inside the lower-right of the control, so the finger is on
+         the thing being pressed while the hand itself hangs off the edge
+         rather than covering it. */
+      px = r.left + r.width * 0.72;
+      py = r.top + r.height * 0.74;
+    }
+
     hand.hidden = false;
-    var hw = 36, hh = 36;
-    var vw = window.innerWidth, vh = window.innerHeight;
-    var x = left + w - 4, y = top + h - 4;          // bottom-right by default
+
+    var x = px - size * TIP_X;
+    var y = py - size * TIP_Y;
     var dir = "br";
-    if (x + hw > vw - 6) { x = left - hw + 4; dir = "bl"; }
-    if (y + hh > vh - 6) { y = top - hh + 4; dir = dir === "bl" ? "tl" : "tr"; }
-    hand.style.left = Math.max(4, x) + "px";
-    hand.style.top = Math.max(4, y) + "px";
+
+    /* Flip to whichever side keeps the whole hand on screen. */
+    var vw = window.innerWidth, vh = window.innerHeight;
+    if (x + size > vw - 6) { x = (r ? r.left + r.width * 0.28 : px) - size * (1 - TIP_X); dir = "bl"; }
+    if (y + size > vh - 6) { y = (r ? r.top + r.height * 0.26 : py) - size * (1 - TIP_Y); dir = dir === "bl" ? "tl" : "tr"; }
+
+    hand.style.left = Math.max(4, Math.min(x, vw - size - 4)) + "px";
+    hand.style.top = Math.max(4, Math.min(y, vh - size - 4)) + "px";
     hand.setAttribute("data-dir", dir);
   }
 
   function placeCentred() {
     spot.classList.add("no-target");
     spot.style.width = spot.style.height = "0px";
-    if (hand) hand.hidden = true;
     card.removeAttribute("data-arrow");
     var cr = card.getBoundingClientRect();
     card.style.top = Math.max(12, (window.innerHeight - cr.height) / 2) + "px";
@@ -341,6 +432,17 @@
      element at 4Hz is nothing; being wrong about where the button is is
      the difference between a tour that works and one that cannot be
      completed. */
+  /* A step whose instruction depends on live state — "you are on Ocean
+     now, keep going" — refreshes its own line while it waits. */
+  function refreshHint() {
+    var step = steps[index];
+    if (!step || !step.action || taskDone) return;
+    if (typeof step.action.hint !== "function") return;
+    var el = overlay.querySelector("#tourTryText");
+    var html = step.action.hint();
+    if (el.innerHTML !== html) el.innerHTML = html;
+  }
+
   function track() {
     untrack();
     var last = null;
@@ -358,7 +460,11 @@
       var now = el ? el.getBoundingClientRect() : null;
       var did = moved(now);
       last = now;
-      if (did) reposition();
+      /* A step that works out its own pixel is usually MOVING that pixel —
+         the dial step walks the finger around the knob's face — so it has
+         to be redrawn on every tick, not only when the element shifts. */
+      if (did || (steps[index] && typeof steps[index].at === "function")) reposition();
+      refreshHint();
       return true;
     }
 
@@ -402,7 +508,8 @@
       skipStep.hidden = false;
       tryStrip.hidden = false;
       tryStrip.classList.remove("done");
-      overlay.querySelector("#tourTryText").innerHTML = step.action.hint;
+      overlay.querySelector("#tourTryText").innerHTML =
+        (typeof step.action.hint === "function") ? step.action.hint() : step.action.hint;
       card.setAttribute("data-task", "");
     } else {
       next.hidden = false;
@@ -461,6 +568,12 @@
     if (i >= steps.length) { stop(false); return; }
 
     disarm();
+    /* The previous step set this when its task was done, which hides the
+       hand. Clearing it here rather than in armStep() matters: armStep runs
+       AFTER the first reposition(), so a step that followed a completed one
+       was drawn with no hand at all and only got one if something on the
+       page happened to move afterwards. */
+    taskDone = false;
     index = i;
     var step = steps[index];
     sfx("tap");
