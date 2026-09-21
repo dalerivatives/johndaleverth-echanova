@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="vendor/fontawesome/all.min.css?v=78">
 <link rel="stylesheet" href="style.css?v=88">
 <link rel="stylesheet" href="editor.css?v=88">
+<link rel="stylesheet" href="tour.css?v=88">
 </head>
 <body class="app editor-body" id="editorBody">
 
@@ -42,6 +43,18 @@
       </div>
       <div class="editor-topbar-actions">
         <a href="index.html" target="_blank" rel="noopener">View site <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+        <!-- The same two controls the public site carries, so the editor
+             sounds and explains itself the same way. The sound switch
+             shares its stored preference with the site: mute in one and
+             you are muted in both. -->
+        <button class="help-btn" id="tourBtn" type="button"
+                aria-label="Take a guided tour of the editor" data-tooltip="Guided tour">
+          <i class="fa-solid fa-question" aria-hidden="true"></i>
+        </button>
+        <button class="sound-toggle" id="soundToggle" type="button" aria-pressed="true"
+                aria-label="Turn sound off" data-tooltip="Sound: on">
+          <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
+        </button>
         <button id="logoutBtn" type="button" class="lock-btn"><i class="fa-solid fa-lock" aria-hidden="true"></i> Lock</button>
       </div>
     </header>
@@ -328,7 +341,12 @@
     </div>
   </div>
 
+<script src="sfx.js?v=88"></script>
 <script src="favicon.js?v=80"></script>
 <script src="editor.js?v=88"></script>
+<script src="uisound.js?v=88"></script>
+<script src="editorsound.js?v=88"></script>
+<script src="tour.js?v=88"></script>
+<script src="tour-editor.js?v=88"></script>
 </body>
 </html>

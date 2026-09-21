@@ -448,17 +448,6 @@
        Gated at two seconds: a burst of chat messages read aloud back to
        back should sound like one machine talking, not like it is rebooting
        between sentences. */
-    vox(){
-      if(!gate("vox", 2000)) return;
-      const j = 0.97 + Math.random()*0.06;
-      tone("sawtooth", 62*j, 96, 0.20, 0.030);            // the servo spinning up
-      ring([                                               // gears meshing
-        [188*j, 0.028, 0.16],
-        [274*j, 0.020, 0.13],
-        [409*j, 0.013, 0.10]
-      ], 0.02);
-      noise(0.13, 0.026, 520*j, 1.1, 0.01, 260);           // the housing settling
-    },
 
     /* ---- THE ROBOT'S OWN MOVING PARTS ------------------------------
        UNIT-01 turns its head to follow the cursor, rolls on rubber
@@ -498,12 +487,6 @@
 
     /* PING — an antenna tip blinking. One clean inharmonic blip with a
        breath of air under it, quiet and far away. */
-    ping(){
-      if(!gate("ping", 900)) return;
-      const j = 0.97 + Math.random()*0.06;
-      ring([[2180*j, 0.016, 0.22], [3290*j, 0.009, 0.16]], 0);
-      noise(0.05, 0.008, 5200, 1.0, 0, 8000, "tail");
-    },
 
     /* BOOT — the robot coming online: power rail winding up, then three
        rising tones and the eyes lighting. Played once when the model
@@ -517,6 +500,28 @@
       tone("triangle", 659, 659, 0.13, 0.042, 0.30);
       tone("triangle", 880, 880, 0.30, 0.048, 0.40);
       ring([[1760, 0.020, 0.40], [2637, 0.013, 0.30]], 0.40);
+    },
+
+    /* SAVE — work has been written down and is safe.
+
+       Deliberately NOT the victory fanfare, and not the plain click
+       either. A save is the quiet, satisfying end of something: two rising
+       notes a fourth apart, a little metal on top so it reads as a latch
+       closing rather than as a notification, and it is over in a third of
+       a second. You should be able to save forty times in a row without
+       once being irritated by it, which rules out anything longer or
+       anything with a tail.
+
+       Gated at 400ms because the editor writes several status lines during
+       one save and they must add up to one sound. */
+    save(){
+      if(!gate("save", 400)) return;
+      const j = 0.99 + Math.random()*0.02;
+      tone("triangle", 587*j, 587*j, 0.085, 0.042);          // D
+      tone("triangle", 784*j, 784*j, 0.20,  0.046, 0.075);   // up to G
+      tone("sine",     392*j, 392*j, 0.20,  0.022, 0.075);   // an octave under
+      ring([[1568*j, 0.016, 0.24], [2350*j, 0.010, 0.17]], 0.075);
+      noise(0.05, 0.012, 3200, 1.1, 0.075, 5200, "tail");
     },
 
     /* HOVER — the cursor or a finger ARRIVING on a control.
@@ -539,11 +544,6 @@
       if(!gate("toggle", 60)) return;
       noise(0.018, 0.034, 2000, 2.4);
       tone("triangle", 520, 1040, 0.09, 0.040);
-    },
-    off(){
-      if(!gate("toggle", 60)) return;
-      noise(0.018, 0.034, 1700, 2.4);
-      tone("triangle", 880, 380, 0.10, 0.038);
     },
 
     /* A section arriving.

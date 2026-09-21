@@ -125,6 +125,7 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
 <link rel="stylesheet" href="vendor/fontawesome/all.min.css?v=78">
 <link rel="stylesheet" href="style.css?v=88" data-boot-critical>
 <link rel="stylesheet" href="profile.css?v=86" data-boot-critical>
+<link rel="stylesheet" href="tour.css?v=88">
 </head>
 <body>
 <div id="bootScreen" role="dialog" aria-modal="true" aria-labelledby="bootBrand" hidden>
@@ -214,6 +215,17 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
                DARK on a device that is already dark, so without this that
                position looks like it does nothing. -->
           <span class="kb-readout" id="leverReadout" aria-hidden="true"></span>
+      </div>
+      <div class="nav-tool nav-tool-help">
+          <!-- Starts the guided tour. It sits with the other two tools for
+               the same reason they are here: this corner is where a visitor
+               already looks when they want the site to explain or change
+               something. It pulses until the tour has been taken once. -->
+          <button class="help-btn" id="tourBtn" type="button"
+                  aria-label="Take a guided tour of this site"
+                  data-tooltip="Guided tour">
+            <i class="fa-solid fa-question" aria-hidden="true"></i>
+          </button>
       </div>
       <div class="nav-tool nav-tool-sound">
           <!-- The master switch for every sound the site makes. -->
@@ -570,10 +582,15 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
 <script src="background.js?v=86"></script>
 <script src="avatar.js?v=70"></script>
 <script src="speech.js?v=86"></script>
-<script src="vendor/three.min.js?v=70"></script>
-<script src="robot3d.js?v=88"></script>
+<!-- three.js and the robot are NOT loaded here. They are 670KB serving one
+     page, and the browser keeps its tab spinner up until the load event —
+     so listing them here charged every visitor that download in spinner
+     time, including everyone who never opens the chat. script.js fetches
+     them the first time the chat view is actually opened. -->
 <script src="favicon.js?v=80"></script>
 <script src="script.js?v=88" data-boot-critical></script>
 <script src="uisound.js?v=70"></script>
+<script src="tour.js?v=88"></script>
+<script src="tour-steps.js?v=88"></script>
 </body>
 </html>

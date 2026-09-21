@@ -211,6 +211,13 @@ function renderStack(){
    wrap.append(btn,label); stack.appendChild(wrap);
  });
 }
+/* The tour needs to change section without simulating clicks on a rail it
+   has to guess the shape of. This is the only thing exposed globally from
+   this file, and it is the same call the rail itself makes. */
+window.PortfolioNav = {
+  activate: function(id){ try{ activate(id); }catch(e){} }
+};
+
 /* Clean section URLs. The portfolio remains a fast single-page interface,
    but every section now has a real address that can be refreshed, bookmarked
    or shared without exposing index.html. */
@@ -2552,21 +2559,67 @@ if(osLight){
     new MutationObserver(push).observe(statusEl, {childList:true, characterData:true, subtree:true});
   }
 
-  /* The 3D robot is only mounted when the Chat page is actually opened —
-     no reason to spin up WebGL for someone who never visits it. */
-  function ensure3d(){
-    if(use3d || !host3d) return;
+  /* ---- the 3D robot, fetched only when it is actually needed ----------
+     three.js is 670KB and the robot lives on ONE page. Loading it in the
+     document's script list meant every visitor downloaded it before the
+     page could finish loading — including everyone who never opened the
+     chat — and the browser holds its tab spinner up until the load event,
+     so those 670KB were being paid for in spinner time on every page.
+
+     Fetched here instead, the first time the chat view is opened. The
+     scripts are appended in order and `async=false` keeps them executing
+     in order, which matters: robot3d.js expects THREE to exist.
+
+     The version query is read off an existing tag rather than hard-coded,
+     so these stay in step with the cache-busting fingerprint the backend
+     stamps on everything else. */
+  let loading3d = false;
+
+  function assetVersion(){
+    const tag = document.querySelector('script[src*="script.js?v="]');
+    const match = tag && tag.getAttribute("src").match(/\?v=([^&"]+)/);
+    return match ? match[1] : "";
+  }
+
+  function loadScript(src){
+    return new Promise((resolve, reject) => {
+      const el = document.createElement("script");
+      el.src = src;
+      el.async = false;              // preserve execution order
+      el.onload = () => resolve();
+      el.onerror = () => reject(new Error("failed to load " + src));
+      document.body.appendChild(el);
+    });
+  }
+
+  function noWebGL(){
+    // No WebGL (old device, disabled, software renderer refused), or the
+    // scripts could not be fetched — show the flat robot, not an empty box.
+    if(fallbackBody) fallbackBody.hidden = false;
+    arena.classList.add("no-3d");
+  }
+
+  function mount3d(){
     if(window.Robot3D && window.Robot3D.mount(host3d)){
       use3d = true;
       if(fallbackBody) fallbackBody.hidden = true;
       window.Robot3D.setHealth(shownHp);
       mirrorStatusToChest();
     }else{
-      // No WebGL (old device, disabled, software renderer refused) — show
-      // the flat robot instead of an empty box.
-      if(fallbackBody) fallbackBody.hidden = false;
-      arena.classList.add("no-3d");
+      noWebGL();
     }
+  }
+
+  function ensure3d(){
+    if(use3d || !host3d || loading3d) return;
+    if(window.Robot3D){ mount3d(); return; }   // already fetched earlier
+    loading3d = true;
+    const v = assetVersion();
+    const q = v ? "?v=" + v : "";
+    loadScript("vendor/three.min.js" + q)
+      .then(() => loadScript("robot3d.js" + q))
+      .then(() => { loading3d = false; mount3d(); })
+      .catch(() => { loading3d = false; noWebGL(); });
   }
 
   document.addEventListener("visibilitychange", ()=>{

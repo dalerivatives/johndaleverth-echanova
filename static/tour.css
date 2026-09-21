@@ -1,0 +1,213 @@
+/* ============================================================
+   THE GUIDED TOUR
+   ------------------------------------------------------------
+   A spotlight over one control at a time, with a card explaining it.
+
+   The spotlight is ONE element with an enormous spread shadow, not four
+   divs fenced around a hole. The shadow approach dims everything outside
+   the ring with a single compositor layer and moves by changing four
+   numbers, so stepping from one target to the next animates instead of
+   re-laying-out the page. Four panels have to be resized in concert and
+   show seams on fractional pixels.
+
+   Everything here is painted in the site's own custom properties, so the
+   tour follows the theme dial like the rest of the page rather than
+   being a white box bolted on top.
+   ============================================================ */
+
+#tourOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: none;
+}
+#tourOverlay.open { display: block; }
+
+/* The lit ring. Pointer events pass through it so the control underneath
+   stays usable — a tour that disables the thing it is describing teaches
+   nothing. */
+#tourSpot {
+  position: fixed;
+  border-radius: 14px;
+  box-shadow: 0 0 0 9999px rgba(3, 7, 14, 0.72),
+              0 0 0 2px var(--accent, #4dff91),
+              0 0 22px 4px rgba(77, 255, 145, 0.25);
+  pointer-events: none;
+  transition: top .34s cubic-bezier(.4,0,.2,1), left .34s cubic-bezier(.4,0,.2,1),
+              width .34s cubic-bezier(.4,0,.2,1), height .34s cubic-bezier(.4,0,.2,1),
+              border-radius .34s ease;
+}
+/* A step with nothing to point at (the welcome, the sign-off) dims the
+   whole page instead of ringing a random corner of it. */
+#tourSpot.no-target {
+  top: 50%; left: 50%; width: 0; height: 0;
+  box-shadow: 0 0 0 9999px rgba(3, 7, 14, 0.82);
+}
+
+/* The card. Fixed, because the spotlight is fixed and the two must not
+   drift apart when the page scrolls under them. */
+#tourCard {
+  position: fixed;
+  width: min(380px, calc(100vw - 32px));
+  background: var(--panel2, #0d1620);
+  color: var(--text, #e8f0f7);
+  border: 1px solid var(--line, #24323f);
+  border-radius: 14px;
+  padding: 16px 18px 14px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .55);
+  font: 14px/1.6 Inter, ui-sans-serif, system-ui, sans-serif;
+  transition: top .34s cubic-bezier(.4,0,.2,1), left .34s cubic-bezier(.4,0,.2,1);
+}
+
+#tourCard .tour-step-count {
+  font: 600 11px/1 ui-monospace, Menlo, Consolas, monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--accent, #4dff91);
+  display: block;
+  margin-bottom: 7px;
+}
+#tourCard h3 {
+  margin: 0 0 6px;
+  font: 600 17px/1.3 Inter, ui-sans-serif, system-ui, sans-serif;
+  color: var(--text, #e8f0f7);
+}
+#tourCard p {
+  margin: 0;
+  color: var(--muted, #93a4b3);
+}
+#tourCard kbd {
+  font: 600 11px/1 ui-monospace, Menlo, Consolas, monospace;
+  border: 1px solid var(--line, #24323f);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 2px 5px;
+  color: var(--text, #e8f0f7);
+  background: var(--card-bg, #0a121b);
+  white-space: nowrap;
+}
+
+/* Progress: one pip per step, so how much is left is visible at a glance
+   rather than only readable as "4 of 11". */
+.tour-pips {
+  display: flex;
+  gap: 4px;
+  margin: 13px 0 11px;
+  flex-wrap: wrap;
+}
+.tour-pips i {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line, #24323f);
+  transition: background .2s;
+}
+.tour-pips i.done { background: var(--accent, #4dff91); opacity: .45; }
+.tour-pips i.now  { background: var(--accent, #4dff91); }
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tour-actions .tour-spacer { flex: 1; }
+.tour-actions button {
+  font: 600 13px/1 Inter, ui-sans-serif, system-ui, sans-serif;
+  border-radius: 9px;
+  padding: 9px 14px;
+  cursor: pointer;
+  border: 1px solid var(--line, #24323f);
+  background: transparent;
+  color: var(--muted, #93a4b3);
+  transition: .18s;
+}
+.tour-actions button:hover { color: var(--text, #e8f0f7); border-color: var(--accent, #4dff91); }
+.tour-actions button.primary {
+  background: var(--accent, #4dff91);
+  border-color: var(--accent, #4dff91);
+  color: var(--bg, #05080b);
+}
+.tour-actions button.primary:hover { filter: brightness(1.08); }
+.tour-actions button.ghost { border-color: transparent; padding-left: 4px; padding-right: 4px; }
+
+/* The little pointer from the card toward what it is describing. Hidden
+   when the card has been centred, where it would aim at nothing. */
+#tourCard::after {
+  content: "";
+  position: absolute;
+  width: 11px; height: 11px;
+  background: var(--panel2, #0d1620);
+  border: 1px solid var(--line, #24323f);
+  transform: rotate(45deg);
+  display: none;
+}
+#tourCard[data-arrow="up"]::after    { display:block; top:-6.5px;    left:26px; border-right:0; border-bottom:0; }
+#tourCard[data-arrow="down"]::after  { display:block; bottom:-6.5px; left:26px; border-left:0;  border-top:0; }
+#tourCard[data-arrow="left"]::after  { display:block; left:-6.5px;   top:26px;  border-right:0; border-top:0; }
+#tourCard[data-arrow="right"]::after { display:block; right:-6.5px;  top:26px;  border-left:0;  border-bottom:0; }
+
+/* The help button that starts it, docked with the theme dial and the
+   sound switch — the one corner of the page people already look at when
+   they want the site to do something. */
+/* The help button exists on both pages and only ever appears where this
+   stylesheet is loaded, so its base styling lives here rather than being
+   duplicated into two other files. */
+.help-btn {
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line, #24323f);
+  background: var(--panel2, #0d1620);
+  color: var(--muted, #93a4b3);
+  cursor: pointer;
+  font-size: 14px;
+  transition: .2s;
+}
+.help-btn:hover {
+  color: var(--accent, #4dff91);
+  border-color: var(--accent, #4dff91);
+  transform: translateY(-1px);
+}
+/* A single quiet nudge for a first-time visitor: the button breathes until
+   the tour has been taken once, then never again. */
+.help-btn.unseen { animation: tour-nudge 2.6s ease-in-out infinite; }
+@keyframes tour-nudge {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(77,255,145,.36); }
+  55%      { box-shadow: 0 0 0 7px rgba(77,255,145,0); }
+}
+
+@media (max-width: 720px) {
+  #tourCard { width: calc(100vw - 24px); left: 12px !important; }
+  #tourCard::after { display: none !important; }
+  .tour-actions button { padding: 10px 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #tourSpot, #tourCard { transition: none; }
+  .help-btn.unseen { animation: none; }
+}
+
+/* ---- the editor's copies of the two shared controls -------------------
+   style.css dresses these on the public site, and the editor does not load
+   style.css. Scoped to the editor's topbar so nothing here can reach the
+   versions in the site's navigation rail. */
+.editor-topbar-actions .help-btn,
+.editor-topbar-actions .sound-toggle {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line, #24323f);
+  background: var(--panel2, #0d1620);
+  color: var(--muted, #93a4b3);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+  transition: .2s;
+}
+.editor-topbar-actions .help-btn:hover,
+.editor-topbar-actions .sound-toggle:hover {
+  color: var(--accent, #4dff91);
+  border-color: var(--accent, #4dff91);
+}
+.editor-topbar-actions .sound-toggle.off { color: var(--muted, #93a4b3); opacity: .6; }
+.editor-topbar-actions .help-btn[hidden] { display: none; }

@@ -33,12 +33,23 @@ async function loadWav(text,profile){
     const timer=setTimeout(()=>controller.abort(),25000);
     try{
       const normalized=canonical(text);
+      /* MP3, not WAV. These three are pre-rendered speech shipped with the
+         site, and as WAV they were 516KB of uncompressed PCM — more than
+         every script on the page combined. At 56kbps mono they are 83KB and
+         measure at 0.998 correlation against the originals, which is well
+         past the point where anyone could hear a difference in a robot
+         voice. decodeAudioData handles MP3 in every browser that can run
+         the Web Audio API at all, so nothing else had to change.
+
+         Speech generated on demand for arbitrary text still comes back from
+         /api/speech as WAV; there is nothing to gain by compressing
+         something that is produced once and thrown away. */
       const staticUrl=/^code transform[.!]?$/i.test(normalized)
-        ? '/assets/code-transform.wav?v=83'
+        ? '/assets/code-transform.mp3?v=106'
         : text==='Welcome to my world!'
-        ? '/assets/whoami-robot.wav?v=80'
+        ? '/assets/whoami-robot.mp3?v=106'
         : (profile==='narration' && normalized===DEFAULT_TERMINAL
-          ? '/assets/voice-preview.wav?v=80' : '');
+          ? '/assets/voice-preview.mp3?v=106' : '');
       const response=staticUrl
         ? await fetch(staticUrl,{signal:controller.signal})
         : await fetch('/api/speech',{

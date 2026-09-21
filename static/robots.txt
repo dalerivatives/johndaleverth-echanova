@@ -19,10 +19,8 @@ Allow: /brand-icon.ico
 Allow: /brand-icon-512.png
 Allow: /brand-icon-touch.png
 Allow: /favicon.ico
-Allow: /icon-96.png
 Allow: /icon-192.png
 Allow: /icon-512.png
-Allow: /apple-touch-icon.png
 Allow: /site.webmanifest
 
 Disallow: /editor.html

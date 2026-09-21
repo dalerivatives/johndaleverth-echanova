@@ -1,4 +1,4 @@
-# Portfolio v104 — what changed
+# Portfolio v107 — what changed
 
 ## 1. The robot is now the Travelade EXPLORER-BOT T-700V
 
@@ -734,6 +734,164 @@ you see is measured in seconds rather than a flicker, check that the workflow
 is enabled and actually succeeding in the repo's Actions tab — a sleeping
 service produces exactly this symptom, and no amount of favicon work will
 touch it.
+
+### v105: that is Chrome's loading spinner, not a missing icon
+
+The screenshot finally made it clear. The mark at the left of the tab is not
+an empty favicon — it is **Chrome's loading spinner**, which Chrome draws in
+the favicon's place for as long as a page is loading. Every site does this.
+Open github.com or google.com and press refresh: the same spinner, in the
+same spot, for the same reason.
+
+It cannot be turned off. There is no header, meta tag or favicon trick that
+suppresses it, because it is the browser's own UI reporting the state of the
+navigation. What a site controls is how long it is on screen: **the spinner
+stops at the page's `load` event**.
+
+So the question stops being "how do I keep the icon visible" and becomes
+"what is holding the load event open". Measured:
+
+```
+time to first byte              33 ms
+DOMContentLoaded               359 ms
+load event (SPINNER STOPS)     400 ms
+```
+
+And the biggest single item in that window was **three.js — 654KB, plus the
+45KB robot — loading on every page**, when the robot appears on exactly one
+of them. Everyone who never opened the chat was downloading 699KB before
+their tab could stop spinning.
+
+Both are now fetched the first time the chat view is actually opened, not
+before. Verified: on the home page `THREE` and `Robot3D` are `undefined` and
+neither file is requested; on the chat page both load in order, the robot
+mounts, the WebGL canvas appears and the flat fallback stays hidden. The
+scripts are appended with `async = false` so they still execute in order —
+`robot3d.js` needs `THREE` to exist before it runs.
+
+On a fast local connection this moves the load event from 438ms to 400ms,
+which sounds like nothing. On a phone on mobile data, 699KB is the
+difference between a spinner that blinks and one that sits there for
+seconds.
+
+**If the spinner still runs for seconds after this**, the remaining cause is
+the server taking that long to answer, which on a free-tier host means it
+had gone to sleep. `.github/workflows/keep-awake.yml` exists to prevent
+exactly that — worth confirming it is enabled and passing in the repo's
+Actions tab.
+
+### v106: sound in the editor, and a guided tour on both pages
+
+**The editor now sounds like the site.** `sfx.js` and `uisound.js` are
+loaded there, so presses, hovers, keyboard activation and typing all work
+exactly as they do on the portfolio, and the sound switch in the editor's
+topbar shares its stored preference with the public site — mute in one and
+you are muted in both.
+
+On top of that, `editorsound.js` covers the events that only exist here.
+Each is worth hearing because it happens at the END of something you asked
+for, when your eyes are likely somewhere else on the form:
+
+| What happens | What you hear |
+|---|---|
+| A save, an upload or a removal completes | a new `save()` voice — two rising notes and a small metallic latch |
+| A save fails, or the admin key is wrong | `error` |
+| The editor unlocks | `join` |
+| Switching between the five panes | `reveal` |
+| A social link, discovery or track row added / removed | `open` / `close` |
+| Pressing anything destructive | `error`, on the press — the confirm dialog blocks the thread, so a sound fired after it would arrive long after the decision |
+
+All of it is wired by **observing** the interface rather than by editing the
+twenty-odd functions that produce these outcomes. A save path added later is
+covered the day it is written, and no existing function grew a line of audio
+bookkeeping.
+
+One thing that had to be solved to make that work: rendering also changes
+the interface. Opening the Settings tab fills three lists and writes two
+status lines, and the first version announced five events nobody caused —
+two saves and three rows added, just for clicking a tab. There is now a
+short quiet period after any render. A person cannot save, add a row and
+delete something within 900ms of switching tabs; a browser paints all of it
+in twenty. That gap is what separates a real action from a repaint.
+
+**A guided tour, on both pages.** A `?` button — in the navigation rail
+beside the theme dial and the sound switch on the site, in the topbar on the
+editor. It spotlights one control at a time with a card explaining it:
+14 steps for the portfolio, 9 for the editor.
+
+- <kbd>←</kbd> <kbd>→</kbd> to move, <kbd>Esc</kbd> to leave, or click the
+  dimmed area.
+- Steps that live on another section navigate there first, using the site's
+  own router, and wait for the transition before measuring anything.
+- **A step whose control is not on the page is skipped, not shown ringing
+  empty space.** The resume button only exists once a CV is uploaded; the
+  leaderboard only once someone has played. Verified: on a fresh database
+  both dropped out of the run silently.
+- The spotlight does not block clicks, so the control being described stays
+  usable while you read about it.
+- It is never shown uninvited. The button pulses until the tour has been
+  taken once, then stops.
+
+Verified end to end: all 14 portfolio steps walked with the keyboard through
+four view changes and back, all 9 editor steps behind the login gate, and on
+a 390px phone viewport the card stayed fully inside the screen at every step.
+
+One flaw the test caught and fixed: a step that switched view left the card
+showing the PREVIOUS step's title for about half a second while the
+transition settled. The words are now painted before navigation runs, so
+only the ring has to catch up.
+
+### v107: 485KB lighter, and three voices nothing ever called
+
+An audit first, the same way as last time. Every file under `static/` is
+referenced by something — no orphans. What there was:
+
+**The three shipped speech clips were uncompressed WAV.** 516KB of raw PCM,
+more than every script on the page put together, for 12 seconds of audio.
+They are now MP3 at 56kbps mono: **83KB**, a 432KB saving.
+
+Not taken on faith — each was decoded back to PCM and correlated against the
+original:
+
+| clip | WAV | MP3 | correlation | duration |
+|---|---|---|---|---|
+| code-transform | 51KB | 8KB | 0.9932 | 1.20s → 1.20s |
+| whoami-robot | 67KB | 11KB | 0.9985 | 1.57s → 1.57s |
+| voice-preview | 397KB | 63KB | 0.9977 | 9.22s → 9.22s |
+
+0.998 is far past anything audible in a robot voice. `decodeAudioData`
+handles MP3 in every browser that can run the Web Audio API, so only three
+URLs changed — and all three were then decoded in a real browser to confirm
+they come back at exactly their original lengths. Speech generated on demand
+for arbitrary text still returns WAV; there is nothing to gain by
+compressing something made once and thrown away.
+
+**Two icon files were duplicates of a third.** `apple-touch-icon.png` (38KB)
+and `icon-96.png` (15KB) were both the same portrait at a different size, and
+the icon route already falls back through a chain. Deleting the files costs
+nothing: `/apple-touch-icon.png` now serves the 192 PNG, which is what every
+device does with a 180 slot anyway. The *path* stays, because iOS asks for it
+by name whether or not a page declares it. `/icon-96.png` was a route nothing
+linked to and nothing probes by convention, so that one is gone entirely.
+
+**Three sound voices had never been called.** `vox()` was written for a robot
+speech intro that was replaced; `ping()` was added for the old robot's
+antennae and never wired to anything; `off()` was the counterpart to `on()`
+in the mute switch, except muting is deliberately silent — so it was
+unreachable by design. 22 lines removed, and every remaining voice verified
+still present.
+
+What was examined and deliberately left alone: the portrait is already
+losslessly compressed and 883px is the floor for a 3x phone at its displayed
+size; `icon-512.png` resists palette compression because of its alpha and is
+what Android uses for the install splash; `check_db.py` is unreferenced by
+the app but is a database inspection tool, and database state is the thing
+that keeps biting this deployment.
+
+Re-verified after all of it: every icon URL returns a round image, all three
+clips decode to their exact original durations, both tours walk end to end,
+the editor's sounds fire on the right events and nothing else, and the robot
+still mounts on the chat page.
 
 ### What you still have to do yourself
 

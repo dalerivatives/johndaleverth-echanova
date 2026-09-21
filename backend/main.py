@@ -2166,11 +2166,14 @@ def serve_editor(db: Session = Depends(get_db)):
 # at /favicon.ico is correct in any case: browsers and crawlers go by
 # Content-Type, not by the extension in the URL.
 _ICON_FALLBACKS = {
-    "/favicon.ico":          ["favicon.ico", "icon-192.png", "icon-96.png", "icon-512.png"],
-    "/icon-96.png":          ["icon-96.png", "icon-192.png", "icon-512.png", "favicon.ico"],
-    "/icon-192.png":         ["icon-192.png", "icon-512.png", "icon-96.png", "favicon.ico"],
-    "/icon-512.png":         ["icon-512.png", "icon-192.png", "icon-96.png", "favicon.ico"],
-    "/apple-touch-icon.png": ["apple-touch-icon.png", "icon-192.png", "icon-512.png", "favicon.ico"],
+    "/favicon.ico":          ["favicon.ico", "icon-192.png", "icon-512.png"],
+    "/icon-192.png":         ["icon-192.png", "icon-512.png", "favicon.ico"],
+    "/icon-512.png":         ["icon-512.png", "icon-192.png", "favicon.ico"],
+    # No apple-touch-icon.png file is shipped any more: a 192 PNG serving a
+    # 180 slot is what every device does with it anyway, and the file was
+    # 38KB of duplicate portrait. The PATH stays because iOS asks for it by
+    # name whether or not a page declares it.
+    "/apple-touch-icon.png": ["icon-192.png", "icon-512.png", "favicon.ico"],
 
     # ---- the paths the HTML actually points at --------------------------
     # These exist because /favicon.ico could not be rescued from the server
@@ -2184,10 +2187,10 @@ _ICON_FALLBACKS = {
     # code. They are permanent, not throwaway cache-busters: a favicon URL
     # that changes on every deploy makes a search engine re-crawl it every
     # time, and Google explicitly wants a stable one.
-    "/brand-icon.png":       ["icon-192.png", "icon-512.png", "icon-96.png", "favicon.ico"],
-    "/brand-icon-512.png":   ["icon-512.png", "icon-192.png", "icon-96.png", "favicon.ico"],
-    "/brand-icon-touch.png": ["apple-touch-icon.png", "icon-192.png", "icon-512.png", "favicon.ico"],
-    "/brand-icon.ico":       ["favicon.ico", "icon-192.png", "icon-96.png", "icon-512.png"],
+    "/brand-icon.png":       ["icon-192.png", "icon-512.png", "favicon.ico"],
+    "/brand-icon-512.png":   ["icon-512.png", "icon-192.png", "favicon.ico"],
+    "/brand-icon-touch.png": ["icon-192.png", "icon-512.png", "favicon.ico"],
+    "/brand-icon.ico":       ["favicon.ico", "icon-192.png", "icon-512.png"],
 }
 
 _ICON_MIME = {".ico": "image/x-icon", ".png": "image/png",
@@ -2294,7 +2297,7 @@ def _inline_icon(db: Session, version: str) -> str:
     if stored:
         data = _rounded_stored(*stored)[0]
     else:
-        for name in ("icon-192.png", "icon-512.png", "icon-96.png", "favicon.ico"):
+        for name in ("icon-192.png", "icon-512.png", "favicon.ico"):
             f = STATIC_DIR / name
             if f.is_file():
                 try:
@@ -2437,11 +2440,6 @@ def _serve_icon(path: str, db: Session, versioned: bool = False) -> Response:
 @app.get("/favicon.ico", include_in_schema=False)
 def serve_favicon_ico(v: str = "", db: Session = Depends(get_db)):
     return _serve_icon("/favicon.ico", db, versioned=bool(v))
-
-
-@app.get("/icon-96.png", include_in_schema=False)
-def serve_icon_96(v: str = "", db: Session = Depends(get_db)):
-    return _serve_icon("/icon-96.png", db, versioned=bool(v))
 
 
 @app.get("/icon-192.png", include_in_schema=False)
