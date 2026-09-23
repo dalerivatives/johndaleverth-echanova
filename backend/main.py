@@ -2404,14 +2404,21 @@ def _icon_version(db: Session) -> str:
     if stored:
         version = hashlib.sha256(stored[0]).hexdigest()[:12]
     else:
-        # No upload: the bundled files decide, so fingerprint those instead.
-        parts = []
+        # No upload: the bundled files decide, so fingerprint their CONTENTS.
+        # This used to hash mtimes, and a deploy (a fresh git checkout)
+        # resets every mtime — so the icon URL changed on each deploy even
+        # when the picture had not, and Google wants a stable favicon URL.
+        h = hashlib.sha256()
+        found = False
         for name in ("favicon.ico", "icon-192.png", "icon-512.png"):
             f = STATIC_DIR / name
-            if f.is_file():
-                st = f.stat()
-                parts.append(f"{name}:{st.st_mtime_ns}:{st.st_size}")
-        version = hashlib.sha256("|".join(parts).encode()).hexdigest()[:12] if parts else "bundled"
+            try:
+                if f.is_file():
+                    h.update(name.encode() + b"\0" + f.read_bytes())
+                    found = True
+            except OSError:
+                pass
+        version = h.hexdigest()[:12] if found else "bundled"
     if len(_ICON_VERSION_CACHE) > 8:
         _ICON_VERSION_CACHE.clear()
     _ICON_VERSION_CACHE[key] = version
@@ -2466,11 +2473,66 @@ def _rounded_stored(data: bytes, mime: str) -> tuple[bytes, str]:
     return result
 
 
+# The size each icon URL promises, so the file matches its own declaration.
+#
+# An uploaded icon used to be served at 512x512 from EVERY one of these
+# paths — /brand-icon.png (declared 192x192 in the head), the 180x180
+# apple-touch slot, and /favicon.ico, which then held a 512px PNG under an
+# .ico name. Browsers and Google cope with that, but a file that disagrees
+# with its own <link sizes> is one more thing that can go wrong for no gain.
+# "ico" means a real multi-resolution ICO (16/32/48), which is what anything
+# probing /favicon.ico by convention expects to receive.
+_ICON_TARGET = {
+    "/favicon.ico":          "ico",
+    "/brand-icon.ico":       "ico",
+    "/icon-192.png":         192,
+    "/brand-icon.png":       192,
+    "/apple-touch-icon.png": 180,
+    "/brand-icon-touch.png": 180,
+    "/icon-512.png":         512,
+    "/brand-icon-512.png":   512,
+}
+
+_SIZED_CACHE: dict[tuple[str, object], tuple[bytes, str]] = {}
+
+
+def _sized_icon(data: bytes, mime: str, target) -> tuple[bytes, str]:
+    """`data` resized to `target` (a pixel size, or "ico"). Falls back to the
+    input unchanged if Pillow is missing or the image can't be decoded — a
+    wrong-sized icon is better than no icon."""
+    if not target or iconify is None or not iconify.available():
+        return data, mime
+    key = (hashlib.sha256(data).hexdigest(), target)
+    hit = _SIZED_CACHE.get(key)
+    if hit is not None:
+        return hit
+    result = (data, mime)
+    try:
+        from PIL import Image
+        import io as _io
+        im = Image.open(_io.BytesIO(data))
+        im.load()
+        im = im.convert("RGBA")
+        buf = _io.BytesIO()
+        if target == "ico":
+            im.save(buf, format="ICO", sizes=[(16, 16), (32, 32), (48, 48)])
+            result = (buf.getvalue(), "image/x-icon")
+        elif im.size != (target, target):
+            im.resize((target, target), Image.LANCZOS).save(buf, format="PNG", optimize=True)
+            result = (buf.getvalue(), "image/png")
+    except Exception:
+        result = (data, mime)
+    if len(_SIZED_CACHE) > 32:
+        _SIZED_CACHE.clear()
+    _SIZED_CACHE[key] = result
+    return result
+
+
 def _serve_icon(path: str, db: Session, versioned: bool = False) -> Response:
     cache = _ICON_IMMUTABLE_CACHE if versioned else _ICON_HIT_CACHE
     stored = _stored_icon(db)
     if stored:
-        data, stored_mime = _rounded_stored(*stored)
+        data, stored_mime = _sized_icon(*_rounded_stored(*stored), _ICON_TARGET.get(path))
         return Response(data, media_type=stored_mime,
                         headers={"Cache-Control": cache})
 

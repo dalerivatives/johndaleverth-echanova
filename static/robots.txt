@@ -1,20 +1,30 @@
 # Search engines: index the portfolio, stay out of the editor and the API.
-User-agent: *
-Allow: /
+#
+# FORMAT RULES — both have bitten this file before:
+#
+# 1. No blank lines INSIDE a group. The original robots.txt standard (and
+#    many non-Google crawlers) treat a blank line as the end of a group, so
+#    any Allow/Disallow after one is silently dropped. Comments are fine;
+#    empty lines are not. Blank lines only go BETWEEN groups.
+#
+# 2. No "Allow: /". Everything is allowed by default. A crawler that applies
+#    the FIRST matching rule (instead of Google's longest match) stops at
+#    "Allow: /" and never sees the Disallows.
+#
+# A crawler obeys ONLY the most specific group that names it and ignores
+# "User-agent: *" once it has its own group — so the Googlebot groups below
+# repeat the editor/API blocks, or Googlebot would be free to crawl them.
+#
+# Allowed paths, and why:
+# - /api/health*: uptime monitors honour robots.txt, and a blanket
+#   "Disallow: /api/" would quietly stop the keep-alive pings.
+# - The icon files: Google won't show a favicon in search results for a URL
+#   it isn't allowed to fetch — that is how a site ends up with the grey globe.
 
-# The health endpoints are carved out BEFORE the /api/ block below, and the
-# order matters. Plenty of uptime monitors fetch robots.txt and honour it, so
-# a blanket "Disallow: /api/" quietly stops them pinging — the keep-alive
-# never fires, the service sleeps, and the monitor reports nothing wrong
-# because it never made a request in the first place. These three paths
-# expose nothing but a status line.
+User-agent: *
 Allow: /api/health
 Allow: /api/health/db
 Allow: /api/health/awake
-
-# The icons, explicitly. Google will not show a favicon in search results
-# for a URL it is not allowed to fetch, and a blanket Disallow one line
-# further down is exactly how a site ends up with the grey globe.
 Allow: /brand-icon.png
 Allow: /brand-icon.ico
 Allow: /brand-icon-512.png
@@ -23,10 +33,25 @@ Allow: /favicon.ico
 Allow: /icon-192.png
 Allow: /icon-512.png
 Allow: /site.webmanifest
-
 Disallow: /editor.html
 Disallow: /api/
 
-# Replace example.com with your real deployed address so search engines can
-# find the sitemap (it must be an absolute URL).
+# Allow favicon access
+User-agent: Googlebot
+Allow: /favicon.ico
+Allow: /brand-icon.png
+Allow: /brand-icon-512.png
+Allow: /api/health
+Disallow: /editor.html
+Disallow: /api/
+
+User-agent: Googlebot-Image
+Allow: /favicon.ico
+Allow: /brand-icon.png
+Allow: /brand-icon-512.png
+Disallow: /editor.html
+Disallow: /api/
+
+# The server swaps example.com for your real address when it serves this
+# file, so the sitemap line is always an absolute URL on the live site.
 Sitemap: https://example.com/sitemap.xml
