@@ -75,26 +75,6 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
      can't fetch the image.
      ============================================================ -->
 <link rel="canonical" href="https://example.com/">
-
-<!-- NO PHOTO THUMBNAIL BESIDE THE SEARCH RESULT.
-     `max-image-preview:none` is Google's documented control for this: "No
-     image preview is to be shown." It is what removes the large picture that
-     was appearing to the RIGHT of the result. It is page-level, so it lives
-     here and nowhere else.
-
-     It does NOT touch the favicon. The little circle beside the domain is
-     filled from `<link rel="icon">` and is a different slot entirely; this
-     tag is only about the big preview image.
-
-     og:image below is deliberately LEFT IN PLACE. Facebook, LinkedIn,
-     Messenger, Twitter/X and Discord read Open Graph and ignore Google's
-     robots directives, so sharing the link anywhere still produces a proper
-     card with a picture. Only Google Search results go plain.
-
-     The trade-off, stated honestly: this also keeps the page's images out of
-     image previews generally. To put the thumbnail back, delete this one
-     line and request indexing again. -->
-<meta name="robots" content="index, follow, max-image-preview:none">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Trevelade — Johndaleverth Echanova">
 <meta property="og:title" content="Engr. Johndaleverth Pastorfide Echanova — Computer Engineer &amp; Full-Stack Developer">
