@@ -1,0 +1,68 @@
+# ---------------------------------------------------------------------------
+# STOPPING GITHUB FROM SWITCHING THE PING OFF
+#
+# In a PUBLIC repository, GitHub automatically disables scheduled workflows
+# after 60 days with no repository activity. It does this silently: the file
+# stays exactly where it is, the schedule still looks right, and nothing runs.
+# That failure mode is invisible until someone notices the site is slow again
+# months later.
+#
+# So once a month this checks how long it has been since the last commit and,
+# only if that is getting close to the limit, pushes one empty commit to reset
+# the clock. A repository that is being worked on normally never triggers it
+# and gets no extra history at all.
+# ---------------------------------------------------------------------------
+name: keep-actions-enabled
+
+on:
+  schedule:
+    # 06:17 UTC on the 1st and the 15th. Twice a month, so a single skipped
+    # run (GitHub makes no timing guarantees) cannot let the clock run out.
+    - cron: '17 6 1,15 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-actions-enabled
+  cancel-in-progress: false
+
+jobs:
+  touch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Reset the inactivity clock if it is running down
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LAST=$(git log -1 --format=%ct)
+          NOW=$(date +%s)
+          DAYS=$(( (NOW - LAST) / 86400 ))
+          echo "Last commit was ${DAYS} day(s) ago. GitHub disables schedules at 60."
+
+          # 45 leaves a fortnight of margin, which is two more chances for
+          # this job to run even if one is skipped entirely.
+          if [ "$DAYS" -lt 45 ]; then
+            echo "Repository is active. Nothing to do."
+            exit 0
+          fi
+
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          # Built in a variable rather than inline, so the day count is the
+          # only thing being substituted and the quoting cannot go wrong.
+          MESSAGE=$(printf '%s\n\n%s\n' \
+            'chore: keep scheduled workflows enabled' \
+            "Empty commit pushed automatically after ${DAYS} days without repository activity. GitHub disables scheduled workflows in public repositories after 60 days of inactivity, which would silently stop the keep-awake ping.")
+
+          git commit --allow-empty -m "$MESSAGE"
+          git push
+          echo "Pushed an empty commit. The 60-day clock is reset."

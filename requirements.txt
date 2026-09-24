@@ -1,0 +1,22 @@
+# Compact deployment dependencies (Python 3.12).
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+SQLAlchemy==2.0.54
+python-multipart==0.0.32
+pydantic==2.13.5
+
+# Postgres driver. Only actually used when DATABASE_URL points at Postgres
+# (Supabase, Render, Neon…); with the default SQLite it is never imported, so
+# it costs a local run nothing but an install.
+psycopg2-binary==2.9.13
+
+# Circular-crops an uploaded logo into the site's icon, server-side, so the
+# search crawler and a phone home screen get the same round icon the browser
+# tab does. The upload endpoint degrades to storing the raw file if this is
+# missing, so it is a quality dependency rather than a load-bearing one.
+Pillow==11.3.0
+
+# Optional neural voice dependencies are in requirements-neural.txt.
+
+# Small male robot voice for dynamic chat in the default memory-safe mode.
+espeakng-loader==0.2.4

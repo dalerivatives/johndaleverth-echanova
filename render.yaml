@@ -1,0 +1,33 @@
+# Render "Blueprint" spec — https://render.com/docs/blueprint-spec
+# In the Render dashboard: New > Blueprint, point it at this repo, and Render
+# will pick this file up automatically.
+#
+# SQLite note: the free plan's disk is ephemeral, so the default
+# sqlite:///./portfolio.db resets on every deploy/restart. For content that
+# must survive redeploys, set DATABASE_URL to a Postgres connection string —
+# Supabase's pooler URI works as-is. See SUPABASE.md for the walkthrough.
+#
+# Run ONE worker. The live viewer count, the robot's real-time tap feed and
+# the rate limiters are per-process; a second worker keeps its own copies and
+# visitors on different workers stop seeing each other's taps.
+services:
+  - type: web
+    name: portfolio
+    env: python
+    plan: free
+    healthCheckPath: /api/health
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.14
+      # The optional Piper model can exceed a Free instance's memory. The
+      # public terminal and whoami use pre-generated WAV files; arbitrary chat
+      # uses lightweight eSpeak NG male robot audio in this mode.
+      # For optional neural mode, follow voices/README.md first.
+      - key: SPEECH_MODE
+        value: static
+      - key: ADMIN_KEY
+        sync: false        # set this yourself in the Render dashboard — do not commit it
+      - key: DATABASE_URL
+        sync: false        # optional: a Postgres URL for persistence across deploys

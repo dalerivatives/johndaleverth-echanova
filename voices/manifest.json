@@ -1,0 +1,10 @@
+{
+  "size": 63531379,
+  "sha256": "789c6c875726e627ddee93d51d8727859abe9c091c3d141591f4b83c2072e988",
+  "parts": [
+    "en_US-john-medium.onnx.part01",
+    "en_US-john-medium.onnx.part02",
+    "en_US-john-medium.onnx.part03",
+    "en_US-john-medium.onnx.part04"
+  ]
+}

@@ -1,0 +1,88 @@
+/* v83: one shared coordinate frame for the original 883 x 883 assets.
+   No JS geometry, cropping, or theme-dependent position changes. */
+.app .hero {
+  --profile-size:389px;
+  --profile-tuck:calc(var(--profile-size) * .14);
+  position:relative;
+  isolation:isolate;
+  overflow:hidden;
+  min-height:calc(var(--profile-size) * .82);
+  padding-top:0;
+  align-items:center;
+}
+.app .hero .identity {
+  max-width:min(700px, calc(100% - var(--profile-size) * .72 - 16px));
+  min-width:0;
+  padding-block:20px;
+  overflow-wrap:anywhere;
+}
+.app .hero .human-backdrop {
+  position:absolute!important;
+  inset:auto 0 calc(-1 * var(--profile-tuck)) auto!important;
+  width:var(--profile-size)!important;
+  height:var(--profile-size)!important;
+  opacity:1!important;
+  transform:none!important;
+  isolation:isolate;
+  overflow:visible;
+  z-index:1;
+  will-change:auto;
+  pointer-events:none;
+}
+/* v84: circular backlight removed; the existing contour highlight remains. */
+/* Solid silhouette fills the gaps BETWEEN code glyphs. Even at the
+   midpoint of a crossfade, neither tree lines nor snippets bleed through. */
+.app .hero .portrait-shield {
+  position:absolute;
+  inset:0;
+  z-index:1;
+  background:var(--bg);
+  -webkit-mask:url('assets/profile-shield.svg') center / 100% 100% no-repeat;
+  mask:url('assets/profile-shield.svg') center / 100% 100% no-repeat;
+  pointer-events:none;
+}
+.app .hero .human-backdrop #asciiArt,
+.app .hero .human-backdrop #realPortrait {
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  margin:0!important;
+  transform:none!important;
+  animation:none!important;
+  clip-path:none!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  mix-blend-mode:normal!important;
+  text-shadow:none!important;
+  transition:opacity .72s ease!important;
+}
+.app .hero .human-backdrop #asciiArt {
+  z-index:2!important;
+  opacity:1!important;
+  visibility:visible!important;
+  background-color:var(--accent);
+  -webkit-mask:url('assets/human-coded-exact-contour.png') center / 100% 100% no-repeat;
+  mask:url('assets/human-coded-exact-contour.png') center / 100% 100% no-repeat;
+  filter:none!important;
+}
+.app .hero .human-backdrop #realPortrait {
+  z-index:3!important;
+  opacity:0!important;
+  visibility:hidden!important;
+  filter:drop-shadow(0 0 1px var(--accent))!important;
+}
+.app.mono-mode .hero .human-backdrop #realPortrait {
+  filter:grayscale(1) drop-shadow(0 0 1px var(--accent))!important;
+}
+.app .hero .human-backdrop.revealed #asciiArt {opacity:0!important}
+.app .hero .human-backdrop.revealed:not(.crossfade) #asciiArt {visibility:hidden!important}
+.app .hero .human-backdrop.revealed #realPortrait {opacity:1!important;visibility:visible!important}
+.app .hero .human-backdrop.crossfade #realPortrait {visibility:visible!important}
+@media(max-width:850px) {
+  .app .hero {--profile-size:min(68vw,330px)}
+}
+@media(prefers-reduced-motion:reduce) {
+  .app .hero .human-backdrop #asciiArt,
+  .app .hero .human-backdrop #realPortrait {transition:none!important}
+}

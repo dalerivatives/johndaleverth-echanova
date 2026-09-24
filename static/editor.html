@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<!-- The editor gets the same icon as the site. This used to be an EMPTY
+     64x64 SVG, filled in later by favicon.js drawing into a canvas — so
+     when that script stopped drawing the tab icon, this page was left
+     showing the blank placeholder and nothing ever replaced it. The
+     backend splices a 32x32 data: URI in above these, so the icon is in
+     the document itself and the tab is never empty, even mid-refresh. -->
+<link rel="icon" type="image/png" sizes="192x192" href="/brand-icon.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/brand-icon-512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/brand-icon-touch.png">
+<title>Portfolio Editor</title>
+<link rel="stylesheet" href="vendor/fontawesome/all.min.css?v=78">
+<link rel="stylesheet" href="style.css?v=88">
+<link rel="stylesheet" href="editor.css?v=88">
+<link rel="stylesheet" href="tour.css?v=111">
+</head>
+<body class="app editor-body" id="editorBody">
+
+  <div id="loginGate" class="login-gate">
+    <div class="login-card panel">
+      <div class="eyebrow">// PORTFOLIO.EDITOR</div>
+      <h1>Unlock the editor</h1>
+      <p>Enter the admin key to manage Projects, Achievements, and Tools. This key is set on the server as the <code>ADMIN_KEY</code> environment variable. It's exchanged for a session that expires after 12 hours — the key itself is never stored in your browser.</p>
+      <form id="loginForm">
+        <input type="password" id="adminKeyInput" placeholder="Admin key" autocomplete="current-password" required>
+        <button type="submit">Unlock</button>
+      </form>
+      <p class="login-error" id="loginError" hidden></p>
+      <p class="login-hint">There is no default key. If <code>ADMIN_KEY</code> isn't set on the server, the editor stays locked &mdash; see the README.</p>
+    </div>
+  </div>
+
+  <div id="editorApp" class="editor-app" hidden>
+    <header class="editor-topbar">
+      <div>
+        <strong>Portfolio Editor</strong>
+        <span class="editor-sub">Connected UI for Projects · Achievements · Tools</span>
+      </div>
+      <div class="editor-topbar-actions">
+        <a href="index.html" target="_blank" rel="noopener">View site <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+        <!-- The same two controls the public site carries, so the editor
+             sounds and explains itself the same way. The sound switch
+             shares its stored preference with the site: mute in one and
+             you are muted in both. -->
+        <button class="help-btn" id="tourBtn" type="button"
+                aria-label="Take a guided tour of the editor" data-tooltip="Guided tour">
+          <i class="fa-solid fa-question" aria-hidden="true"></i>
+        </button>
+        <button class="sound-toggle" id="soundToggle" type="button" aria-pressed="true"
+                aria-label="Turn sound off" data-tooltip="Sound: on">
+          <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
+        </button>
+        <button id="logoutBtn" type="button" class="lock-btn"><i class="fa-solid fa-lock" aria-hidden="true"></i> Lock</button>
+      </div>
+    </header>
+
+    <nav class="editor-tabs" role="tablist">
+      <button type="button" class="editor-tab active" data-section="project" role="tab">Projects</button>
+      <button type="button" class="editor-tab" data-section="achievement" role="tab">Achievements</button>
+      <button type="button" class="editor-tab" data-section="tool" role="tab">Tools</button>
+      <button type="button" class="editor-tab" data-section="chat" role="tab">
+        <i class="fa-solid fa-comments" aria-hidden="true"></i> World chat
+      </button>
+      <button type="button" class="editor-tab" data-section="settings" role="tab">
+        <i class="fa-solid fa-sliders" aria-hidden="true"></i> Site settings
+      </button>
+    </nav>
+
+    <main class="editor-main" id="contentPane">
+      <form id="addCategoryForm" class="add-category-form">
+        <input type="text" id="newCategoryName" placeholder="New heading, e.g. Embedded Systems" required>
+        <button type="submit">+ Add heading</button>
+      </form>
+      <p class="editor-hint" id="sectionHint"></p>
+      <div id="categoriesList" class="categories-list"></div>
+    </main>
+
+    <!-- ==========================================================
+         WORLD CHAT MODERATION
+         The chat is open to anyone on the internet, so the owner needs to
+         be able to remove things. Read-only otherwise — this isn't a place
+         to post from.
+         ========================================================== -->
+    <main class="editor-main" id="chatPane" hidden>
+      <div class="chat-mod-head">
+        <p class="editor-hint">Everything visitors have posted in the World Chat. Delete anything you don't want on the site.</p>
+        <button type="button" class="text-btn danger" id="clearChatBtn">Clear all messages</button>
+      </div>
+      <div id="chatModList" class="chat-mod-list"></div>
+    </main>
+
+    <!-- ==========================================================
+         SITE SETTINGS
+         Everything on the public site that isn't a Project/Achievement/
+         Tool card. Each input's data-setting matches a key in the
+         backend's DEFAULT_SETTINGS, so adding a field here is all it
+         takes to make something else editable.
+         ========================================================== -->
+    <main class="editor-main settings-pane" id="settingsPane" hidden>
+      <p class="editor-hint">Everything on the site that isn't a card lives here. Changes appear on the site the next time it loads.</p>
+
+      <section class="settings-group">
+        <h3><i class="fa-solid fa-image" aria-hidden="true"></i> Browser-tab icon</h3>
+        <p class="settings-note">Shown only in the browser tab, not beside the viewer count. PNG, JPG, WebP or ICO, up to 5 MB. Automatically centre-cropped into a circle with transparent corners; your original upload stays unchanged. Saved immediately.</p>
+        <div class="logo-upload">
+          <div class="logo-preview"><img id="faviconPreview" alt="Website logo preview" width="64" height="64" hidden><span id="faviconDefault" aria-label="No custom website logo"><i class="fa-solid fa-image" aria-hidden="true"></i></span></div>
+          <div>
+            <p id="faviconState" role="status">No custom logo uploaded yet</p>
+            <div class="upload-row-actions">
+              <button type="button" class="file-btn" data-upload="favicon_url" data-accept="image/png,image/jpeg,image/webp,image/x-icon,image/vnd.microsoft.icon"><i class="fa-solid fa-upload" aria-hidden="true"></i> Upload photo</button>
+              <button type="button" class="text-btn" data-clear="favicon_url" hidden>Remove logo</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-group">
+        <h3><i class="fa-solid fa-id-badge" aria-hidden="true"></i> Who you are</h3>
+        <p class="settings-note">The heading block at the top of the profile page.</p>
+        <label class="field">Small label above your name
+          <input type="text" data-setting="hero_eyebrow" placeholder="// COMPUTER ENGINEER">
+        </label>
+        <div class="field-row">
+          <label class="field">First name <small>(shown in your accent color)</small>
+            <input type="text" data-setting="hero_name_first">
+          </label>
+          <label class="field">Rest of your name
+            <input type="text" data-setting="hero_name_rest">
+          </label>
+        </div>
+        <label class="field">Tagline
+          <input type="text" data-setting="hero_tagline">
+        </label>
+      </section>
+
+      <section class="settings-group">
+        <h3><i class="fa-solid fa-terminal" aria-hidden="true"></i> Terminal intro</h3>
+        <p class="settings-note">The three lines inside the <code>PS C:\whoami&gt;</code> window.</p>
+        <label class="field">Line 1 <input type="text" data-setting="terminal_line_1"></label>
+        <label class="field">Line 2 <input type="text" data-setting="terminal_line_2"></label>
+        <label class="field">Line 3 <input type="text" data-setting="terminal_line_3"></label>
+      </section>
+
+      <!-- Social links: an add-your-own list, not a fixed set of five.
+           Each row is a title, an icon, and a URL. -->
+      <section class="settings-group">
+        <h3><i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Social links</h3>
+        <p class="settings-note">
+          These appear in the top bar and on the Chat page, in the order below.
+          Add as many as you want. For the icon, paste a
+          <a href="https://fontawesome.com/search?ic=brands" target="_blank" rel="noopener">Font Awesome</a>
+          class like <code>fa-brands fa-github</code> — or an image URL if the logo you want isn't in that set.
+          An email address is turned into a mail link automatically.
+        </p>
+        <div class="social-list" id="socialList"></div>
+        <button type="button" class="text-btn" id="addSocialBtn"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add a social link</button>
+      </section>
+
+      <!-- The animated background: drifting code and algorithm graphs. -->
+      <section class="settings-group">
+        <h3><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Background</h3>
+        <p class="settings-note">
+          Two layers behind every page. Both stop by themselves for visitors who
+          ask their system to reduce motion.
+        </p>
+
+        <label class="field">Drifting code
+          <select data-setting="bg_code_on">
+            <option value="1">On</option>
+            <option value="0">Off</option>
+          </select>
+        </label>
+        <label class="field">How many snippets <small>(0–80, fewer on phones)</small>
+          <input type="number" min="0" max="80" step="1" data-setting="bg_code_density" placeholder="26">
+        </label>
+        <label class="field">Drift speed <small>(1 = normal, 0.5 = half, 2 = double)</small>
+          <input type="number" min="0.15" max="4" step="0.05" data-setting="bg_code_speed" placeholder="1">
+        </label>
+        <label class="field">The snippets themselves <small>(one per line — code, commands, formulas, anything)</small>
+          <textarea data-setting="bg_code_snippets" rows="8" placeholder="const future = build(idea);"></textarea>
+        </label>
+
+        <label class="field">Algorithm graphs
+          <select data-setting="bg_graph_on">
+            <option value="1">On</option>
+            <option value="0">Off</option>
+          </select>
+        </label>
+        <label class="field">How many graphs <small>(0–6)</small>
+          <input type="number" min="0" max="6" step="1" data-setting="bg_graph_count" placeholder="3">
+        </label>
+        <label class="field">Which shapes <small>(comma separated: tree, mesh, path, ring)</small>
+          <input type="text" data-setting="bg_graph_kinds" placeholder="tree,mesh,path,ring">
+        </label>
+      </section>
+
+      <!-- Master discoveries: practice notes shown on the Tools page. -->
+      <section class="settings-group">
+        <h3><i class="fa-solid fa-lightbulb" aria-hidden="true"></i> Master discoveries</h3>
+        <p class="settings-note">
+          Lessons from building real systems, shown on the Tools page. Keep each one
+          to a single idea — what you learned, and what you were building when you
+          learned it. The section stays hidden until there's at least one entry.
+        </p>
+        <label class="field">Section heading
+          <input type="text" data-setting="discoveries_title" placeholder="Master Discoveries">
+        </label>
+        <label class="field">Short note under the heading
+          <textarea data-setting="discoveries_note" rows="2" placeholder="Practices I picked up building real systems."></textarea>
+        </label>
+        <div class="social-list" id="discRowList"></div>
+        <button type="button" class="text-btn" id="addDiscBtn"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add a discovery</button>
+      </section>
+
+      <!-- Music playlist: YouTube links that play inside the Tools page. -->
+      <section class="settings-group">
+        <h3><i class="fa-solid fa-music" aria-hidden="true"></i> Music playlist</h3>
+        <p class="settings-note">
+          Paste YouTube links and they become a player on the Tools page — visitors
+          play them without leaving the site. A watch link, a share link, a Shorts
+          link or a bare video ID all work. Leave the title blank to use YouTube's own.
+          The whole section stays hidden until there's at least one track.
+        </p>
+        <label class="field">Section heading
+          <input type="text" data-setting="music_title" placeholder="Playlist">
+        </label>
+        <label class="field">Short note under the heading
+          <input type="text" data-setting="music_note" placeholder="Music I build to.">
+        </label>
+        <div class="social-list" id="musicRowList"></div>
+        <button type="button" class="text-btn" id="addTrackBtn"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add a track</button>
+      </section>
+
+      <section class="settings-group">
+        <h3><i class="fa-brands fa-github" aria-hidden="true"></i> GitHub activity</h3>
+        <p class="settings-note">Drives the contribution heatmap on the profile page. Just the username, not the full URL.</p>
+        <label class="field">GitHub username
+          <input type="text" data-setting="github_username" placeholder="dalerivatives">
+        </label>
+      </section>
+
+      <section class="settings-group">
+        <h3><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Resume</h3>
+        <p class="settings-note">Shows up as a download button on the profile page — but only once you've uploaded one.</p>
+        <div class="upload-row">
+          <div class="upload-row-label">Resume (PDF)</div>
+          <div class="upload-row-state" id="resumeState">Not uploaded yet</div>
+          <div class="upload-row-actions">
+            <button type="button" class="file-btn" data-upload="resume_url" data-accept="application/pdf">
+              <i class="fa-solid fa-upload" aria-hidden="true"></i> Choose PDF
+            </button>
+            <button type="button" class="text-btn danger" data-clear="resume_url" hidden>Remove</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-group">
+        <h3><i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Sharing &amp; search</h3>
+        <p class="settings-note">Your site address is what makes link previews work — when someone pastes your link into Facebook or Messenger, the preview image can only load from a full web address.</p>
+        <label class="field">Your site address
+          <input type="url" data-setting="site_url" placeholder="https://your-site.onrender.com">
+        </label>
+        <label class="field">Browser tab title <input type="text" data-setting="site_title"></label>
+        <label class="field">Search / preview description
+          <textarea rows="3" data-setting="meta_description"></textarea>
+        </label>
+        <label class="field">Footer text <input type="text" data-setting="footer_text"></label>
+      </section>
+
+      <div class="settings-actions">
+        <span class="settings-status" id="settingsStatus" aria-live="polite"></span>
+        <button type="button" id="saveSettingsBtn"><i class="fa-solid fa-check" aria-hidden="true"></i> Save settings</button>
+      </div>
+    </main>
+
+    <!-- One hidden input reused by every "Choose file" button above, so the
+         raw browser file control is never shown. -->
+    <input type="file" id="settingsFileInput" hidden>
+  </div>
+
+  <div id="itemModal" class="modal" hidden>
+    <div class="modal-card panel">
+      <div class="modal-head">
+        <h2 id="itemModalTitle">Add item</h2>
+        <button type="button" id="itemModalClose" class="modal-close" aria-label="Close">&times;</button>
+      </div>
+      <form id="itemForm">
+        <input type="hidden" id="itemId">
+        <input type="hidden" id="itemCategoryId">
+
+        <label class="field">Title
+          <input type="text" id="itemTitle" required maxlength="300">
+        </label>
+
+        <label class="field">Description
+          <textarea id="itemDescription" rows="4" maxlength="4000"></textarea>
+        </label>
+
+        <label class="field">Tools / tags (comma separated)
+          <input type="text" id="itemTools" placeholder="e.g. HTML, CSS, JS, SQL" maxlength="600">
+        </label>
+
+        <!-- One media slot, two ways to fill it — no tabs needed, since the
+             upload button and the link box are each small enough to just show. -->
+        <div class="field media-choice">
+          <span>Media or link (optional)</span>
+
+          <!-- The real file input stays hidden; the styled button opens it,
+               so the browser's grey "Choose File" control never shows. -->
+          <input type="file" id="itemFile" accept="image/*,video/*" hidden>
+          <div class="file-picker" id="filePicker">
+            <button type="button" class="file-btn" id="itemFileBtn">
+              <i class="fa-solid fa-upload" aria-hidden="true"></i> Choose image or video
+            </button>
+            <span class="file-picker-name" id="itemFileName">No file chosen</span>
+          </div>
+
+          <div class="media-or"><span>or paste a link</span></div>
+
+          <input type="url" id="itemVideoUrl" placeholder="YouTube, a GitHub repo, a live demo, an image…">
+          <p class="media-url-hint" id="mediaUrlHint">YouTube and Vimeo links become a player. Image and video links show the media itself. <strong>Anything else becomes a clickable link on the card</strong> that opens where it points.</p>
+          <div id="currentMediaPreview" class="current-media-preview"></div>
+          <label class="clear-media-label" id="clearMediaWrap" hidden>
+            <input type="checkbox" id="itemClearMedia"> Remove current media
+          </label>
+        </div>
+
+        <p class="modal-error" id="itemFormError" hidden></p>
+        <p class="draft-note" id="draftNote" aria-live="polite" hidden></p>
+
+        <div class="modal-actions">
+          <button type="button" id="itemDeleteBtn" class="danger" hidden>Delete</button>
+          <button type="submit" id="itemSaveBtn">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<script src="sfx.js?v=88"></script>
+<script src="favicon.js?v=80"></script>
+<script src="editor.js?v=88"></script>
+<script src="uisound.js?v=88"></script>
+<script src="editorsound.js?v=88"></script>
+<script src="tour.js?v=111"></script>
+<script src="tour-editor.js?v=111"></script>
+</body>
+</html>

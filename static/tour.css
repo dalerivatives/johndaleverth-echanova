@@ -1,0 +1,380 @@
+/* ============================================================
+   THE GUIDED TOUR
+   ------------------------------------------------------------
+   A spotlight over one control at a time, with a card explaining it.
+
+   The spotlight is ONE element with an enormous spread shadow, not four
+   divs fenced around a hole. The shadow approach dims everything outside
+   the ring with a single compositor layer and moves by changing four
+   numbers, so stepping from one target to the next animates instead of
+   re-laying-out the page. Four panels have to be resized in concert and
+   show seams on fractional pixels.
+
+   Everything here is painted in the site's own custom properties, so the
+   tour follows the theme dial like the rest of the page rather than
+   being a white box bolted on top.
+   ============================================================ */
+
+/* The overlay must NOT swallow pointer events.
+   It covers the whole viewport, and the tour now asks people to press the
+   thing it is pointing at — so anything it intercepts is a task nobody can
+   complete. Every layer here is transparent to the pointer except the card
+   itself, which has the buttons.
+
+   This is also why clicking the dimmed area no longer closes the tour: on
+   an interactive walkthrough, clicking the page IS the task. Esc and the
+   Skip button are the ways out. */
+#tourOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: none;
+  pointer-events: none;
+}
+#tourOverlay.open { display: block; }
+
+/* The lit ring. Pointer events pass through it so the control underneath
+   stays usable — a tour that disables the thing it is describing teaches
+   nothing. */
+#tourSpot {
+  position: fixed;
+  border-radius: 14px;
+  box-shadow: 0 0 0 9999px rgba(3, 7, 14, 0.72),
+              0 0 0 2px var(--accent, #4dff91),
+              0 0 22px 4px rgba(77, 255, 145, 0.25);
+  pointer-events: none;
+  transition: top .34s cubic-bezier(.4,0,.2,1), left .34s cubic-bezier(.4,0,.2,1),
+              width .34s cubic-bezier(.4,0,.2,1), height .34s cubic-bezier(.4,0,.2,1),
+              border-radius .34s ease;
+}
+/* A step with nothing to point at (the welcome, the sign-off) dims the
+   whole page instead of ringing a random corner of it. */
+#tourSpot.no-target {
+  top: 50%; left: 50%; width: 0; height: 0;
+  box-shadow: 0 0 0 9999px rgba(3, 7, 14, 0.82);
+}
+
+/* The card. Fixed, because the spotlight is fixed and the two must not
+   drift apart when the page scrolls under them. */
+#tourCard {
+  position: fixed;
+  /* The card is informational, so it does not take the pointer — only its
+     buttons do.
+
+     This is not a nicety. The card is fixed over the page, and the
+     navigation rail expands on :hover. A card resting on the cursor took
+     the hover away from the rail, which collapsed, which moved the control
+     the step was pointing at, which moved the card, which gave the hover
+     back — an oscillation that ran forever and left the spotlight chasing
+     a button that would not sit still. Measured at 2Hz, the theme dial was
+     bouncing between y=446 and y=697.
+
+     Letting hover pass straight through breaks the loop at its source. */
+  pointer-events: none;
+  width: min(380px, calc(100vw - 32px));
+  background: var(--panel2, #0d1620);
+  color: var(--text, #e8f0f7);
+  border: 1px solid var(--line, #24323f);
+  border-radius: 14px;
+  padding: 16px 18px 14px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .55);
+  font: 14px/1.6 Inter, ui-sans-serif, system-ui, sans-serif;
+  transition: top .34s cubic-bezier(.4,0,.2,1), left .34s cubic-bezier(.4,0,.2,1);
+}
+
+#tourCard .tour-step-count {
+  font: 600 11px/1 ui-monospace, Menlo, Consolas, monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--accent, #4dff91);
+  display: block;
+  margin-bottom: 7px;
+}
+#tourCard h3 {
+  margin: 0 0 6px;
+  font: 600 17px/1.3 Inter, ui-sans-serif, system-ui, sans-serif;
+  color: var(--text, #e8f0f7);
+}
+#tourCard p {
+  margin: 0;
+  color: var(--muted, #93a4b3);
+}
+#tourCard kbd {
+  font: 600 11px/1 ui-monospace, Menlo, Consolas, monospace;
+  border: 1px solid var(--line, #24323f);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 2px 5px;
+  color: var(--text, #e8f0f7);
+  background: var(--card-bg, #0a121b);
+  white-space: nowrap;
+}
+
+/* Progress: one pip per step, so how much is left is visible at a glance
+   rather than only readable as "4 of 11". */
+.tour-pips {
+  display: flex;
+  gap: 4px;
+  margin: 13px 0 11px;
+  flex-wrap: wrap;
+}
+.tour-pips i {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line, #24323f);
+  transition: background .2s;
+}
+.tour-pips i.done { background: var(--accent, #4dff91); opacity: .45; }
+.tour-pips i.now  { background: var(--accent, #4dff91); }
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tour-actions .tour-spacer { flex: 1; }
+.tour-actions button {
+  pointer-events: auto;
+  font: 600 13px/1 Inter, ui-sans-serif, system-ui, sans-serif;
+  border-radius: 9px;
+  padding: 9px 14px;
+  cursor: pointer;
+  border: 1px solid var(--line, #24323f);
+  background: transparent;
+  color: var(--muted, #93a4b3);
+  transition: .18s;
+}
+.tour-actions button:hover { color: var(--text, #e8f0f7); border-color: var(--accent, #4dff91); }
+.tour-actions button.primary {
+  background: var(--accent, #4dff91);
+  border-color: var(--accent, #4dff91);
+  color: var(--bg, #05080b);
+}
+.tour-actions button.primary:hover { filter: brightness(1.08); }
+.tour-actions button.ghost { border-color: transparent; padding-left: 4px; padding-right: 4px; }
+
+/* The little pointer from the card toward what it is describing. Hidden
+   when the card has been centred, where it would aim at nothing. */
+#tourCard::after {
+  content: "";
+  position: absolute;
+  width: 11px; height: 11px;
+  background: var(--panel2, #0d1620);
+  border: 1px solid var(--line, #24323f);
+  transform: rotate(45deg);
+  display: none;
+}
+#tourCard[data-arrow="up"]::after    { display:block; top:-6.5px;    left:26px; border-right:0; border-bottom:0; }
+#tourCard[data-arrow="down"]::after  { display:block; bottom:-6.5px; left:26px; border-left:0;  border-top:0; }
+#tourCard[data-arrow="left"]::after  { display:block; left:-6.5px;   top:26px;  border-right:0; border-top:0; }
+#tourCard[data-arrow="right"]::after { display:block; right:-6.5px;  top:26px;  border-left:0;  border-bottom:0; }
+
+/* The help button that starts it, docked with the theme dial and the
+   sound switch — the one corner of the page people already look at when
+   they want the site to do something. */
+/* The help button exists on both pages and only ever appears where this
+   stylesheet is loaded, so its base styling lives here rather than being
+   duplicated into two other files. */
+.help-btn {
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line, #24323f);
+  background: var(--panel2, #0d1620);
+  color: var(--muted, #93a4b3);
+  cursor: pointer;
+  font-size: 14px;
+  transition: .2s;
+}
+.help-btn:hover {
+  color: var(--accent, #4dff91);
+  border-color: var(--accent, #4dff91);
+  transform: translateY(-1px);
+}
+/* A single quiet nudge for a first-time visitor: the button breathes until
+   the tour has been taken once, then never again. */
+.help-btn.unseen { animation: tour-nudge 2.6s ease-in-out infinite; }
+@keyframes tour-nudge {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(77,255,145,.36); }
+  55%      { box-shadow: 0 0 0 7px rgba(77,255,145,0); }
+}
+
+@media (max-width: 720px) {
+  #tourCard { width: calc(100vw - 24px); left: 12px !important; }
+  #tourCard::after { display: none !important; }
+  .tour-actions button { padding: 10px 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #tourSpot, #tourCard { transition: none; }
+  .help-btn.unseen { animation: none; }
+}
+
+/* ---- the editor's copies of the two shared controls -------------------
+   style.css dresses these on the public site, and the editor does not load
+   style.css. Scoped to the editor's topbar so nothing here can reach the
+   versions in the site's navigation rail. */
+.editor-topbar-actions .help-btn,
+.editor-topbar-actions .sound-toggle {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line, #24323f);
+  background: var(--panel2, #0d1620);
+  color: var(--muted, #93a4b3);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+  transition: .2s;
+}
+.editor-topbar-actions .help-btn:hover,
+.editor-topbar-actions .sound-toggle:hover {
+  color: var(--accent, #4dff91);
+  border-color: var(--accent, #4dff91);
+}
+.editor-topbar-actions .sound-toggle.off { color: var(--muted, #93a4b3); opacity: .6; }
+.editor-topbar-actions .help-btn[hidden] { display: none; }
+
+/* ---- "try it" — the strip on a step you have to DO --------------------
+   A task step has no Next button, so this line is the only thing telling
+   the visitor what the tour is waiting for. It has to read as an
+   instruction rather than as more description, hence the accent rule down
+   the side and the pulsing mark: something is live and watching.
+
+   It turns green and stops pulsing the moment the thing is done, which is
+   what makes the causal link — you did that, and THAT is why the tour
+   moved. A step that advanced silently would read as the tour moving on
+   by itself. */
+.tour-try {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 12px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 1px solid var(--line, #24323f);
+  border-left: 3px solid var(--accent, #4dff91);
+  background: color-mix(in srgb, var(--accent, #4dff91) 7%, transparent);
+  font: 500 13px/1.5 Inter, ui-sans-serif, system-ui, sans-serif;
+  color: var(--text, #e8f0f7);
+}
+.tour-try-mark {
+  flex: 0 0 auto;
+  width: 9px; height: 9px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--accent, #4dff91);
+  animation: tour-live 1.5s ease-in-out infinite;
+}
+@keyframes tour-live {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: .35; transform: scale(.7); }
+}
+.tour-try.done {
+  border-left-color: var(--accent, #4dff91);
+  background: color-mix(in srgb, var(--accent, #4dff91) 15%, transparent);
+}
+.tour-try.done .tour-try-mark {
+  animation: none;
+  border-radius: 2px;
+  transform: rotate(45deg) scale(.95);
+  width: 5px; height: 10px;
+  margin-top: 2px;
+  background: transparent;
+  border: 2px solid var(--accent, #4dff91);
+  border-top: 0; border-left: 0;
+}
+
+/* The ring breathes while a step is waiting on you, so the thing to press
+   is obvious even if the card is being read rather than looked past. */
+#tourCard[data-task] ~ #tourSpot,
+#tourOverlay:has(#tourCard[data-task]) #tourSpot {
+  animation: tour-await 1.9s ease-in-out infinite;
+}
+@keyframes tour-await {
+  0%, 100% { box-shadow: 0 0 0 9999px rgba(3,7,14,.72), 0 0 0 2px var(--accent,#4dff91), 0 0 20px 3px rgba(77,255,145,.22); }
+  50%      { box-shadow: 0 0 0 9999px rgba(3,7,14,.72), 0 0 0 3px var(--accent,#4dff91), 0 0 30px 8px rgba(77,255,145,.42); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-try-mark { animation: none; }
+  #tourOverlay:has(#tourCard[data-task]) #tourSpot { animation: none; }
+}
+
+/* The help button in the topbar. Sized to match the social icons beside
+   it, and kept visible at every width — .socials disappears on a phone,
+   but a walkthrough is most useful on the screen with the least room. */
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.top-actions .help-btn {
+  width: 34px; height: 34px;
+  font-size: 13px;
+  flex: 0 0 auto;
+}
+
+/* ---- the navigator hand ----------------------------------------------
+   A ring around a control says "this area matters". It does not say which
+   pixel to press, and on a wide target — the navigation rail, a whole
+   section panel — that is most of the instruction missing. The hand is the
+   part that points.
+
+   It only appears on a step that is waiting for you to do something, it
+   nudges toward the control on a loop, and it disappears the moment the
+   task is done, because by then it is pointing at something you have
+   already pressed. Click-through, like everything else in the overlay. */
+#tourHand {
+  position: fixed;
+  z-index: 9002;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 7px rgba(0,0,0,.5));
+  /* Overridden per direction below; this is the default corner. */
+  animation: tour-hand-br 1.35s ease-in-out infinite;
+}
+
+/* Glide, but only where gliding is the point. On the theme dial the hand is
+   walked around the face a stop at a time, and without an ease it reads as a
+   cursor blinking between positions rather than a knob being turned.
+   Everywhere else the hand must track its control EXACTLY — and a step that
+   scrolls its target into view fires a stream of scroll events, so an eased
+   hand spends the whole scroll a quarter of a second behind the thing it is
+   pointing at, which is the one thing this hand exists not to do. So the
+   ease is opt-in, set by the step. The nudge lives on `transform`, so the
+   two never fight. */
+#tourHand[data-glide] { transition: left .26s ease, top .26s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  #tourHand[data-glide] { transition: none; }
+}
+#tourHand[hidden] { display: none; }
+
+/* The nudge always travels toward the control, so the direction depends on
+   which corner the hand ended up in. */
+#tourHand[data-dir="br"] { animation-name: tour-hand-br; }
+#tourHand[data-dir="bl"] { animation-name: tour-hand-bl; }
+#tourHand[data-dir="tr"] { animation-name: tour-hand-tr; }
+#tourHand[data-dir="tl"] { animation-name: tour-hand-tl; }
+
+@keyframes tour-hand-br {
+  0%,100% { transform: translate(0,0)      rotate(-8deg); }
+  50%     { transform: translate(-7px,-7px) rotate(-8deg); }
+}
+@keyframes tour-hand-bl {
+  0%,100% { transform: translate(0,0)     rotate(8deg) scaleX(-1); }
+  50%     { transform: translate(7px,-7px) rotate(8deg) scaleX(-1); }
+}
+@keyframes tour-hand-tr {
+  0%,100% { transform: translate(0,0)     rotate(8deg) scaleY(-1); }
+  50%     { transform: translate(-7px,7px) rotate(8deg) scaleY(-1); }
+}
+@keyframes tour-hand-tl {
+  0%,100% { transform: translate(0,0)    rotate(-8deg) scale(-1,-1); }
+  50%     { transform: translate(7px,7px) rotate(-8deg) scale(-1,-1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #tourHand { animation: none !important; }
+}
