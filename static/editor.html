@@ -73,7 +73,7 @@
 
     <main class="editor-main" id="contentPane">
       <form id="addCategoryForm" class="add-category-form">
-        <input type="text" id="newCategoryName" placeholder="New heading, e.g. Embedded Systems" required>
+        <input type="text" id="newCategoryName" maxlength="200" placeholder="New heading, e.g. Embedded Systems" required>
         <button type="submit">+ Add heading</button>
       </form>
       <p class="editor-hint" id="sectionHint"></p>
@@ -322,7 +322,7 @@
 
           <div class="media-or"><span>or paste a link</span></div>
 
-          <input type="url" id="itemVideoUrl" placeholder="YouTube, a GitHub repo, a live demo, an image…">
+          <input type="url" id="itemVideoUrl" maxlength="1000" placeholder="YouTube, a GitHub repo, a live demo, an image…">
           <p class="media-url-hint" id="mediaUrlHint">YouTube and Vimeo links become a player. Image and video links show the media itself. <strong>Anything else becomes a clickable link on the card</strong> that opens where it points.</p>
           <div id="currentMediaPreview" class="current-media-preview"></div>
           <label class="clear-media-label" id="clearMediaWrap" hidden>

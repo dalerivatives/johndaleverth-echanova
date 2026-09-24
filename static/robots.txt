@@ -59,6 +59,8 @@ User-agent: Googlebot-Image
 Allow: /favicon.ico
 Allow: /brand-icon.png
 Allow: /brand-icon-512.png
+# The original portrait: the picture meant to appear beside the search result.
+Allow: /assets/profile-photo.jpg
 Disallow: /editor.html
 Disallow: /api/
 

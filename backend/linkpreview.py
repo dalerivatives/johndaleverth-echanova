@@ -9,10 +9,17 @@ and use this server as a proxy to read things it can reach and they can't.
 
 The defenses, in order:
   1. Only http/https. No file://, ftp://, gopher://, data:.
-  2. Every resolved IP is checked against private, loopback, link-local,
-     reserved and multicast ranges — and the check runs again on each
-     redirect hop, because a public hostname is free to redirect to
-     127.0.0.1.
+  2. Every resolved IP must be a globally routable address (not private,
+     loopback, link-local, carrier-grade NAT, reserved or multicast) — and
+     the check runs again on each redirect hop, because a public hostname
+     is free to redirect to 127.0.0.1.
+  2b. The address the socket ACTUALLY connected to is checked again before
+     a single byte of the request is sent. Resolving the name, approving
+     the answer and then letting the HTTP library resolve it a second time
+     is a classic hole (DNS rebinding): a hostile DNS server answers with a
+     public address for the check and 127.0.0.1 for the connection. Checking
+     the connected peer closes it. No proxy from the environment is used,
+     so the peer really is the destination.
   3. Redirects are followed manually, capped, and re-validated each time.
   4. Hard timeout, and the response body is read up to a byte cap only —
      a malicious server can't stream gigabytes into memory.
@@ -22,6 +29,7 @@ No third-party HTTP client is used, so this adds no dependency to install.
 """
 
 import html
+import http.client
 import ipaddress
 import re
 import socket
@@ -59,20 +67,60 @@ def _assert_public_host(hostname: str):
         raise UnsafeUrl(f"Couldn't resolve {hostname}") from exc
 
     for info in infos:
-        address = info[4][0]
-        try:
-            ip = ipaddress.ip_address(address)
-        except ValueError:
-            raise UnsafeUrl(f"Unreadable address for {hostname}")
-        if (
-            ip.is_private
-            or ip.is_loopback
-            or ip.is_link_local
-            or ip.is_reserved
-            or ip.is_multicast
-            or ip.is_unspecified
-        ):
+        if not _is_public_ip(info[4][0]):
             raise UnsafeUrl(f"{hostname} resolves to a non-public address")
+
+
+def _is_public_ip(address: str) -> bool:
+    """True only for a globally routable unicast address.
+
+    `is_global` rather than a list of private ranges: it also excludes the
+    carrier-grade NAT block (100.64.0.0/10), benchmarking and documentation
+    ranges, which a hand-kept list forgets. An IPv4 address written in IPv6
+    form (::ffff:127.0.0.1) is unwrapped first, because older Pythons judge
+    the wrapper and not the address inside it."""
+    try:
+        ip = ipaddress.ip_address(str(address).split("%", 1)[0])
+    except ValueError:
+        return False
+    if ip.version == 6 and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    return ip.is_global and not ip.is_multicast
+
+
+def _assert_peer_public(sock):
+    """Refuse the connection if it landed somewhere non-public (see 2b)."""
+    try:
+        peer = sock.getpeername()[0]
+    except OSError as exc:
+        raise UnsafeUrl("Couldn't reach that link") from exc
+    if not _is_public_ip(peer):
+        try:
+            sock.close()
+        finally:
+            raise UnsafeUrl("That link points at a non-public address")
+
+
+class _CheckedHTTPConnection(http.client.HTTPConnection):
+    def connect(self):
+        super().connect()
+        _assert_peer_public(self.sock)
+
+
+class _CheckedHTTPSConnection(http.client.HTTPSConnection):
+    def connect(self):
+        super().connect()
+        _assert_peer_public(self.sock)
+
+
+class _CheckedHTTPHandler(urllib.request.HTTPHandler):
+    def http_open(self, req):
+        return self.do_open(_CheckedHTTPConnection, req)
+
+
+class _CheckedHTTPSHandler(urllib.request.HTTPSHandler):
+    def https_open(self, req):
+        return self.do_open(_CheckedHTTPSConnection, req, context=self._context)
 
 
 def _validate(url: str) -> str:
@@ -99,7 +147,14 @@ def _fetch(url: str) -> tuple[str, str]:
             },
         )
         # No redirect handler: a 3xx comes back as an HTTPError we inspect.
-        opener = urllib.request.build_opener(_NoRedirect)
+        # No proxy either (ProxyHandler({})), and connection classes that
+        # check the address they actually reached before anything is sent.
+        opener = urllib.request.build_opener(
+            urllib.request.ProxyHandler({}),
+            _CheckedHTTPHandler,
+            _CheckedHTTPSHandler,
+            _NoRedirect,
+        )
         try:
             with opener.open(request, timeout=FETCH_TIMEOUT) as response:
                 content_type = (response.headers.get("Content-Type") or "").lower()
@@ -123,7 +178,7 @@ def _fetch(url: str) -> tuple[str, str]:
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ARG002 - urllib's signature
         return None   # surfaces as HTTPError so _fetch can re-validate the hop
 
 

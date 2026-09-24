@@ -1,27 +1,55 @@
-# Portfolio v89 — compact deployment
+# Trevelade — portfolio (v117)
 
-Same public site, editor, 3D robot, themes, reload transitions and upload fixes
-as v88. This package removes the unused optional neural model, historical notes,
-reference artwork and development tests from the deployment download. All
-runtime frontend code and used assets are retained unchanged.
+A personal portfolio with its own backend: a single-page site (Profile,
+Projects, Achievements, Tools, World Chat with a shared 3D robot), a
+password-protected editor at `/editor.html`, a GitHub activity heatmap, and a
+male robot voice. Everything on the site is edited from the editor and stored
+in the database — no code changes needed for content.
+
+See **WHATS_NEW.md** for what changed in this version.
 
 ## Deploy on Render
 
-- Retain your existing ADMIN_KEY, DATABASE_URL and uploaded content.
-- Use Python 3.12.14 and SPEECH_MODE=static (also set in render.yaml).
-- Build: `pip install -r requirements.txt`
-- Start: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
-- Health check: `/api/health`. Use one worker for realtime presence/chat.
-- Local launchers: start.bat or start.sh; both now use lightweight speech.
-- Keep a persistent database for stored icons/content. Keep durable uploaded
-  media storage; ephemeral Render storage can reset on redeploy/restart.
-- See SUPABASE.md for database setup, KEEP_AWAKE.md for existing heartbeat setup.
+| Setting | Value |
+|---|---|
+| Build command | `pip install -r requirements.txt` |
+| Start command | `uvicorn backend.main:app --host 0.0.0.0 --port $PORT` |
+| Python | 3.12.14 (set in `render.yaml` and `.python-version`) |
+| Health check | `/api/health` |
+| Workers | **one** (the live viewer count, robot feed and rate limits live in memory) |
 
-Male speech remains: the three original recordings plus lightweight generated
-male robot chat speech. Optional neural synthesis needs separately restored
-model files and dependencies; see voices/README.md. Do not use dynamic mode
-with the compact package until those files are restored.
+Environment variables:
 
-When replacing a repository, delete the excluded files listed in CLEANUP.txt
-as well: copying new files over old ones does not remove old model parts. Keep
-live uploads and your database; they are not supplied or removed by this ZIP.
+- `ADMIN_KEY` — **required**, a long random secret; it unlocks the editor.
+- `DATABASE_URL` — your Supabase **pooler** URI (port 6543). Content, the tab
+  icon and uploaded files all live here. See `SUPABASE.md`.
+- Optional: `GITHUB_TOKEN`, `KEEPALIVE_*` — see `.env.example`.
+
+Keeping the free instance awake is covered in `KEEP_AWAKE.md` (the app pings
+itself on Render, and `.github/workflows/keep-awake.yml` can wake it).
+
+## Run it on your computer
+
+- Windows: double-click `start.bat`
+- macOS / Linux: `./start.sh`
+
+Both create a virtual environment, install requirements, print a local editor
+key, and open `http://127.0.0.1:8000`. Edits to HTML, CSS and JS reload the
+browser automatically while it runs.
+
+Before pointing a deployment at a new database, `check_db.py` tests the
+connection and permissions (instructions at the top of the file).
+
+## Layout
+
+```
+backend/        FastAPI app (main.py) and its helpers
+  models.py       database tables     seed.py      first-run content + settings
+  github.py       heatmap data        linkpreview.py  safe link previews
+  keepalive.py    self-ping on Render speech_lite.py   robot voice (eSpeak NG)
+  iconify.py      round tab icon      icon_data.py  built-in fallback icon
+static/         the site: index.html, editor.html, script.js, style.css, …
+  assets/         images and the three pre-recorded voice clips
+  vendor/         Font Awesome and three.js (with their licences)
+uploads/        disk cache for uploaded files (the database holds the originals)
+```

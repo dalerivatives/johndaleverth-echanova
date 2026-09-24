@@ -84,6 +84,18 @@ if(editorOsLight){
   else if(editorOsLight.addListener) editorOsLight.addListener(refreshEditorTheme);
 }
 
+/* FastAPI answers most errors with {detail:"text"}, but a validation error
+   is {detail:[{msg:"…", loc:[…]}, …]} — which used to reach the screen as
+   "Couldn't save: [object Object]". */
+function errorText(body, status){
+  const d = body && body.detail;
+  if(typeof d === "string" && d) return d;
+  if(Array.isArray(d) && d.length){
+    return d.map(e => (e && e.msg ? String(e.msg).replace(/^Value error, /, "") : "")).filter(Boolean).join("; ") || ("HTTP " + status);
+  }
+  return "HTTP " + status;
+}
+
 function escapeHtml(str){
   return String(str==null?"":str).replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 }
@@ -153,7 +165,10 @@ $("#loginForm").addEventListener("submit", async e=>{
       body: JSON.stringify({key})
     });
     if(!res.ok){
-      showLogin("That key didn't work — check ADMIN_KEY on the server and try again.");
+      const body = await res.json().catch(()=>({}));
+      showLogin(res.status === 429
+        ? errorText(body, res.status)
+        : "That key didn't work — check ADMIN_KEY on the server and try again.");
       return;
     }
     const data = await res.json();
@@ -202,8 +217,14 @@ $$(".editor-tab").forEach(tab=>{
 // editable, add a default on the backend and an input here — no other code.
 // ---------------------------------------------------------------------------
 let settingsSnapshot = {};
+/* Save is refused until a load has succeeded. The form starts empty, so
+   pressing Save after a failed load used to send every field blank —
+   wiping the tagline, the terminal lines, the social links and the
+   playlist in one click. */
+let settingsLoaded = false;
 
 async function loadSettings(){
+  settingsLoaded = false;
   setSettingsStatus("Loading…");
   try{
     const res = await api("/api/settings");
@@ -220,6 +241,7 @@ async function loadSettings(){
     renderMusicRows();
     discRows = readDiscSetting();
     renderDiscRows();
+    settingsLoaded = true;
     setSettingsStatus("");
   }catch(err){
     if(err.message!=="unauthorized") setSettingsStatus("Couldn't load settings.", true);
@@ -227,6 +249,10 @@ async function loadSettings(){
 }
 
 async function saveSettings(){
+  if(!settingsLoaded){
+    setSettingsStatus("Settings haven't loaded yet — reopen the Site settings tab, then save.", true);
+    return;
+  }
   const payload = {};
   $$("[data-setting]").forEach(input=>{ payload[input.dataset.setting] = input.value.trim(); });
 
@@ -266,7 +292,7 @@ async function saveSettings(){
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify(payload)
     });
-    if(!res.ok) throw new Error("HTTP "+res.status);
+    if(!res.ok) throw new Error(errorText(await res.json().catch(()=>({})), res.status));
     settingsSnapshot = await res.json();
     setSettingsStatus("Saved — reload the site to see it.");
   }catch(err){
@@ -660,10 +686,7 @@ $("#settingsFileInput").addEventListener("change", async e=>{
       });
     }
     const res = await api("/api/settings/upload", {method:"POST", body: fd});
-    if(!res.ok){
-      const detail = await res.json().catch(()=>({}));
-      throw new Error(detail.detail || ("HTTP "+res.status));
-    }
+    if(!res.ok) throw new Error(errorText(await res.json().catch(()=>({})), res.status));
     const data = await res.json();
     settingsSnapshot[key] = data.value;
     renderUploadStates({broadcast:key==="favicon_url"});
@@ -744,7 +767,7 @@ function renderCategories(){
     head.className = "category-block-head";
     head.innerHTML = `
       <span class="drag-handle cat-drag" title="Drag to reorder this heading" draggable="true"><i class="fa-solid fa-grip-vertical"></i></span>
-      <input type="text" class="category-name-input" value="${escapeHtml(cat.name)}">
+      <input type="text" class="category-name-input" maxlength="200" value="${escapeHtml(cat.name)}">
       <div class="category-actions">
         <button type="button" class="icon-btn cat-move-up" title="Move heading up" ${catIndex===0?"disabled":""}><i class="fa-solid fa-arrow-up"></i></button>
         <button type="button" class="icon-btn cat-move-down" title="Move heading down" ${catIndex===currentCategories.length-1?"disabled":""}><i class="fa-solid fa-arrow-down"></i></button>
@@ -757,12 +780,18 @@ function renderCategories(){
     nameInput.addEventListener("change", async ()=>{
       const name = nameInput.value.trim();
       if(!name){ nameInput.value = cat.name; return; }
-      await api(`/api/categories/${cat.id}`, {
-        method:"PUT",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({name})
-      });
-      cat.name = name;
+      try{
+        const res = await api(`/api/categories/${cat.id}`, {
+          method:"PUT",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({name})
+        });
+        if(!res.ok) throw new Error(errorText(await res.json().catch(()=>({})), res.status));
+        cat.name = name;
+      }catch(err){
+        nameInput.value = cat.name;      // the rename did not happen, so don't show it
+        if(err.message!=="unauthorized") alert("Couldn't rename the heading: " + err.message);
+      }
     });
 
     head.querySelector(".cat-move-up").addEventListener("click", ()=>swapCategory(catIndex, catIndex-1));
@@ -950,13 +979,18 @@ $("#addCategoryForm").addEventListener("submit", async e=>{
   const input = $("#newCategoryName");
   const name = input.value.trim();
   if(!name) return;
-  await api("/api/categories", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({section: currentSection, name, sort_order: currentCategories.length})
-  });
-  input.value = "";
-  loadSection(currentSection);
+  try{
+    const res = await api("/api/categories", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({section: currentSection, name, sort_order: currentCategories.length})
+    });
+    if(!res.ok) throw new Error(errorText(await res.json().catch(()=>({})), res.status));
+    input.value = "";
+    loadSection(currentSection);
+  }catch(err){
+    if(err.message!=="unauthorized") alert("Couldn't add the heading: " + err.message);
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -1181,10 +1215,7 @@ $("#itemForm").addEventListener("submit", async e=>{
     } else {
       res = await api(`/api/items/${modalState.itemId}`, {method:"PUT", body: fd});
     }
-    if(!res.ok){
-      const detail = await res.json().catch(()=>({}));
-      throw new Error(detail.detail || ("HTTP "+res.status));
-    }
+    if(!res.ok) throw new Error(errorText(await res.json().catch(()=>({})), res.status));
     clearDraft();   // saved for real now — the local copy is no longer needed
     closeItemModal();
     loadSection(currentSection);

@@ -1,5 +1,8 @@
-/* v85: bundled male recordings; other speech uses server male audio or a known male voice.
-   All engines share one queue so announcements never overlap narration. */
+/* The site's voice. Three fixed phrases are bundled recordings; any other
+   text (chat messages read aloud, the round winner) is spoken by the
+   server's lightweight male voice, or by a known male browser voice when
+   the server cannot be reached. All of them share one queue, so an
+   announcement never talks over the terminal narration. */
 (() => {
   const AudioEngine = window.AudioContext || window.webkitAudioContext;
   const supported = !!AudioEngine && typeof Worker === 'function';
@@ -9,8 +12,8 @@
   const warming = new Set();
   let unlocked = false, timer = null, dynamicAvailable = false;
 
-  /* Low-memory hosting keeps Piper in static mode. Dynamic chat phrases may
-     use an explicitly recognized male browser voice. Fixed commands are WAVs. */
+  /* Fallback for arbitrary text: an explicitly recognised male browser voice,
+     used only if the server's voice is unavailable. */
   const browserSynth = window.speechSynthesis || null;
   const BrowserUtterance = window.SpeechSynthesisUtterance || null;
   const browserDynamic = !!(browserSynth && BrowserUtterance);
@@ -265,11 +268,10 @@
     const clean = normalizeText(text);
     if(!clean) return false;
 
-    /* Dynamic Piper is best when the host has room for it. On the normal
-       low-memory Render deployment, use the browser's one selected voice for
-       dynamic text instead of returning false. Static bundled WAVs still go
-       through the original AudioContext path so the signature welcome and
-       terminal narration sound exactly as authored. */
+    /* Server speech first. The browser's own male voice is only used when
+       the server's voice is unavailable. The bundled recordings always go
+       through the AudioContext path, so the signature welcome and terminal
+       narration sound exactly as recorded. */
     const useBrowser=!dynamicAvailable && !isStatic(clean,profile);
     if(useBrowser && !chooseBrowserVoice()) return false;
     if(!useBrowser){

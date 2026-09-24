@@ -1,6 +1,10 @@
 """Seeds the database with starting content on first run, so the site
-isn't empty before you've added anything through the editor. Safe to
-run repeatedly — it only seeds when a section has zero categories."""
+isn't empty before you've added anything through the editor.
+
+It seeds ONCE per database and remembers that it has (the private
+`_meta_seeded` setting). It used to re-seed any section that had no
+headings on every restart, so emptying a section on purpose in the editor
+brought the sample content back after the next deploy."""
 
 import re
 import json
@@ -409,7 +413,8 @@ def _expand_middle_initial(db: Session):
     changed = False
     for row in db.query(models.Setting).all():
         value = row.value or ""
-        if not value:
+        # Private rows (the stored icon, flags) hold data, not wording.
+        if not value or row.key.startswith("_"):
             continue
         updated = value
         for pattern, replacement in patterns:
@@ -421,12 +426,22 @@ def _expand_middle_initial(db: Session):
         db.commit()
 
 
+# Private settings start with "_" and are never sent to the browser.
+SEEDED_FLAG = "_meta_seeded"
+
+
 def seed_if_empty(db: Session):
     seed_settings(db)
+    if db.get(models.Setting, SEEDED_FLAG):
+        return
+    # A database that already holds content (every site running before this
+    # flag existed) is marked as seeded without touching anything, so a
+    # section its owner emptied stays empty.
+    if db.query(models.Category).first() is not None:
+        db.add(models.Setting(key=SEEDED_FLAG, value="1"))
+        db.commit()
+        return
     for section, categories in SEED_DATA.items():
-        has_any = db.query(models.Category).filter(models.Category.section == section).first()
-        if has_any:
-            continue
         for cat_index, cat in enumerate(categories):
             category = models.Category(section=section, name=cat["name"], sort_order=cat_index)
             db.add(category)
@@ -443,4 +458,5 @@ def seed_if_empty(db: Session):
                         sort_order=item_index,
                     )
                 )
+    db.add(models.Setting(key=SEEDED_FLAG, value="1"))
     db.commit()

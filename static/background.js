@@ -396,10 +396,16 @@
     draw();
   }
 
+  /* Redraw only when the WIDTH changes. On a phone the address bar sliding
+     in and out fires a resize on every scroll direction change, and each
+     one used to throw the whole background away and scatter a new one —
+     the snippets and graphs visibly jumped while you scrolled. */
   let resizeTimer = null;
+  let drawnWidth = window.innerWidth;
   window.addEventListener("resize", ()=>{
+    if(window.innerWidth === drawnWidth) return;
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(draw, 260);
+    resizeTimer = setTimeout(()=>{ drawnWidth = window.innerWidth; draw(); }, 260);
   });
 
   window.Background = { load, draw };

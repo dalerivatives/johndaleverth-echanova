@@ -13,12 +13,13 @@ What Supabase *is* very good at here is being the part that has to survive:
 |---|---|
 | The FastAPI app | A host that runs Python — Render, Railway, Fly.io, Koyeb |
 | The database | **Supabase Postgres** |
-| Uploaded files (resume, images) | **Supabase Storage**, or a disk on the host |
+| Uploaded files (resume, images, videos) | **Supabase Postgres** too — stored in the database since v117 |
 
 That split is worth having on its own. Free app hosts almost always have an
-**ephemeral filesystem**: the SQLite file and everything uploaded is wiped on
-every redeploy and every idle restart. Moving the database to Supabase is what
-stops your content disappearing.
+**ephemeral filesystem**: a local SQLite file is wiped on every redeploy and
+every idle restart. Moving the database to Supabase is what stops your content
+disappearing — and because uploads are kept in the database as well, it keeps
+your uploaded files too.
 
 ---
 
@@ -58,37 +59,42 @@ already describes:
    | `DATABASE_URL` | the pooler URI from step 1 |
    | `ADMIN_KEY` | **a long random secret of your own** |
 
-   Do not leave `ADMIN_KEY` unset. The default is `changeme123`, it is printed
-   in this repo, and anyone who finds `/editor.html` can rewrite your site
-   with it. The server prints a warning on every boot until you change it.
+   Do not leave `ADMIN_KEY` unset. There is no default: without it the server
+   invents a random key on every boot, so nobody — including you — can sign
+   in to `/editor.html`, and it prints a warning until you set one. (The old
+   published default `changeme123` is refused outright.)
 
    Leave `DEV` unset. It is for local editing only — it turns on live reload,
    which would have every visitor polling your server.
 
 On first boot the app creates its own tables and seeds the default content.
 You'll see it in the Supabase **Table Editor**: `categories`, `items`,
-`settings`, `chat_messages`, `chat_names`, `link_previews`, `robot_state`.
+`settings`, `chat_messages`, `chat_names`, `link_previews`, `robot_state`,
+`media_assets`.
 
 ## 3. Point the site at itself
 
 Open `https://your-app.onrender.com/editor.html`, unlock with your `ADMIN_KEY`,
 and set **Site settings → Sharing & search → Site URL** to your real URL.
-Until you do, link previews of your own site (the card someone sees when they
-paste your link into Facebook or LinkedIn) still say `example.com`.
+If it is blank the server uses whatever address the visitor arrived on, which
+is usually right, but setting it makes link previews, the sitemap and the
+search-result data always name the same address.
 
-## 4. Uploads — the part people forget
+## 4. Uploads
 
-The database is safe on Supabase now. **Uploaded files still are not**: they go
-to `uploads/` on the app host's disk, which on a free tier is erased on every
-redeploy. Your resume and any uploaded images vanish with it.
+Since v117, files uploaded in the editor (item pictures and videos, the resume
+PDF) are stored **in the database** (the `media_assets` table), so they survive
+every redeploy and restart just like your text does. The `uploads/` folder on
+the server is only a cache: after a restart the first request for a file writes
+it back from the database, and later requests are served from disk.
 
-Two ways out:
+One thing to keep an eye on: Supabase's free plan allows 500 MB of database in
+total. Pictures and PDFs are small, but a single video can be 25 MB, so for
+videos prefer pasting a YouTube link into the item's link box — the site plays
+YouTube inside the page anyway.
 
-- **Attach a persistent disk** to the service (Render offers this on paid
-  plans) and mount it at `uploads/`. Nothing in the code changes.
-- **Use Supabase Storage.** Create a public bucket, upload the file there, and
-  paste its public URL into the editor instead of uploading through the form.
-  Every media field in the editor takes a URL.
+Files uploaded with a version older than v117 were only ever on the server's
+disk; if one has already been wiped, upload it again once.
 
 ## 5. Two things to know about how this app behaves in the cloud
 

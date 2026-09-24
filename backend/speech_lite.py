@@ -2,14 +2,39 @@
 
 eSpeak NG's explicitly male m3 voice produces WAV audio server-side. No browser
 voice selection, external TTS service, neural model or ONNX runtime is needed.
+
+This is the site's only speech engine. The three fixed phrases (the whoami
+welcome, "code transform" and the terminal narration) are pre-recorded MP3s
+in static/assets; everything else — chat messages read aloud, the round
+winner — is synthesised here.
 """
 import ctypes as c
 import io
+import re
 import sys
 import threading
 import wave
 from functools import lru_cache
 from pathlib import Path
+
+
+def normalize_pronunciation(text: str) -> str:
+    """Read common engineering terms consistently without changing visible text."""
+    text = text.replace('“', '').replace('”', '').replace('’', "'").replace('‘', "'")
+    text = re.sub(r'[—–]', ', ', text)
+    for term, spoken in [('C++', 'C plus plus'), ('C#', 'C sharp'),
+                         ('Node.js', 'Node J S'), ('VS Code', 'Visual Studio Code')]:
+        text = re.sub(r'(?<!\w)' + re.escape(term) + r'(?!\w)', spoken, text, flags=re.I)
+    words = {'AI': 'A I', 'IoT': 'internet of things', 'UI': 'user interface',
+             'UX': 'user experience', 'HTML': 'H T M L', 'CSS': 'C S S',
+             'API': 'A P I', 'APIs': 'A P I s', 'SQL': 'S Q L', 'PHP': 'P H P',
+             'CPU': 'C P U', 'GPU': 'G P U', 'USB': 'U S B',
+             'GitHub': 'Git Hub', 'JavaScript': 'Java Script'}
+    pattern = r'\b(' + '|'.join(re.escape(k) for k in words) + r')\b'
+    text = re.sub(pattern, lambda match: words[match.group()], text)
+    text = text.replace('&', ' and ')
+    text = re.sub(r'[,;:]\s*[.]', '.', text)
+    return re.sub(r'\s+', ' ', text).strip()
 
 _lock = threading.Lock()
 _engine = None
@@ -72,7 +97,6 @@ def synthesize_lite(text: str, profile: str = 'robot') -> bytes:
     try:
         if _engine is None:
             _initialize()
-        from .speech import normalize_pronunciation
         phrase = normalize_pronunciation(text).replace('\x00', ' ').encode('utf-8')
         _frames, _samples, _overflow = [], 0, False
         # UTF-8 + end pause. SSML and phoneme input flags remain disabled.

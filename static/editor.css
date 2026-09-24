@@ -110,9 +110,7 @@
    get an inner scrollbar that would swallow the page's scroll gesture. */
 .field textarea{overflow:hidden;min-height:76px}
 .field input::placeholder,.field textarea::placeholder{color:var(--muted);opacity:.6}
-.media-tabs{display:flex;gap:6px;margin-bottom:8px}
-.media-tab{border:1px solid var(--line);background:var(--tile-bg);color:var(--control-text);padding:7px 12px;border-radius:7px;font:12px ui-monospace,monospace}
-.media-tab.active{border-color:var(--accent);color:var(--accent);background:var(--code)}
+
 .field input[type="file"]{font-size:12.5px;color:var(--muted)}
 .current-media-preview{margin-top:8px}
 .current-media-preview img,.current-media-preview video{max-width:100%;max-height:140px;border-radius:8px;border:1px solid var(--line)}
@@ -367,7 +365,7 @@
 /* The uppercase treatment is for field LABELS only. These live inside
    .field but are prose, so they opt back out. */
 .media-url-hint,.file-picker-name,.current-media-preview,.preview-meta,
-.clear-media-label,.field .field-note{text-transform:none;letter-spacing:0}
+.clear-media-label{text-transform:none;letter-spacing:0}
 .media-url-hint{font-size:12px;line-height:1.65}
 .file-picker-name{font-size:12px}
 .media-or{text-transform:uppercase;letter-spacing:.08em}

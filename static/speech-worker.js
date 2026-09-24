@@ -2,8 +2,8 @@
 const cache=new Map();
 const pending=new Map();
 
-/* The default narration already exists as a Piper-generated WAV. Using it
-   avoids loading the neural runtime in the web service during page visits. */
+/* The default narration, the whoami welcome and "code transform" are
+   pre-recorded (assets/*.mp3); only other text is synthesised on demand. */
 const DEFAULT_TERMINAL = "Hello World. I'm Dale , a Computer Engineer, Full Stack Developer, Inventor, who enjoys building codes and turning out of the blue ideas into Output";
 function canonical(text){
   return String(text || '').normalize('NFKC')

@@ -73,6 +73,7 @@ import random
 import time
 import urllib.error
 import urllib.request
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 # The deliberate choice of endpoint. /api/health returns a constant without
@@ -244,24 +245,24 @@ async def _loop() -> None:
             await asyncio.sleep(60)
 
 
-def attach(app) -> None:
-    """Wire the heartbeat to the app's lifecycle.
+def _configure() -> bool:
+    """Read the environment and decide whether the heartbeat runs.
 
     Deliberately quiet about being switched off: a local run should not
     print a warning about a production-only feature every time it starts.
     """
     switch = (os.getenv("KEEPALIVE") or "").strip().lower()
     if switch in _FALSE:
-        return
+        return False
 
     # A pull-request preview is a throwaway that would burn the same free
     # instance-hours as the real site. Render marks them for us.
     if (os.getenv("IS_PULL_REQUEST") or "").strip().lower() == "true":
-        return
+        return False
 
     url = _resolve_url()
     if not url:
-        return
+        return False
 
     try:
         minutes = float(os.getenv("KEEPALIVE_MINUTES") or DEFAULT_MINUTES)
@@ -276,26 +277,32 @@ def attach(app) -> None:
     state.interval = minutes
     window = _resolve_window()
     state.window = f"{window[0]:02d}-{window[1]:02d}" if window else ""
+    return True
 
-    task: dict[str, asyncio.Task] = {}
 
-    @app.on_event("startup")
-    async def _start() -> None:  # pragma: no cover - lifecycle glue
+@asynccontextmanager
+async def lifespan(app):  # pragma: no cover - lifecycle glue
+    """The app's lifespan handler: start the heartbeat with the server and
+    stop it cleanly on shutdown.
+
+    This replaces `@app.on_event("startup")`, which FastAPI has deprecated
+    in favour of lifespan handlers and prints a warning for.
+    """
+    task = None
+    if _configure():
         state.started_at = time.time()
         print(
-            f"[keepalive] on — {state.url} every {minutes:g} min"
+            f"[keepalive] on — {state.url} every {state.interval:g} min"
             + (f" during {state.window} UTC" if state.window else "")
         )
-        task["t"] = asyncio.create_task(_loop(), name="keepalive")
-
-    @app.on_event("shutdown")
-    async def _stop() -> None:  # pragma: no cover - lifecycle glue
-        running = task.get("t")
-        if not running:
-            return
-        running.cancel()
-        try:
-            await running
-        except (asyncio.CancelledError, Exception):
-            pass
-        state.enabled = False
+        task = asyncio.create_task(_loop(), name="keepalive")
+    try:
+        yield
+    finally:
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
+            state.enabled = False

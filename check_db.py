@@ -109,7 +109,7 @@ print("  write  : create / insert / read / drop all OK")
 
 # ---- 3. what is already there? -------------------------------------------
 APP_TABLES = ("categories", "items", "settings", "chat_messages",
-              "chat_names", "link_previews", "robot_state")
+              "chat_names", "link_previews", "robot_state", "media_assets")
 present = [t for t in sorted(inspect(engine).get_table_names()) if t in APP_TABLES]
 if present:
     print("  schema : " + str(len(present)) + " of " + str(len(APP_TABLES)) +

@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text, func
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -56,14 +56,10 @@ class ChatName(Base):
     once and keeps. It is not proof of anything (anyone can clear it and get
     a new one), but it is stable enough to answer the only question this
     needs to answer: is this the same visitor who claimed that name earlier
-    today? The IP is recorded alongside it as a second limit, so one
-    connection can't farm a dozen names.
-
-    Trade-off worth knowing: several people behind one router or campus
-    network share an IP, so the second of them is asked to share the first
-    one's name rather than claiming their own. That is the cost of "1 device,
-    1 IP = 1 name"; loosening it to device-only would let one person claim
-    names endlessly from private windows.
+    today? One device holds one name. The IP is recorded only for rate
+    limiting and for looking into abuse afterwards; it decides nothing about
+    identity, because a household or a phone carrier puts many people
+    behind one address.
     """
 
     __tablename__ = "chat_names"
@@ -163,6 +159,29 @@ class RobotState(Base):
     last_destroyer = Column(String(40), default="")
     last_destroyer_damage = Column(Float, default=0.0)
     last_destroyer_blows = Column(Integer, default=0)
+
+
+class MediaAsset(Base):
+    """A file uploaded in the editor (item media, the resume PDF), kept IN
+    the database.
+
+    Uploads used to be written only to the server's `uploads/` folder. On
+    Render's free plan that folder is wiped on every deploy and restart, so
+    a picture uploaded on Monday was a broken image after Tuesday's deploy,
+    while the database still pointed at it. The bytes now live here, next
+    to the row that references them, and `uploads/` is only a disk cache:
+    GET /uploads/<name> writes the file back from this table the first time
+    it is asked for after a restart, then serves it from disk.
+    """
+
+    __tablename__ = "media_assets"
+
+    # "<32 hex chars><.ext>" — exactly the file name used under /uploads/.
+    name = Column(String(80), primary_key=True)
+    mime = Column(String(100), nullable=False, default="application/octet-stream")
+    size = Column(Integer, nullable=False, default=0)
+    data = Column(LargeBinary, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class Item(Base):

@@ -14,8 +14,6 @@
    or unreachable the page still reads correctly — it just won't reflect the
    very latest edits.
    ============================================================ */
-window.SITE_SETTINGS = {};
-
 /* Social icons are built from the list in Site settings, so any number of
    them can exist — each entry is {title, icon, url}. "icon" is normally a
    Font Awesome class ("fa-brands fa-github"), but a logo the icon set
@@ -36,6 +34,12 @@ function escapeAttr(str){
   return String(str==null?"":str).replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 }
 
+/* Links that may appear on the page: web addresses, mail, phone, and this
+   site's own paths. A `javascript:` URL typed into the editor would
+   otherwise become a live link in every visitor's header. */
+const SAFE_LINK = /^(https?:\/\/|mailto:|tel:|\/(?!\/))/i;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function renderSocials(raw){
   let list = [];
   try{ list = JSON.parse(raw || "[]"); }catch(e){ list = []; }
@@ -43,11 +47,12 @@ function renderSocials(raw){
 
   const markup = list
     .filter(s => s && (s.url||"").trim())
+    .filter(s => SAFE_LINK.test(s.url.trim()) || EMAIL.test(s.url.trim()))
     .map(s => {
       const url = s.url.trim();
       const title = (s.title||"").trim() || "Link";
       // A bare email address is turned into a mailto: link automatically.
-      const href = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(url) ? `mailto:${url}` : url;
+      const href = EMAIL.test(url) ? `mailto:${url}` : url;
       const external = !href.startsWith("mailto:");
       return `<a href="${escapeAttr(href)}" aria-label="${escapeAttr(title)}" data-tooltip="${escapeAttr(title)}"${
         external ? ' target="_blank" rel="noopener"' : ""}>${socialIconMarkup(s.icon)}</a>`;
@@ -80,8 +85,6 @@ async function applySiteSettings(){
   }catch(err){
     return null;   // keep the fallback text that's already in the HTML
   }
-  window.SITE_SETTINGS = settings;
-
   // 1. plain text bindings
   document.querySelectorAll("[data-setting]").forEach(el=>{
     const value = settings[el.dataset.setting];
@@ -110,10 +113,6 @@ async function applySiteSettings(){
   const metaDesc = document.querySelector('meta[name="description"]');
   if(metaDesc && (settings.meta_description || "").trim()) metaDesc.content = settings.meta_description;
 
-  // The upload is ONLY a tab icon, never an extra avatar in the viewer bar.
-  const logo = (settings.favicon_url || "").trim();
-  if(window.PortfolioFavicon) window.PortfolioFavicon.apply(logo);
-
   /* 7. Link-preview URLs. Facebook and friends read these tags from the raw
         HTML before any JavaScript runs, so rewriting them here does NOT make
         previews work on its own — the real fix is setting the site URL in
@@ -139,45 +138,28 @@ const app=document.getElementById("app");
 const stack=document.getElementById("stack");
 const views=document.querySelectorAll(".page-view");
 
+/* The visitor's own date, time and time zone. The formatters are built once
+   rather than every second, and every underscore in a zone name becomes a
+   space ("America/Port_of_Spain" used to read "PORT OF_SPAIN"). */
+const footerDateFormat = new Intl.DateTimeFormat(undefined, {
+  weekday: "short", month: "short", day: "2-digit", year: "numeric"
+});
+const footerTimeFormat = new Intl.DateTimeFormat(undefined, {
+  hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true
+});
+const footerZone = (Intl.DateTimeFormat().resolvedOptions().timeZone || "")
+  .replace(/_/g, " ").toUpperCase();
+
 function updateFooterClock() {
-    const dateElement = document.getElementById("footerDate");
-    const clockElement = document.getElementById("footerClock");
-    const zoneElement = document.getElementById("footerZone");
+  const dateElement = document.getElementById("footerDate");
+  const clockElement = document.getElementById("footerClock");
+  const zoneElement = document.getElementById("footerZone");
+  if (!dateElement || !clockElement) return;
 
-    if (!dateElement || !clockElement) return;
-
-    const now = new Date();
-
-    // Automatically detects the visitor's timezone
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-    const dateFormatter = new Intl.DateTimeFormat(undefined, {
-        weekday: "short",
-        month: "short",
-        day: "2-digit",
-        year: "numeric"
-    });
-
-    const timeFormatter = new Intl.DateTimeFormat(undefined, {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true
-    });
-
-    dateElement.textContent = dateFormatter
-        .format(now)
-        .toUpperCase();
-
-    clockElement.textContent = timeFormatter
-        .format(now);
-
-    // Update timezone
-    if (zoneElement) {
-        zoneElement.textContent = timezone
-            .replace("_", " ")
-            .toUpperCase();
-    }
+  const now = new Date();
+  dateElement.textContent = footerDateFormat.format(now).toUpperCase();
+  clockElement.textContent = footerTimeFormat.format(now);
+  if (zoneElement && zoneElement.textContent !== footerZone) zoneElement.textContent = footerZone;
 }
 
 updateFooterClock();
@@ -197,6 +179,12 @@ function renderStack(){
     them out with everything else and they would never come back, since this
     is the only place the rail is built. */
  stack.querySelectorAll(".nav-item").forEach(el => el.remove());
+ /* Sections go in BEFORE the tools. Where things appear is set by CSS
+    `order`, so this changes nothing on screen, but it fixes the keyboard
+    order: the dial and the sound switch only exist while the rail is open,
+    and with them first in the markup a forward Tab went section, section,
+    section… and straight out of the rail, never reaching either tool. */
+ const firstTool = stack.querySelector(".nav-tool");
  items.forEach((item,index)=>{
    const wrap=document.createElement("div");
    wrap.className="nav-item"+(index===0?" active":"");
@@ -208,16 +196,9 @@ function renderStack(){
    if(index===0) btn.setAttribute("aria-current","page");
    const label=document.createElement("span");
    label.className="nav-label"; label.textContent=item.label;
-   wrap.append(btn,label); stack.appendChild(wrap);
+   wrap.append(btn,label); stack.insertBefore(wrap, firstTool);
  });
 }
-/* The tour needs to change section without simulating clicks on a rail it
-   has to guess the shape of. This is the only thing exposed globally from
-   this file, and it is the same call the rail itself makes. */
-window.PortfolioNav = {
-  activate: function(id){ try{ activate(id); }catch(e){} }
-};
-
 /* Clean section URLs. The portfolio remains a fast single-page interface,
    but every section now has a real address that can be refreshed, bookmarked
    or shared without exposing index.html. */
@@ -321,32 +302,16 @@ window.addEventListener("popstate",()=>{
 });
 
 /* ============================================================
-   COLOUR MODE — a three-position lever
+   COLOUR MODE — the rotary theme dial
    ------------------------------------------------------------
-   LIGHT  -  always the light (STUDIO) palette
-   SYSTEM -  follows the operating system, and KEEPS following it
-   DARK   -  always the dark (EMERALD) palette
+   Nine detents, lightest to darkest:
 
-   This replaced a six-theme palette menu. The four accent themes
-   (CYBER, OCEAN, VIOLET, HARDWARE) were dropped on request; their CSS
-   blocks are deliberately left in style.css rather than deleted,
-   because one of them has two `.app.light-mode` selectors merged into
-   its selector list and cutting it blind would take those with it.
-   Nothing adds those classes any more, so the rules never match.
+     MONO LIGHT · LIGHT · AUTO · CYBER · OCEAN · VIOLET · AMBER · DARK · MONO DARK
 
-   SYSTEM is the real point of the three-position switch. The previous
-   build had no such mode: it followed the OS only until you touched the
-   control, then pinned whatever you picked forever. Here SYSTEM is a
-   choice you can return to, and it re-follows the OS live.
+   AUTO follows the operating system and KEEPS following it, live. It is a
+   position you can come back to, not a default that is lost the moment the
+   dial is touched. The choice is remembered per browser.
    ============================================================ */
-/* Five detents, ordered as a brightness ramp so turning the dial one way
-   always gets lighter and the other way always gets darker. With an odd
-   count AUTO lands on the exact centre of the arc, which is where the
-   default belongs.
-
-   The GREEN phosphor position was cut here. It sat between DARK and MONO
-   DARK and was the second dark-with-green-accents stop on the dial; one
-   is enough. */
 const MODES = ["mono-light","colour-light","auto","cyber","ocean","violet","amber","colour-dark","mono-dark"];
 const MODE_LABEL = {
   "mono-light" : {word:"MONO LIGHT", tip:"Theme: Mono light", aria:"Theme: monochrome light, black on white"},
@@ -637,6 +602,11 @@ if(osLight){
   function myName(){
     try{return localStorage.getItem('portfolio-chat-name') || '';}catch(e){return '';}
   }
+  /* The server only shows a name as a face if this device holds it, so the
+     heartbeat carries the device id that proves it. */
+  function myDevice(){
+    try{return localStorage.getItem('portfolio-device-id') || '';}catch(e){return '';}
+  }
   let lastSig = null;
   function paintFaces(faces, online){
     if(!stackEl) return;
@@ -717,7 +687,7 @@ if(osLight){
         /* The name goes up with the heartbeat so the server can tell the
            badge WHO is here, not just how many. Empty for anyone who
            has not joined the chat — they are counted, never named. */
-        body:JSON.stringify({viewer_id:viewerId, name:myName()})
+        body:JSON.stringify({viewer_id:viewerId, name:myName(), device_id:myDevice()})
       });
       if(!res.ok) throw new Error("presence unavailable");
       const data=await res.json();
@@ -1125,7 +1095,7 @@ if(osLight){
        squares by a wide margin. The timeout goes up because a cold cache
        legitimately costs the server two upstream round trips. */
     try{
-      const data = await fetchJSON(`api/github/${encodeURIComponent(username)}`, 20000);
+      const data = await fetchJSON(`/api/github/${encodeURIComponent(username)}`, 20000);
       const days = (data.calendar && data.calendar.contributions) || [];
       if(!days.length) throw new Error(data.errors ? data.errors.join("; ") : "no calendar");
       try{ localStorage.setItem(GITHUB_CACHE_KEY, JSON.stringify({username, at:Date.now(), data})); }catch(e){}
@@ -1161,7 +1131,9 @@ if(osLight){
     renderDemoHeatmap();
     const settings = await settingsReady;   // don't race the settings fetch
     const configured = settings && (settings.github_username||"").trim();
-    const saved = localStorage.getItem(GITHUB_STORAGE_KEY) || configured || GITHUB_DEFAULT_USERNAME;
+    let override = "";
+    try{ override = localStorage.getItem(GITHUB_STORAGE_KEY) || ""; }catch(e){}
+    const saved = override || configured || GITHUB_DEFAULT_USERNAME;
     if(saved){
       syncGithub(saved);
     }
@@ -1305,9 +1277,17 @@ if(osLight){
            its logo remains one deliberate click away — that's the player's,
            not a link this site puts in front of you. */
         const src = `https://www.youtube-nocookie.com/embed/${escapeHtml(yid)}?rel=0&modestbranding=1&playsinline=1`;
+        /* Click-to-load: the thumbnail and a play button until pressed, then
+           the real player (see the delegated handler below). A full YouTube
+           player is ~0.5-1 MB of script, and the Projects page has several;
+           now a visitor downloads one only for the video they actually play. */
         return `<div class="cms-card-media">
-          <div class="yt-embed"><iframe src="${src}" title="${title}" loading="lazy"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+          <div class="yt-embed yt-lite" data-embed="${escapeHtml(src + "&autoplay=1")}" data-title="${title}">
+            <button type="button" class="yt-lite-play" aria-label="Play video: ${title}">
+              <img src="https://i.ytimg.com/vi/${escapeHtml(yid)}/hqdefault.jpg" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">
+              <span class="yt-lite-icon" aria-hidden="true"><i class="fa-solid fa-play"></i></span>
+            </button>
+          </div>
           <button type="button" class="media-zoom" data-zoom-type="embed" data-zoom-src="${src}"
                   data-zoom-title="${title}" aria-label="Enlarge ${title}"><i class="fa-solid fa-expand" aria-hidden="true"></i></button>
         </div>`;
@@ -1337,6 +1317,23 @@ if(osLight){
     }
     return "";
   }
+
+  /* Pressing play on a click-to-load video swaps the thumbnail for the real
+     player, already playing. Delegated, so it covers cards rendered later. */
+  document.addEventListener("click", e=>{
+    const btn = e.target.closest(".yt-lite-play");
+    if(!btn) return;
+    const host = btn.closest(".yt-lite");
+    if(!host || !host.dataset.embed) return;
+    const frame = document.createElement("iframe");
+    frame.src = host.dataset.embed;
+    frame.title = host.dataset.title || "YouTube video";
+    frame.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+    frame.allowFullscreen = true;
+    host.classList.remove("yt-lite");
+    host.replaceChildren(frame);
+    frame.focus();
+  });
 
   function renderCard(item){
     const tags = String(item.tools||"").split(",").map(t=>t.trim()).filter(Boolean);
@@ -1369,7 +1366,16 @@ if(osLight){
     nextBtn && nextBtn.addEventListener("click", ()=>goTo(currentIndex()+1));
     dots.forEach((d,i)=>d.addEventListener("click", ()=>goTo(i)));
     track.addEventListener("scroll", ()=>{clearTimeout(track.__navT); track.__navT=setTimeout(updateNav,80);}, {passive:true});
-    window.addEventListener("resize", ()=>{clearTimeout(track.__resizeT); track.__resizeT=setTimeout(()=>goTo(currentIndex()),120);});
+    /* Re-snap only when the WIDTH changes. On a phone the address bar
+       sliding away fires resize on every scroll, and each one set off a
+       smooth scroll inside every carousel on the page. */
+    let lastWidth = window.innerWidth;
+    window.addEventListener("resize", ()=>{
+      if(window.innerWidth === lastWidth) return;
+      lastWidth = window.innerWidth;
+      clearTimeout(track.__resizeT);
+      track.__resizeT = setTimeout(()=>goTo(currentIndex()),120);
+    });
 
     // Pointer-drag scrolling for desktop mice / trackpads (native touch handles swipe)
     let dragging=false, startX=0, startScroll=0, moved=false;
@@ -1565,7 +1571,8 @@ if(osLight){
 
   function toDate(iso){
     if(!iso) return null;
-    const d = new Date(iso.endsWith("Z")||iso.includes("+") ? iso : iso + "Z");
+    // Naive timestamps (SQLite) are UTC; ones with a zone (Postgres) keep it.
+    const d = new Date(/(?:Z|[+-]\d\d:?\d\d)$/i.test(iso) ? iso : iso + "Z");
     return isNaN(d) ? null : d;
   }
 
@@ -1925,15 +1932,13 @@ if(osLight){
 
   // Load as soon as the Chat page is opened, and once now so RobotVoice can
   // mark existing history as seen instead of reading the backlog aloud later.
-  const stackEl = document.getElementById("stack");
-  if(stackEl){
-    stackEl.addEventListener("click", ()=>{
-      setTimeout(()=>{
-        if(chatVisible()){ startPolling(); loadMessages(); }
-        else stopChatStream();
-      }, 60);
-    });
-  }
+  // Keyed on the section-change event rather than on clicks in the rail, so
+  // arriving by the browser's Back/Forward buttons works too — before, the
+  // chat opened that way sat frozen until something else was clicked.
+  window.addEventListener("portfolio-section-change", ()=>{
+    if(chatVisible()){ startPolling(); loadMessages(); syncClaim(); }
+    else stopChatStream();
+  });
   setName(displayName);
   syncClaim();
   if(chatVisible()) startPolling(); else loadMessages();
@@ -2162,9 +2167,8 @@ if(osLight){
 
   function renderAttackers(){
     const now = Date.now();
-    let changed = false;
     attackers.forEach((entry, name)=>{
-      if(entry.until < now){ attackers.delete(name); changed = true; }
+      if(entry.until < now) attackers.delete(name);
     });
     if(!attackers.size){
       attackersEl.innerHTML = "";
@@ -2422,6 +2426,10 @@ if(osLight){
         const res = await fetch(`/api/robot/events?since=${lastEventId}`);
         if(!res.ok) return;
         const data = await res.json();
+        /* The server restarted and its counter began again from zero:
+           resume from its head instead of waiting for ids it will not
+           reach for a long time. */
+        if(typeof data.latest === "number" && data.latest < lastEventId) lastEventId = data.latest;
         (data.events || []).forEach(handleEvent);
       }catch(e){}
     }, 900);
@@ -2635,10 +2643,11 @@ if(osLight){
     else closeStream();
   });
 
-  const stackNav = document.getElementById("stack");
-  if(stackNav) stackNav.addEventListener("click", ()=>setTimeout(()=>{
+  // Whenever the section changes, by the rail, Back/Forward or a link.
+  window.addEventListener("portfolio-section-change", ()=>{
     if(visible()){ ensure3d(); start(); pollState(); }
-  }, 80));
+    else closeStream();
+  });
 
   paint();
   if(visible()){ ensure3d(); start(); }
@@ -2710,7 +2719,20 @@ if(osLight){
     if(prevFocus && prevFocus.focus) prevFocus.focus();
   }
 
-  document.addEventListener("keydown", e=>{ if(e.key === "Escape") close(); });
+  document.addEventListener("keydown", e=>{
+    if(!box || box.hidden) return;
+    if(e.key === "Escape"){ close(); return; }
+    /* Keep Tab inside the dialog: without this, focus walked off into the
+       page hidden behind it. */
+    if(e.key === "Tab"){
+      const focusable = Array.from(box.querySelectorAll("button, iframe, video[controls], [href], [tabindex]:not([tabindex='-1'])"));
+      if(!focusable.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+      else if(!box.contains(document.activeElement)){ e.preventDefault(); first.focus(); }
+    }
+  });
 
   // Delegated, so it covers cards rendered later without re-wiring anything.
   document.addEventListener("click", e=>{
@@ -2898,14 +2920,12 @@ if(osLight){
   });
 
   /* Leaving the Tools page pauses the music rather than letting it play on
-     invisibly under the chat. */
-  const stack = document.getElementById("stack");
-  if(stack){
-    stack.addEventListener("click", ()=>setTimeout(()=>{
-      const view = document.getElementById("toolsView");
-      if(view && !view.classList.contains("active") && player && player.pauseVideo) player.pauseVideo();
-    }, 80));
-  }
+     invisibly under the chat — however the page was left (the rail, the
+     browser's Back button, a link). */
+  window.addEventListener("portfolio-section-change", e=>{
+    const id = e.detail && e.detail.id;
+    if(id !== "tools" && player && player.pauseVideo) player.pauseVideo();
+  });
 
   window.MusicPlayer = { load };
   // If settings arrived before this module was parsed, use them now.
@@ -3075,8 +3095,8 @@ if(osLight){
   function warmTerminalVoice(){
     if(!window.Speech || typeof window.Speech.warm !== 'function') return;
     const text = collectText();
-    /* Only cache the bundled WAV. Never pre-warm dynamic Piper speech: that
-       request was loading the large model on every portfolio visit. */
+    /* Only pre-load the bundled recording. Anything else is synthesised by
+       the server on demand, so there is nothing to fetch ahead of time. */
     if(text && window.Speech.isStatic(text, "narration")){
       window.Speech.warm(text, "narration");
     }

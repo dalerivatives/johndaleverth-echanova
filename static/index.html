@@ -30,9 +30,8 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
 
      Hence /brand-icon.png. It is a path that has never been requested by
      anything, so no cache holds a stale answer for it, so the first
-     request lands on the origin. /favicon.ico stays declared last, for
-     clients that probe it by convention, but it is no longer the URL this
-     page depends on.
+     request lands on the origin. /favicon.ico is still served, for clients
+     that probe it by convention, but this page does not depend on it.
      ============================================================ -->
 <!-- Every one of these carries an explicit type and explicit sizes, and
      NONE of them says sizes="any".
@@ -69,32 +68,34 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
      Messenger, LinkedIn, X, Discord, WhatsApp, Slack — a title, a blurb
      and the preview image, instead of a bare grey link.
 
-     ONE THING TO EDIT after you deploy: change SITE_URL below to the real
-     address (e.g. https://trevelade.onrender.com). Preview images have to
-     be absolute URLs, so the placeholder must be replaced or Facebook
-     can't fetch the image.
+     Nothing to edit here: the server replaces every https://example.com
+     below with the Site URL from the editor (or, if that is blank, with the
+     address the visitor used), and fills in the title and description.
      ============================================================ -->
 <link rel="canonical" href="https://example.com/">
 
-<!-- NO PHOTO THUMBNAIL BESIDE THE SEARCH RESULT.
-     `max-image-preview:none` is Google's documented control for this: "No
-     image preview is to be shown." It is what removes the large picture that
-     was appearing to the RIGHT of the result. It is page-level, so it lives
-     here and nowhere else.
+<!-- THE PHOTO BESIDE THE SEARCH RESULT is the ORIGINAL portrait,
+     assets/profile-photo.jpg: square, uncropped, with its studio backdrop.
 
-     It does NOT touch the favicon. The little circle beside the domain is
-     filled from `<link rel="icon">` and is a different slot entirely; this
-     tag is only about the big preview image.
+     Google picks that picture itself, from the images on the page. It used
+     to pick the transparent cut-out that the whoami reveal shows, and a
+     search result has no backdrop behind a transparent image, so it came out
+     on plain white. Three things steer it now, all documented by Google
+     ("Specify a preferred image", Image SEO best practices):
 
-     og:image below is deliberately LEFT IN PLACE. Facebook, LinkedIn,
-     Messenger, Twitter/X and Discord read Open Graph and ignore Google's
-     robots directives, so sharing the link anywhere still produces a proper
-     card with a picture. Only Google Search results go plain.
+       1. `max-image-preview:large` allows a thumbnail at all.
+       2. The structured data below names profile-photo.jpg as
+          `primaryImageOfPage` and as the Person's `image`.
+       3. The server sends `X-Robots-Tag: noindex` with every OTHER picture
+          in assets/ (the cut-out, the contour mask, the share card, the boot
+          logo), which is Google's documented way to keep a specific image
+          out of Search. So the only portrait Google may use is the original.
 
-     The trade-off, stated honestly: this also keeps the page's images out of
-     image previews generally. To put the thumbnail back, delete this one
-     line and request indexing again. -->
-<meta name="robots" content="index, follow, max-image-preview:none">
+     og:image stays the designed share card: Facebook, Messenger, LinkedIn,
+     X and Discord read Open Graph and ignore X-Robots-Tag, so shared links
+     still get the card. The little round icon beside the site name is the
+     favicon, a separate slot, and is unaffected by any of this. -->
+<meta name="robots" content="index, follow, max-image-preview:large">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Trevelade — Johndaleverth Echanova">
 <meta property="og:title" content="Engr. Johndaleverth Pastorfide Echanova — Computer Engineer &amp; Full-Stack Developer">
@@ -109,37 +110,58 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
 <meta name="twitter:description" content="Full-stack web apps, embedded/IoT prototypes, and computer-vision systems — built from Marinduque, Philippines.">
 <meta name="twitter:image" content="https://example.com/assets/og-preview.jpg">
 
-<!-- Structured data: tells Google this page is a person, not a company,
-     so the name, job title, location and links can be understood properly
-     when someone searches for you. -->
+<!-- Structured data. The page is about one person, and its preferred image
+     is the original portrait (see the robots note above). `sameAs` is
+     refreshed by the server from the social links in Site settings, so it
+     always matches the icons on the page. -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "Person",
-  "name": "Johndaleverth Pastorfide Echanova",
-  "alternateName": "Dale",
-  "jobTitle": "Computer Engineer, Full-Stack Developer",
-  "description": "Computer Engineer building full-stack web applications, embedded/IoT prototypes, and computer-vision systems.",
+  "@type": "WebPage",
+  "@id": "https://example.com/#webpage",
   "url": "https://example.com/",
-  "email": "mailto:johndaleverthpechanova@gmail.com",
-  "address": {
-    "@type": "PostalAddress",
-    "addressLocality": "Santa Cruz",
-    "addressRegion": "Marinduque",
-    "addressCountry": "PH"
+  "name": "Engr. Johndaleverth Pastorfide Echanova",
+  "primaryImageOfPage": {
+    "@type": "ImageObject",
+    "@id": "https://example.com/#portrait",
+    "url": "https://example.com/assets/profile-photo.jpg",
+    "contentUrl": "https://example.com/assets/profile-photo.jpg",
+    "width": 883,
+    "height": 883,
+    "caption": "Johndaleverth Pastorfide Echanova"
   },
-  "alumniOf": {
-    "@type": "CollegeOrUniversity",
-    "name": "Marinduque State University"
-  },
-  "knowsLanguage": ["English", "Filipino"],
-  "knowsAbout": ["Full-Stack Web Development", "Embedded Systems", "Computer Vision", "Python", "FastAPI", "Internet of Things"],
-  "sameAs": ["https://github.com/dalerivatives"]
+  "mainEntity": {
+    "@type": "Person",
+    "@id": "https://example.com/#person",
+    "name": "Johndaleverth Pastorfide Echanova",
+    "alternateName": "Dale",
+    "image": "https://example.com/assets/profile-photo.jpg",
+    "jobTitle": "Computer Engineer, Full-Stack Developer",
+    "description": "Computer Engineer building full-stack web applications, embedded/IoT prototypes, and computer-vision systems.",
+    "url": "https://example.com/",
+    "email": "mailto:johndaleverthpechanova@gmail.com",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Santa Cruz",
+      "addressRegion": "Marinduque",
+      "addressCountry": "PH"
+    },
+    "alumniOf": {
+      "@type": "CollegeOrUniversity",
+      "name": "Marinduque State University"
+    },
+    "knowsLanguage": ["English", "Filipino"],
+    "knowsAbout": ["Full-Stack Web Development", "Embedded Systems", "Computer Vision", "Python", "FastAPI", "Internet of Things"],
+    "sameAs": ["https://github.com/dalerivatives"]
+  }
 }
 </script>
 
-<link rel="preload" as="image" href="assets/trevelade-logo.jpg?v=70">
-<link rel="preload" as="image" href="assets/human-coded-exact-contour.png">
+<link rel="preload" as="image" href="assets/trevelade-logo.jpg?v=117">
+<!-- crossorigin, because this file is used as a CSS mask and a mask image is
+     always fetched in CORS mode. Without the attribute the preload's request
+     never matched the real one, so the browser downloaded the file twice. -->
+<link rel="preload" as="image" href="assets/human-coded-exact-contour.png" crossorigin="anonymous">
 <link rel="stylesheet" href="loader.css?v=87">
 <script src="loader.js?v=87"></script>
 <link rel="stylesheet" href="vendor/fontawesome/all.min.css?v=78">
@@ -151,7 +173,7 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
 <div id="bootScreen" role="dialog" aria-modal="true" aria-labelledby="bootBrand" hidden>
   <div class="boot-grid" aria-hidden="true"></div>
   <div class="boot-card">
-    <div class="boot-orbit"><img class="boot-logo" src="assets/trevelade-logo.jpg?v=70" alt="Trevelade Company logo" width="1254" height="1254" fetchpriority="high" loading="eager"></div>
+    <div class="boot-orbit"><img class="boot-logo" src="assets/trevelade-logo.jpg?v=117" alt="Trevelade Company logo" width="576" height="576" fetchpriority="high" loading="eager"></div>
     <p class="boot-eyebrow">A DIGITAL EXPERIENCE BY</p>
     <h1 id="bootBrand">TREVELADE<span>COMPANY</span></h1>
     <p class="boot-credit">Developed by Trevelade Company.</p>
@@ -290,8 +312,8 @@ html.booting body > :not(#bootScreen){opacity:0!important;pointer-events:none!im
              the slow connections this matters most on. The CSS still
              controls the drawn size; these only give the aspect ratio. -->
         <span id="asciiArt" class="coded-human-outline" aria-hidden="true"></span>
-        <img id="realPortrait" class="real-portrait" src="assets/profile-transparent.png"
-             width="883" height="883" alt="Johndaleverth Pastorfide Echanova" decoding="async">
+        <img id="realPortrait" class="real-portrait" src="assets/profile-transparent.webp"
+             width="883" height="883" alt="" decoding="async">
       </div>
     </section>
 

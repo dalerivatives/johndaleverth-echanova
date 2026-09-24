@@ -3,6 +3,7 @@ import base64
 import hashlib
 import hmac
 import json
+import math
 import mimetypes
 import os
 import secrets
@@ -11,16 +12,19 @@ import re
 import threading
 import time
 import uuid
+from collections import deque
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Literal
+from urllib.parse import parse_qs, urlsplit
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from starlette.datastructures import MutableHeaders
 
 from . import github, keepalive, linkpreview, models, schemas, seed
 from .database import IS_SQLITE, Base, SessionLocal, engine, get_db
@@ -171,21 +175,56 @@ _add_missing_columns()
 with SessionLocal() as _db:
     seed.seed_if_empty(_db)
 
-app = FastAPI(title="Portfolio Content API")
+# The lifespan handler keeps the free instance from ever reaching Render's
+# 15-minute idle cut-off by fetching its own public URL every few minutes.
+# It does nothing off Render unless KEEPALIVE_URL is set, so a local run is
+# unaffected. See backend/keepalive.py for why the GitHub cron alone is not
+# enough.
+app = FastAPI(title="Portfolio Content API", lifespan=keepalive.lifespan)
 
-# Keeps the free instance from ever reaching Render's 15-minute idle
-# cut-off by fetching its own public URL every few minutes. Does nothing
-# off Render unless KEEPALIVE_URL is set, so a local run is unaffected.
-# See backend/keepalive.py for why the GitHub cron alone is not enough.
-keepalive.attach(app)
+# No CORS middleware, on purpose. The site and its API share one origin, so
+# the browser never needs cross-origin permission to talk to it. The old
+# `allow_origins=["*"]` let ANY other website call these endpoints from its
+# visitors' browsers — post to the chat, hammer the robot, read the admin
+# responses of anyone signed in — and nothing on this site used it.
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+class _SecurityHeaders:
+    """Headers every response gets.
+
+    nosniff stops a browser second-guessing a Content-Type (an uploaded file
+    can never be run as a script because of its bytes). The frame rule stops
+    other sites embedding these pages, which is how click-jacking of the
+    editor would work; YouTube players are frames INSIDE this page, so they
+    are unaffected.
+
+    Plain ASGI rather than @app.middleware("http"): that style wraps every
+    response body, and the chat, robot and presence feeds are long-lived
+    streams whose disconnect detection it is known to interfere with. This
+    only touches the response-start message and passes everything else
+    straight through."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_headers(message):
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers.setdefault("X-Content-Type-Options", "nosniff")
+                headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+                if (headers.get("content-type") or "").startswith("text/html"):
+                    headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
+
+
+app.add_middleware(_SecurityHeaders)
 
 
 # ---------------------------------------------------------------------------
@@ -197,10 +236,29 @@ app.add_middleware(
 # signed token that expires. The token is just base64(payload).signature, with
 # the signature an HMAC over the payload keyed by ADMIN_KEY — so no database
 # table and no extra dependency, but a stolen token still can't be forged or
-# used forever. The raw-key header is still accepted as a fallback so any
-# older editor copy keeps working.
+# used forever.
+#
+# The raw key is accepted in exactly one place, /api/auth/login, and that
+# place is rate-limited. There used to be a second door — an X-Admin-Key
+# header accepted on every admin endpoint "for older editor copies" — which
+# no copy of the editor still sends, and which let the key be guessed with no
+# limit at all.
 # ---------------------------------------------------------------------------
 SESSION_TTL_SECONDS = 12 * 60 * 60  # 12 hours
+
+
+def _same_secret(given, expected) -> bool:
+    """Constant-time comparison that cannot raise.
+
+    hmac.compare_digest refuses str arguments containing non-ASCII
+    characters with a TypeError, so a key or token with an accented letter
+    or an emoji in it became a 500 instead of a plain "wrong key". Comparing
+    the UTF-8 bytes accepts any input."""
+    try:
+        return hmac.compare_digest(str(given or "").encode("utf-8"),
+                                   str(expected or "").encode("utf-8"))
+    except Exception:
+        return False
 
 
 def _b64e(raw: bytes) -> str:
@@ -223,30 +281,25 @@ def issue_session_token() -> tuple[str, int]:
 
 
 def _session_token_valid(token: str) -> bool:
+    """Any malformed token is simply invalid — never an exception, whatever
+    arrives: no dot, a signature that is not ASCII, a payload that is not
+    base64 or not JSON, JSON that is a list, an `exp` that is not a number."""
     try:
         payload_b64, signature = token.split(".", 1)
-    except ValueError:
-        return False
-    if not hmac.compare_digest(signature, _sign(payload_b64)):
-        return False
-    try:
+        if not _same_secret(signature, _sign(payload_b64)):
+            return False
         payload = json.loads(_b64d(payload_b64))
-    except (ValueError, json.JSONDecodeError):
+        return isinstance(payload, dict) and int(payload.get("exp", 0)) > time.time()
+    except Exception:
         return False
-    return int(payload.get("exp", 0)) > time.time()
 
 
-def require_admin(
-    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key"),
-    authorization: Optional[str] = Header(None),
-):
+def require_admin(authorization: Optional[str] = Header(None)):
     if authorization and authorization.lower().startswith("bearer "):
         if _session_token_valid(authorization[7:].strip()):
             return True
         raise HTTPException(status_code=401, detail="Session expired - please sign in again")
-    if x_admin_key and hmac.compare_digest(x_admin_key, ADMIN_KEY):
-        return True
-    raise HTTPException(status_code=401, detail="Invalid or missing admin key")
+    raise HTTPException(status_code=401, detail="Sign in to the editor first")
 
 
 def valid_section(section: str) -> str:
@@ -269,14 +322,11 @@ def dev_version():
 
 
 # Bounded voice endpoint. Per-process state matches the single-worker deployment.
-from collections import deque
-from pydantic import BaseModel, Field
-from .speech import synthesize
-
-SPEECH_MODE = os.getenv("SPEECH_MODE", "static").strip().lower()
-if SPEECH_MODE not in {"static", "dynamic"}:
-    SPEECH_MODE = "static"
-
+#
+# There is one engine: lightweight eSpeak NG male speech (speech_lite.py).
+# An optional neural "dynamic" mode used to sit behind SPEECH_MODE, but its
+# 63 MB model was never shipped in this package, so choosing it could only
+# fail. It is gone, and SPEECH_MODE no longer means anything.
 class SpeechRequest(BaseModel):
     text: str = Field(min_length=1, max_length=500)
     profile: Literal["robot", "narration"] = "robot"
@@ -289,8 +339,6 @@ def robot_speech(payload: SpeechRequest, request: Request):
     text = payload.text.strip()
     if not text:
         raise HTTPException(status_code=422, detail="Text is required")
-    # Legacy static mode still keeps Piper/ONNX unloaded. Arbitrary chat now
-    # uses a small male robot synthesizer so phones need no OS voice fallback.
     ip = _client_ip(request)
     now = time.monotonic()
     with _speech_rate_lock:
@@ -307,11 +355,8 @@ def robot_speech(payload: SpeechRequest, request: Request):
             raise HTTPException(status_code=429, detail="Please wait before requesting more speech")
         hits.append(now)
     try:
-        if SPEECH_MODE == "dynamic":
-            data = synthesize(text, payload.profile)
-        else:
-            from .speech_lite import synthesize_lite
-            data = synthesize_lite(text, payload.profile)
+        from .speech_lite import synthesize_lite
+        data = synthesize_lite(text, payload.profile)
     except Exception:
         raise HTTPException(status_code=503, detail="Robot voice is temporarily unavailable")
     return Response(data, media_type="audio/wav", headers={"Cache-Control":"no-store"})
@@ -319,8 +364,9 @@ def robot_speech(payload: SpeechRequest, request: Request):
 
 @app.get("/api/speech/status")
 def speech_status():
-    return {"dynamic": True, "mode": SPEECH_MODE,
-            "engine": "john-neural" if SPEECH_MODE == "dynamic" else "male-robot-lite"}
+    """`dynamic: true` tells speech.js that ANY text can be spoken by the
+    server, not only the three bundled recordings."""
+    return {"dynamic": True, "engine": "male-robot-lite"}
 
 
 # Never let anything cache these. A CDN that decides to hold on to
@@ -404,11 +450,36 @@ def admin_check():
     return {"ok": True}
 
 
+# Wrong-key attempts allowed per address before it has to wait. Generous for
+# a person mistyping (ten tries), useless for a script guessing a long random
+# key. Only FAILURES count, and a success clears the slate.
+LOGIN_MAX_FAILURES = 10
+LOGIN_WINDOW_SECONDS = 15 * 60
+_login_failures: dict[str, list[float]] = {}
+_login_lock = threading.Lock()
+
+
 @app.post("/api/auth/login")
-def login(payload: schemas.LoginIn):
+def login(payload: schemas.LoginIn, request: Request):
     """Trades the admin key for an expiring session token (see issue_session_token)."""
-    if not hmac.compare_digest(payload.key, ADMIN_KEY):
+    ip = _client_ip(request)
+    now = time.time()
+    with _login_lock:
+        recent = [t for t in _login_failures.get(ip, []) if now - t < LOGIN_WINDOW_SECONDS]
+        _login_failures[ip] = recent
+        if len(recent) >= LOGIN_MAX_FAILURES:
+            wait = int(LOGIN_WINDOW_SECONDS - (now - recent[0])) // 60 + 1
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many wrong keys from this connection. Try again in {wait} minute{'s' if wait != 1 else ''}.",
+            )
+    if not _same_secret(payload.key, ADMIN_KEY):
+        with _login_lock:
+            _login_failures.setdefault(ip, []).append(now)
+            _prune(_login_failures, now)
         raise HTTPException(status_code=401, detail="Wrong admin key")
+    with _login_lock:
+        _login_failures.pop(ip, None)
     token, expires_at = issue_session_token()
     return {"token": token, "expires_at": expires_at}
 
@@ -432,8 +503,17 @@ PRESENCE_TTL_SECONDS = 30
 # already claimed in world chat appear — that is public information on this
 # site by definition, and a visitor who never joins is counted without ever
 # being named.
+#
+# "Claimed" is checked, not assumed: the heartbeat must carry the device id
+# that holds the name (see _verified_presence_name). It used to be taken on
+# trust, so any request could put any name — "Admin", someone else's — into
+# every visitor's header.
 _presence: dict[str, tuple[float, str]] = {}
 _presence_lock = threading.Lock()
+
+# A heartbeat is anonymous and cheap to send, so the table is bounded: past
+# this many live viewers, NEW ids are counted out until old ones expire.
+PRESENCE_MAX_VIEWERS = 5000
 
 # Presence changes are pushed over SSE so every open page sees joins/leaves
 # immediately instead of waiting for its own next heartbeat. The tiny ring
@@ -503,13 +583,37 @@ def _presence_events_since(since: int) -> list[dict]:
         return [event for event in _presence_events if event["id"] > since]
 
 
+def _verified_presence_name(db: Session, name: str, device_id: str) -> str:
+    """The name to show for a heartbeat: the chat name this device really
+    holds, spelled as it was claimed — or "" (an anonymous viewer)."""
+    name = (name or "").strip()[:CHAT_MAX_NAME]
+    device_id = (device_id or "").strip()[:64]
+    if not name or not device_id:
+        return ""
+    claim = db.get(models.ChatName, name.lower())
+    if not claim or claim.device_id != device_id:
+        return ""
+    created = claim.created_at
+    if created is not None:
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        # A claim from before the last 24-hour reset is not a name any more,
+        # even if nothing has swept the row away yet.
+        if datetime.now(timezone.utc) - created > timedelta(hours=CHAT_RETENTION_HOURS):
+            return ""
+    return claim.name
+
+
 @app.post("/api/presence")
-def presence_ping(payload: schemas.PresenceIn):
+def presence_ping(payload: schemas.PresenceIn, db: Session = Depends(get_db)):
     viewer_id = (payload.viewer_id or "").strip()[:64]
-    name = (payload.name or "").strip()[:40]
+    name = _verified_presence_name(db, payload.name, payload.device_id)
     if viewer_id:
         with _presence_lock:
-            _presence[viewer_id] = (time.time(), name)
+            if viewer_id not in _presence and len(_presence) >= PRESENCE_MAX_VIEWERS:
+                _sweep_present()
+            if viewer_id in _presence or len(_presence) < PRESENCE_MAX_VIEWERS:
+                _presence[viewer_id] = (time.time(), name)
     return _presence_state()
 
 
@@ -576,8 +680,7 @@ def get_settings(db: Session = Depends(get_db)):
     """Public: the site reads this on load to fill in its own text. Defaults
     are merged in so a key added in a newer version still answers with
     something sensible before it's ever been saved."""
-    stored = {s.key: (s.value or "") for s in db.query(models.Setting).all() if not s.key.startswith("_asset_")}
-    return {**seed.DEFAULT_SETTINGS, **stored}
+    return _settings_map(db)
 
 
 @app.put("/api/settings", dependencies=[Depends(require_admin)])
@@ -587,14 +690,27 @@ def update_settings(payload: dict, db: Session = Depends(get_db)):
     for key, value in payload.items():
         if key not in seed.DEFAULT_SETTINGS:
             continue
+        new_value = "" if value is None else str(value)
         setting = db.get(models.Setting, key)
+        old_value = (setting.value or "") if setting else ""
+        # Replacing or removing an uploaded file (the resume, the tab icon)
+        # releases the stored copy, instead of leaving it in the database
+        # forever with nothing pointing at it.
+        if key in UPLOADABLE_SETTINGS and old_value and old_value != new_value:
+            _release_setting_file(db, key, old_value)
         if setting:
-            setting.value = "" if value is None else str(value)
+            setting.value = new_value
         else:
-            db.add(models.Setting(key=key, value="" if value is None else str(value)))
+            db.add(models.Setting(key=key, value=new_value))
     db.commit()
-    stored = {s.key: (s.value or "") for s in db.query(models.Setting).all() if not s.key.startswith("_asset_")}
-    return {**seed.DEFAULT_SETTINGS, **stored}
+    return _settings_map(db)
+
+
+def _release_setting_file(db: Session, key: str, old_value: str):
+    if key == "favicon_url" and old_value.startswith("/api/favicon/"):
+        db.query(models.Setting).filter(models.Setting.key == "_asset_favicon").delete()
+    else:
+        _delete_uploaded_file(old_value, db)
 
 
 # Settings that accept a file upload, and how each one is validated. Adding
@@ -624,24 +740,29 @@ def upload_setting_file(
     if spec["kind"] == "pdf":
         if content_type != "application/pdf" and not filename_lower.endswith(".pdf"):
             raise HTTPException(status_code=400, detail="The resume must be a PDF")
-        _, media_url = _save_upload(file, allow_pdf=True)
+        head = file.file.read(5)
+        file.file.seek(0)
+        if head != b"%PDF-":
+            raise HTTPException(status_code=400, detail="That file is not a readable PDF")
+        _, media_url = _save_upload(file, db, allow_pdf=True)
     else:
         # Images only here — the shared _save_upload() also accepts video/*
         # for item media, which a browser-tab logo should never take.
         is_icon = content_type in ("image/x-icon", "image/vnd.microsoft.icon") or filename_lower.endswith(".ico")
         if not is_icon and not content_type.startswith("image/"):
             raise HTTPException(status_code=400, detail="The logo must be a PNG, JPG, WebP or ICO image")
-        _, media_url = _save_upload(file, max_bytes=spec.get("max_bytes"))
+        media_url = ""
 
     if key == "favicon_url":
-        original = UPLOAD_DIR / Path(media_url).name
-        raw = original.read_bytes()
+        # Read straight from the upload. The icon is kept in the database
+        # (below), so it is never written to the uploads folder at all — the
+        # old code saved a copy there first and never deleted it.
+        raw = _read_upload(file, spec.get("max_bytes") or MAX_UPLOAD_BYTES)
         mime = ("image/png" if raw.startswith(b"\x89PNG\r\n\x1a\n") else
                 "image/jpeg" if raw.startswith(b"\xff\xd8\xff") else
                 "image/webp" if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP" else
                 "image/x-icon" if raw[:4] == b"\x00\x00\x01\x00" else "")
         if not mime:
-            original.unlink(missing_ok=True)
             raise HTTPException(status_code=400, detail="Choose a valid PNG, JPG, WebP or ICO image")
         # Round it HERE, once, rather than only in the browser.
         #
@@ -666,7 +787,10 @@ def upload_setting_file(
 
     setting = db.get(models.Setting, key)
     if setting:
-        _delete_uploaded_file(setting.value)
+        # The favicon's asset row was overwritten in place above; for the
+        # resume this releases the previous PDF.
+        if key != "favicon_url":
+            _delete_uploaded_file(setting.value, db)
         setting.value = media_url
     else:
         db.add(models.Setting(key=key, value=media_url))
@@ -743,6 +867,29 @@ def _push_chat_event(kind: str, message_id: int = 0):
 def _chat_events_since(since: int) -> list[dict]:
     with _chat_event_lock:
         return [event for event in _chat_events if event["id"] > since]
+
+
+def _resume_cursor(since: int, request: Request, head: int) -> int:
+    """Where a (re)connecting event stream should start reading.
+
+    A browser's EventSource reconnects on its own with the SAME URL — so the
+    same `?since=` it was first opened with — plus a Last-Event-ID header
+    naming the last event it actually received. That header is the better
+    answer, so it wins.
+
+    Either number can come from BEFORE a server restart. These counters live
+    in memory and start again at zero on every deploy or wake-up, so a
+    remembered id can be AHEAD of the new counter — and a stream told to wait
+    for ids above it would stay silent until the counter caught up, which on
+    a quiet site is effectively forever. Anything out of range means "from
+    now". A negative value already meant exactly that."""
+    cursor = since
+    last = (request.headers.get("last-event-id") or "").strip()
+    if last.isdigit():
+        cursor = int(last)
+    if cursor < 0 or cursor > head:
+        cursor = head
+    return cursor
 
 
 def _prune(store: dict, now: float):
@@ -885,11 +1032,10 @@ def _claim_payload(row, mine: bool = True):
 
 
 @app.get("/api/chat/name")
-def get_chat_name(request: Request, device_id: str = "", db: Session = Depends(get_db)):
+def get_chat_name(device_id: str = "", db: Session = Depends(get_db)):
     """What name, if any, this device already holds. The browser calls this on
     load so an expired claim clears the stale name it had stored."""
     _expire_old_chat(db)
-    client_ip = _client_ip(request)
     device_id = (device_id or "").strip()[:64]
 
     mine = _device_claim(db, device_id)
@@ -1049,8 +1195,8 @@ async def chat_stream(request: Request, since: int = -1):
     """
     async def gen():
         with _chat_event_lock:
-            cursor = _chat_event_seq if since < 0 else since
             latest = _chat_event_seq
+        cursor = _resume_cursor(since, request, latest)
         yield f"event: hello\ndata: {json.dumps({'latest': latest})}\n\n"
         last_ping = time.time()
         while True:
@@ -1101,6 +1247,16 @@ ROBOT_MAX_DAMAGE = 5.0
 ROBOT_MIN_SECONDS_BETWEEN_HITS = 0.12   # ~8 taps/sec, fast but not a script
 _robot_hits: dict[str, float] = {}
 _robot_lock = threading.Lock()
+
+# Serialises the read-modify-write of the robot's HP. Requests run on a
+# thread pool, so two taps arriving together could both read HP 50, both
+# subtract, and both write — one hit's damage silently lost. At the killing
+# blow it was worse: both saw HP reach zero, and the robot was "destroyed"
+# twice, with two explosions broadcast and the crown awarded twice. One lock
+# in one process is enough because the app runs a single worker (render.yaml
+# explains why). Separate from _robot_lock, which guards the event buffer and
+# is taken inside this section.
+_robot_hit_lock = threading.Lock()
 
 # ---------------------------------------------------------------------------
 # Live tap feed
@@ -1191,10 +1347,34 @@ def _resolve_respawn(db: Session, robot: models.RobotState) -> models.RobotState
     return robot
 
 
+def _current_robot(db: Session) -> models.RobotState:
+    """The robot as it stands right now, respawned if its timer has run out.
+
+    Under the hit lock, because bringing it back to life is a WRITE: without
+    the lock a plain status read could respawn it to 100% a moment after a
+    concurrent hit had already respawned it and taken 3% off, erasing that
+    hit."""
+    with _robot_hit_lock:
+        db.expire_all()      # read what is committed now, not what this session saw earlier
+        return _resolve_respawn(db, _get_robot(db))
+
+
 @app.get("/api/robot")
 def robot_state(db: Session = Depends(get_db)):
-    robot = _resolve_respawn(db, _get_robot(db))
-    return _robot_payload(robot)
+    return _robot_payload(_current_robot(db))
+
+
+def _unit(value, fallback: float = 0.5) -> float:
+    """A tap position clamped to 0..1. NaN and infinity become the centre.
+    (`value or 0.5` was used before, which also moved a tap on the very edge
+    of the stage — exactly 0.0 — to the middle.)"""
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    if not math.isfinite(value):
+        return fallback
+    return max(0.0, min(1.0, value))
 
 
 @app.post("/api/robot/hit")
@@ -1215,125 +1395,142 @@ def robot_hit(payload: schemas.RobotHitIn, request: Request, db: Session = Depen
         raise HTTPException(status_code=403, detail="That name belongs to someone else.")
 
     now = time.time()
+    tap_key = (payload.device_id or "").strip()[:64] or f"ip:{client_ip}"
     with _robot_lock:
-        tap_key = (payload.device_id or "").strip()[:64] or f"ip:{client_ip}"
-        last = _robot_hits.get(tap_key, 0.0)
-        if now - last < ROBOT_MIN_SECONDS_BETWEEN_HITS:
-            # Not an error worth interrupting the game for — just report the
-            # current state so the tap is quietly ignored.
-            robot = _resolve_respawn(db, _get_robot(db))
-            return {**_robot_payload(robot), "damage": 0.0, "throttled": True}
-        _robot_hits[tap_key] = now
-        if len(_robot_hits) > 5000:
-            for k in [k for k, t in _robot_hits.items() if now - t > 300]:
-                _robot_hits.pop(k, None)
+        throttled = now - _robot_hits.get(tap_key, 0.0) < ROBOT_MIN_SECONDS_BETWEEN_HITS
+        if not throttled:
+            _robot_hits[tap_key] = now
+            if len(_robot_hits) > 5000:
+                for k in [k for k, t in _robot_hits.items() if now - t > 300]:
+                    _robot_hits.pop(k, None)
+    if throttled:
+        # Not an error worth interrupting the game for — just report the
+        # current state so the tap is quietly ignored.
+        return {**_robot_payload(_current_robot(db)), "damage": 0.0, "throttled": True}
 
-    robot = _resolve_respawn(db, _get_robot(db))
-    if robot.dead_until > now:
-        return {**_robot_payload(robot), "damage": 0.0, "throttled": False}
+    with _robot_hit_lock:
+        # Everything this request loaded so far may be stale by the time it
+        # got the lock — another tap may have changed the HP, or ended the
+        # round and zeroed every tally. Re-read before touching anything.
+        db.expire_all()
+        robot = _resolve_respawn(db, _get_robot(db))
+        if robot.dead_until > now:
+            return {**_robot_payload(robot), "damage": 0.0, "throttled": False}
+        # The claim was loaded before the lock; expire_all() above means this
+        # read comes from the database, so a round that ended while this
+        # request waited has already zeroed the tally being added to.
+        try:
+            db.refresh(claim)
+        except Exception:
+            # The 24-hour reset removed the name while this tap was queued.
+            raise HTTPException(status_code=403, detail="Enter your name before attacking T-700V.")
 
-    rolled = round(random.uniform(ROBOT_MIN_DAMAGE, ROBOT_MAX_DAMAGE), 1)
-    # Only count what there was left to take. A blow rolling 4.6% against 1.2%
-    # of remaining HP does 1.2% of damage, not 4.6% — otherwise a round's
-    # winning total reads past 100%, which is nonsense on a board measuring
-    # how much of ONE robot you destroyed.
-    #
-    # `applied` is deliberately NOT rounded before it is subtracted. Rounding
-    # it first left a floating-point residue behind — hp ended up at 4.4e-17,
-    # which is not `<= 0`, so the robot displayed 0% and could never die: the
-    # next blow could only take min(roll, 4.4e-17), which rounds to 0.0, and
-    # the fight ran forever. The residue is snapped instead, once, here.
-    applied = min(rolled, robot.hp)
-    robot.hp = max(0.0, robot.hp - applied)
-    if robot.hp < 1e-6:
-        robot.hp = 0.0
-    damage = round(applied, 1)          # what the floating tag shows
-    robot.total_hits += 1
-    name = claim.name          # the claimed spelling, never the posted one
-    robot.last_hit_by = name
-
-    claim.hit_since_respawn = True
-    claim.damage_dealt = (claim.damage_dealt or 0.0) + applied
-    claim.blows = (claim.blows or 0) + 1
-
-    destroyed = robot.hp <= 0
-    if destroyed:
-        robot.hp = 0.0
-        robot.kills += 1
-        robot.dead_until = now + ROBOT_RESPAWN_SECONDS
-
-        # The round is over. Two things happen, in this order:
+        rolled = round(random.uniform(ROBOT_MIN_DAMAGE, ROBOT_MAX_DAMAGE), 1)
+        # Only count what there was left to take. A blow rolling 4.6% against
+        # 1.2% of remaining HP does 1.2% of damage, not 4.6% — otherwise a
+        # round's winning total reads past 100%, which is nonsense on a board
+        # measuring how much of ONE robot you destroyed.
         #
-        # 1. CROWN THE DESTROYER — whoever dealt the most damage during this
-        #    life, not whoever landed the last blow. The final hit is luck;
-        #    the damage before it is the work.
-        # 2. WIPE THE ROUND — every per-life tally back to zero, so the next
-        #    life starts even and the board is always about the fight in
-        #    front of you rather than a running total that can't be caught.
-        stamp = datetime.now(timezone.utc)
-        fighters = (
-            db.query(models.ChatName)
-            .filter(models.ChatName.damage_dealt > 0)
-            .order_by(models.ChatName.damage_dealt.desc())
-            .all()
-        )
-        if fighters:
-            champion = fighters[0]
-            robot.last_destroyer = champion.name
-            robot.last_destroyer_damage = round(champion.damage_dealt or 0.0, 1)
-            robot.last_destroyer_blows = champion.blows or 0
-            champion.crowns = (champion.crowns or 0) + 1
+        # `applied` is deliberately NOT rounded before it is subtracted.
+        # Rounding it first left a floating-point residue behind — hp ended
+        # up at 4.4e-17, which is not `<= 0`, so the robot displayed 0% and
+        # could never die. The residue is snapped instead, once, here.
+        applied = min(rolled, robot.hp)
+        robot.hp = max(0.0, robot.hp - applied)
+        if robot.hp < 1e-6:
+            robot.hp = 0.0
+        damage = round(applied, 1)          # what the floating tag shows
+        robot.total_hits += 1
+        name = claim.name          # the claimed spelling, never the posted one
+        robot.last_hit_by = name
 
-        # Everyone who landed a blow during this life helped destroy it, so
-        # they all pass the captcha. Crediting only the killing blow would
-        # lock out anyone beaten to the last hit every time, which is a
-        # miserable way to fail a captcha.
-        for row in db.query(models.ChatName).filter(models.ChatName.hit_since_respawn.is_(True)).all():
-            if row.verified_at is None:
-                row.verified_at = stamp
-            row.hit_since_respawn = False
+        claim.hit_since_respawn = True
+        claim.damage_dealt = (claim.damage_dealt or 0.0) + applied
+        claim.blows = (claim.blows or 0) + 1
 
-        for row in fighters:
-            row.damage_dealt = 0.0
-            row.blows = 0
+        destroyed = robot.hp <= 0
+        if destroyed:
+            robot.hp = 0.0
+            robot.kills += 1
+            robot.dead_until = now + ROBOT_RESPAWN_SECONDS
 
-    db.commit()
+            # The round is over. Two things happen, in this order:
+            #
+            # 1. CROWN THE DESTROYER — whoever dealt the most damage during
+            #    this life, not whoever landed the last blow. The final hit
+            #    is luck; the damage before it is the work.
+            # 2. WIPE THE ROUND — every per-life tally back to zero, so the
+            #    next life starts even and the board is always about the
+            #    fight in front of you rather than a running total.
+            #
+            # autoflush is off, so the claim's new tally is flushed first:
+            # the ranking below must include the blow that just landed.
+            db.flush()
+            stamp = datetime.now(timezone.utc)
+            fighters = (
+                db.query(models.ChatName)
+                .filter(models.ChatName.damage_dealt > 0)
+                .order_by(models.ChatName.damage_dealt.desc())
+                .all()
+            )
+            if fighters:
+                champion = fighters[0]
+                robot.last_destroyer = champion.name
+                robot.last_destroyer_damage = round(champion.damage_dealt or 0.0, 1)
+                robot.last_destroyer_blows = champion.blows or 0
+                champion.crowns = (champion.crowns or 0) + 1
 
-    # Broadcast the tap so every other viewer sees it land where it landed.
-    # x/y are normalised 0-1 inside the stage, so they map correctly onto
-    # anyone's screen regardless of how big their robot is drawn.
-    hit_event = {
-        "type": "hit",
-        "name": name,
-        "x": max(0.0, min(1.0, float(payload.x or 0.5))),
-        "y": max(0.0, min(1.0, float(payload.y or 0.5))),
-        "damage": damage,
-        "hp": round(robot.hp, 1),
-        "destroyed": destroyed,
-        "kills": robot.kills,
-        "total_hits": robot.total_hits,
-    }
-    _push_robot_event(hit_event)
-    if destroyed:
-        _push_robot_event({
-            "type": "destroyed",
+            # Everyone who landed a blow during this life helped destroy it,
+            # so they all pass the captcha. Crediting only the killing blow
+            # would lock out anyone beaten to the last hit every time.
+            for row in db.query(models.ChatName).filter(models.ChatName.hit_since_respawn.is_(True)).all():
+                if row.verified_at is None:
+                    row.verified_at = stamp
+                row.hit_since_respawn = False
+
+            for row in fighters:
+                row.damage_dealt = 0.0
+                row.blows = 0
+
+        db.commit()
+
+        # Broadcast the tap so every other viewer sees it land where it
+        # landed. Still under the lock, so the feed carries hits in the same
+        # order they were applied and a viewer's HP bar never steps backwards.
+        # x/y are normalised 0-1 inside the stage, so they map correctly onto
+        # anyone's screen regardless of how big their robot is drawn.
+        hit_event = {
+            "type": "hit",
             "name": name,
-            "hp": 0.0,
+            "x": _unit(payload.x),
+            "y": _unit(payload.y),
+            "damage": damage,
+            "hp": round(robot.hp, 1),
+            "destroyed": destroyed,
             "kills": robot.kills,
             "total_hits": robot.total_hits,
-            "respawn_in": ROBOT_RESPAWN_SECONDS,
-        })
+        }
+        _push_robot_event(hit_event)
+        if destroyed:
+            _push_robot_event({
+                "type": "destroyed",
+                "name": name,
+                "hp": 0.0,
+                "kills": robot.kills,
+                "total_hits": robot.total_hits,
+                "respawn_in": ROBOT_RESPAWN_SECONDS,
+            })
 
-    # The tapper gets the event's id back so their own hit — already drawn
-    # locally the instant they tapped — isn't drawn a second time when it
-    # comes round on the stream.
-    return {
-        **_robot_payload(robot),
-        "damage": damage,
-        "destroyed": destroyed,
-        "throttled": False,
-        "event_id": hit_event["id"],
-    }
+        # The tapper gets the event's id back so their own hit — already
+        # drawn locally the instant they tapped — isn't drawn a second time
+        # when it comes round on the stream.
+        return {
+            **_robot_payload(robot),
+            "damage": damage,
+            "destroyed": destroyed,
+            "throttled": False,
+            "event_id": hit_event["id"],
+        }
 
 
 ROBOT_BOARD_SIZE = 3
@@ -1389,9 +1586,13 @@ def robot_events(since: int = -1):
     they opened the page. A reconnecting client passes the last id it saw and
     does get the gap it missed.
     """
-    if since < 0:
-        return {"events": [], "latest": _robot_event_seq}
-    return {"events": _robot_events_since(since), "latest": _robot_event_seq}
+    latest = _robot_event_seq
+    # Negative means "from now"; an id AHEAD of the counter comes from before
+    # a server restart (see _resume_cursor) and is treated the same way. The
+    # client resets its cursor to `latest` when that happens.
+    if since < 0 or since > latest:
+        return {"events": [], "latest": latest}
+    return {"events": _robot_events_since(since), "latest": latest}
 
 
 @app.get("/api/robot/stream")
@@ -1407,7 +1608,7 @@ async def robot_stream(request: Request, since: int = -1):
     async def gen():
         # See /api/robot/events: a negative `since` means "from now", so a new
         # viewer doesn't get the backlog replayed at them on connect.
-        cursor = _robot_event_seq if since < 0 else since
+        cursor = _resume_cursor(since, request, _robot_event_seq)
         last_ping = time.time()
         # Tell the client where the stream starts so a reconnect can resume.
         yield f"event: hello\ndata: {json.dumps({'latest': _robot_event_seq})}\n\n"
@@ -1682,7 +1883,7 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
     for item in category.items:
-        _delete_uploaded_file(item.media_url)
+        _delete_uploaded_file(item.media_url, db)
     db.delete(category)
     db.commit()
     return {"deleted": True}
@@ -1691,9 +1892,59 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 # Item admin endpoints
 # ---------------------------------------------------------------------------
-def _save_upload(file: UploadFile, allow_pdf: bool = False, max_bytes: Optional[int] = None) -> tuple[str, str]:
-    """Validates and saves an uploaded file. Returns (media_type, media_url)."""
-    content_type = file.content_type or ""
+# Every upload is named "<32 hex characters><.ext>". Anything else asked for
+# under /uploads/ is refused before it gets near the disk or the database.
+_UPLOAD_NAME_RE = re.compile(r"^[0-9a-f]{32}(\.[A-Za-z0-9]{1,10})?$")
+
+# Field limits, matching the database columns. Postgres refuses an over-long
+# value with an error, which reached the editor as a bare 500; these turn it
+# into a message that says which field and by how much.
+ITEM_TITLE_MAX = 300
+ITEM_TOOLS_MAX = 600
+ITEM_URL_MAX = 1000
+ITEM_DESCRIPTION_MAX = 20000
+
+
+def _read_upload(file: UploadFile, limit: int) -> bytes:
+    """The whole upload as bytes, refusing it as soon as it passes `limit`
+    rather than after reading all of it."""
+    chunks, size = [], 0
+    while True:
+        chunk = file.file.read(1024 * 1024)
+        if not chunk:
+            break
+        size += len(chunk)
+        if size > limit:
+            limit_mb = limit / (1024 * 1024)
+            raise HTTPException(status_code=413, detail=f"File too large ({limit_mb:.0f}MB max)")
+        chunks.append(chunk)
+    data = b"".join(chunks)
+    if not data:
+        raise HTTPException(status_code=400, detail="That file is empty")
+    return data
+
+
+def _write_upload_cache(name: str, data: bytes):
+    """Put a stored upload on disk so it can be served as a plain file.
+    Written to a temporary name and moved into place, so a request arriving
+    mid-write never sees half a file."""
+    dest = UPLOAD_DIR / name
+    tmp = UPLOAD_DIR / f".{name}.{uuid.uuid4().hex}.tmp"
+    try:
+        tmp.write_bytes(data)
+        os.replace(tmp, dest)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def _save_upload(file: UploadFile, db: Session, allow_pdf: bool = False,
+                 max_bytes: Optional[int] = None) -> tuple[str, str]:
+    """Validates and stores an uploaded file. Returns (media_type, media_url).
+
+    The bytes go into the database (models.MediaAsset) and a copy onto disk.
+    The database copy is the real one — see MediaAsset for why — and it is
+    committed together with whatever row points at it, by the caller."""
+    content_type = (file.content_type or "").lower()
     filename_lower = (file.filename or "").lower()
     is_pdf = allow_pdf and (
         content_type == "application/pdf" or filename_lower.endswith(".pdf")
@@ -1704,26 +1955,22 @@ def _save_upload(file: UploadFile, allow_pdf: bool = False, max_bytes: Optional[
     if not is_pdf and not is_icon and not content_type.startswith(ALLOWED_MEDIA_PREFIXES):
         raise HTTPException(status_code=400, detail="Only image or video files are accepted")
 
-    ext = Path(file.filename or "").suffix
-    if not ext:
-        ext = mimetypes.guess_extension(content_type) or (".ico" if is_icon else "")
-    filename = f"{uuid.uuid4().hex}{ext}"
-    dest = UPLOAD_DIR / filename
+    # The extension is only a hint for browsers, so it is cut down to plain
+    # letters and digits: a file name can carry spaces, quotes or unicode
+    # that have no business in a URL.
+    ext = re.sub(r"[^a-z0-9]", "", Path(filename_lower).suffix)[:10]
+    ext = f".{ext}" if ext else (mimetypes.guess_extension(content_type) or (".ico" if is_icon else ""))
+    name = f"{uuid.uuid4().hex}{ext}"
 
-    limit = max_bytes or MAX_UPLOAD_BYTES
-    size = 0
-    with open(dest, "wb") as out:
-        while True:
-            chunk = file.file.read(1024 * 1024)
-            if not chunk:
-                break
-            size += len(chunk)
-            if size > limit:
-                out.close()
-                dest.unlink(missing_ok=True)
-                limit_mb = limit / (1024 * 1024)
-                raise HTTPException(status_code=413, detail=f"File too large ({limit_mb:.0f}MB max)")
-            out.write(chunk)
+    data = _read_upload(file, max_bytes or MAX_UPLOAD_BYTES)
+    mime = ("application/pdf" if is_pdf else
+            "image/x-icon" if is_icon and not content_type.startswith("image/") else
+            content_type or mimetypes.guess_type(name)[0] or "application/octet-stream")
+    db.add(models.MediaAsset(name=name, mime=mime[:100], size=len(data), data=data))
+    try:
+        _write_upload_cache(name, data)
+    except OSError:
+        pass                      # the database copy is the one that matters
 
     if is_pdf:
         media_type = "file"
@@ -1731,7 +1978,7 @@ def _save_upload(file: UploadFile, allow_pdf: bool = False, max_bytes: Optional[
         media_type = "image"
     else:
         media_type = "video_file"
-    return media_type, f"/uploads/{filename}"
+    return media_type, f"/uploads/{name}"
 
 
 # ---------------------------------------------------------------------------
@@ -1766,15 +2013,80 @@ def _classify_media_url(url: str) -> str:
     return "link"
 
 
-def _delete_uploaded_file(media_url: Optional[str]):
+def _clean_media_url(url: str) -> str:
+    """A pasted link, checked. Only web addresses and this site's own paths
+    are accepted: a `javascript:` or `data:` URL would otherwise be stored
+    and rendered as a clickable card on the public page."""
+    url = (url or "").strip()
+    if len(url) > ITEM_URL_MAX:
+        raise HTTPException(status_code=400, detail=f"That link is too long ({ITEM_URL_MAX} characters max)")
+    if url and not re.match(r"^(https?://|/(?!/))", url, re.I):
+        raise HTTPException(status_code=400, detail="Paste a full web address, starting with https://")
+    return url
+
+
+def _check_item_fields(title: Optional[str], tools: Optional[str], description: Optional[str]):
+    if title is not None:
+        if not title.strip():
+            raise HTTPException(status_code=400, detail="Title is required")
+        if len(title.strip()) > ITEM_TITLE_MAX:
+            raise HTTPException(status_code=400, detail=f"Title is too long ({ITEM_TITLE_MAX} characters max)")
+    if tools is not None and len(tools) > ITEM_TOOLS_MAX:
+        raise HTTPException(status_code=400, detail=f"Tools/tags are too long ({ITEM_TOOLS_MAX} characters max)")
+    if description is not None and len(description) > ITEM_DESCRIPTION_MAX:
+        raise HTTPException(status_code=400, detail=f"Description is too long ({ITEM_DESCRIPTION_MAX} characters max)")
+
+
+def _delete_uploaded_file(media_url: Optional[str], db: Optional[Session] = None):
+    """Release an upload: its stored bytes and its disk copy. Anything that
+    is not one of this site's uploads (a YouTube link, a pasted URL) is left
+    alone. The database delete is committed by the caller, with the change
+    that stopped using the file."""
     if not media_url or not media_url.startswith("/uploads/"):
         return
-    path = UPLOAD_DIR / Path(media_url).name
-    if path.exists() and path.is_file():
+    name = Path(media_url).name
+    if db is not None:
+        db.query(models.MediaAsset).filter(models.MediaAsset.name == name).delete(synchronize_session=False)
+    path = UPLOAD_DIR / name
+    if path.is_file():
         try:
             path.unlink()
         except OSError:
             pass
+
+
+@app.api_route("/uploads/{name}", methods=["GET", "HEAD"], include_in_schema=False)
+def serve_upload(name: str, db: Session = Depends(get_db)):
+    """An uploaded file, from the disk cache — or, after a deploy or restart
+    has emptied the disk, from the database, written back to disk first so
+    every later request is a plain file read again.
+
+    Names are random and never reused, so a given URL always means the same
+    bytes and can be cached for a year. The sandbox policy means that even a
+    file that could hold script (an SVG) can never run it when opened
+    directly; in an <img> or <video> it never could anyway."""
+    if not _UPLOAD_NAME_RE.match(name):
+        raise HTTPException(status_code=404, detail="Not found")
+    path = UPLOAD_DIR / name
+    mime = mimetypes.guess_type(name)[0]
+    if not path.is_file():
+        asset = db.get(models.MediaAsset, name)
+        if asset is None:
+            raise HTTPException(status_code=404, detail="Not found")
+        mime = asset.mime or mime
+        try:
+            _write_upload_cache(name, asset.data)
+        except OSError:
+            return Response(asset.data, media_type=mime or "application/octet-stream",
+                            headers=dict(_UPLOAD_HEADERS))
+    return FileResponse(path, media_type=mime or "application/octet-stream",
+                        headers=dict(_UPLOAD_HEADERS))
+
+
+_UPLOAD_HEADERS = {
+    "Cache-Control": "public, max-age=31536000, immutable",
+    "Content-Security-Policy": "default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; sandbox",
+}
 
 
 @app.post("/api/items", response_model=schemas.ItemOut, dependencies=[Depends(require_admin)])
@@ -1791,13 +2103,14 @@ def create_item(
     category = db.get(models.Category, category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
+    _check_item_fields(title, tools, description)
 
     media_type, media_url = "", ""
     if file is not None and file.filename:
-        media_type, media_url = _save_upload(file)
+        media_type, media_url = _save_upload(file, db)
     elif video_url:
-        media_url = video_url.strip()
-        media_type = _classify_media_url(media_url)
+        media_url = _clean_media_url(video_url)
+        media_type = _classify_media_url(media_url) if media_url else ""
 
     item = models.Item(
         category_id=category_id,
@@ -1830,6 +2143,7 @@ def update_item(
     item = db.get(models.Item, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+    _check_item_fields(title, tools, description)
 
     if title is not None:
         item.title = title.strip()
@@ -1844,16 +2158,22 @@ def update_item(
             raise HTTPException(status_code=404, detail="Category not found")
         item.category_id = category_id
 
+    # The old file is released only AFTER its replacement is safely stored,
+    # and only if the media actually changed. The editor puts an item's
+    # current link back into the link box, so saving an unchanged item
+    # re-sends the same URL — which used to delete the very file it named.
+    old_url = item.media_url or ""
     if file is not None and file.filename:
-        _delete_uploaded_file(item.media_url)
-        item.media_type, item.media_url = _save_upload(file)
+        item.media_type, item.media_url = _save_upload(file, db)
     elif video_url is not None and video_url.strip():
-        _delete_uploaded_file(item.media_url)
-        item.media_url = video_url.strip()
-        item.media_type = _classify_media_url(item.media_url)
+        new_url = _clean_media_url(video_url)
+        if new_url != old_url:
+            item.media_url = new_url
+            item.media_type = _classify_media_url(new_url)
     elif clear_media:
-        _delete_uploaded_file(item.media_url)
         item.media_type, item.media_url = "", ""
+    if old_url and (item.media_url or "") != old_url:
+        _delete_uploaded_file(old_url, db)
 
     db.commit()
     db.refresh(item)
@@ -1865,7 +2185,7 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
     item = db.get(models.Item, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    _delete_uploaded_file(item.media_url)
+    _delete_uploaded_file(item.media_url, db)
     db.delete(item)
     db.commit()
     return {"deleted": True}
@@ -1904,8 +2224,48 @@ class NoCacheStaticFiles(StaticFiles):
                 status_code=404,
                 headers={"Cache-Control": "no-cache, must-revalidate"},
             )
-        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        rel = path.replace("\\", "/").lstrip("/")
+
+        # CSS and JS requested with the CURRENT fingerprint (?v=, stamped into
+        # the HTML by _stamp_assets) can never change under that URL: the
+        # next deploy changes the fingerprint and the page asks for new URLs.
+        # So those are cached for a year and `immutable` — a returning visitor
+        # loads them from disk without asking the server anything. Everything
+        # else keeps revalidating, which is what stops a stale copy surviving
+        # a deploy.
+        if rel.endswith((".css", ".js")) and _query_param(scope, "v") == asset_version():
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
+
+        # Keep every picture in assets/ except the original portrait out of
+        # Google Search (see the robots note in index.html): the transparent
+        # cut-out showed up beside the search result on plain white.
+        if rel in _NOINDEX_ASSETS:
+            response.headers["X-Robots-Tag"] = "noindex"
         return response
+
+
+# Decorative or composite images Google must not choose as the search-result
+# picture. assets/profile-photo.jpg is deliberately NOT in this list.
+_NOINDEX_ASSETS = {
+    "assets/profile-transparent.webp",
+    # The PNG this replaced. It is no longer shipped, but a copy left behind in
+    # a repository would otherwise be served — and Google already knows its URL.
+    "assets/profile-transparent.png",
+    "assets/human-coded-exact-contour.png",
+    "assets/profile-shield.svg",
+    "assets/og-preview.jpg",
+    "assets/trevelade-logo.jpg",
+}
+
+
+def _query_param(scope, key: str) -> str:
+    try:
+        values = parse_qs((scope.get("query_string") or b"").decode("latin-1")).get(key)
+    except Exception:
+        return ""
+    return values[0] if values else ""
 
 
 # ---------------------------------------------------------------------------
@@ -1983,7 +2343,18 @@ def _effective_site_url(db: Session, request: Request) -> str:
 # ---------------------------------------------------------------------------
 _ASSET_EXTS = (".css", ".js", ".html")
 
+_ASSET_VERSION_MEMO: list[str] = []
+
+
 def asset_version() -> str:
+    """The fingerprint, worked out once per server process.
+
+    Files do not change under a running deployment, so walking the static
+    folder on every request (it is asked for on every CSS/JS request now)
+    would be wasted work. In DEV they do change — that is the point of live
+    reload — so it is recomputed each time there."""
+    if _ASSET_VERSION_MEMO and not DEV_MODE:
+        return _ASSET_VERSION_MEMO[0]
     newest = 0.0
     try:
         for f in STATIC_DIR.rglob("*"):
@@ -1997,7 +2368,9 @@ def asset_version() -> str:
     while n:
         n, r = divmod(n, 36)
         out = "0123456789abcdefghijklmnopqrstuvwxyz"[r] + out
-    return out or "0"
+    version = out or "0"
+    _ASSET_VERSION_MEMO[:] = [version]
+    return version
 
 
 _ASSET_QS = re.compile(r"(\.(?:css|js))\?v=[A-Za-z0-9._-]*")
@@ -2022,7 +2395,9 @@ def _stamp_assets(html: str) -> str:
 
 
 def _settings_map(db: Session) -> dict:
-    stored = {s.key: (s.value or "") for s in db.query(models.Setting).all() if not s.key.startswith("_asset_")}
+    """Every public setting, defaults filled in. Keys starting with "_" are
+    private — the stored icon, the seeding flag — and never leave the server."""
+    stored = {s.key: (s.value or "") for s in db.query(models.Setting).all() if not s.key.startswith("_")}
     return {**seed.DEFAULT_SETTINGS, **stored}
 
 
@@ -2113,6 +2488,7 @@ def _render_index(db: Session, request: Request) -> HTMLResponse:
     site_url = _effective_site_url(db, request)
     if site_url:
         html = html.replace(PLACEHOLDER_ORIGIN, _escape_attr(site_url))
+    html = _apply_same_as(html, settings.get("social_links", ""))
 
     def set_meta(source: str, pattern: str, value: str) -> str:
         # re.sub treats backslashes in the replacement as escapes, so the
@@ -2147,6 +2523,53 @@ def _render_index(db: Session, request: Request) -> HTMLResponse:
     html = _apply_icons(html, db)
     html = _stamp_assets(_inject_livereload(html))
     return HTMLResponse(html, headers=dict(_NO_STORE))
+
+
+_LD_JSON_RE = re.compile(r'(<script type="application/ld\+json">)(.*?)(</script>)', re.S)
+
+
+def _profile_links(raw: str) -> list:
+    """The http(s) profile pages among the social links, for `sameAs`.
+    Mail and Messenger links are ways to CONTACT you, not pages ABOUT you,
+    so they are left out."""
+    try:
+        rows = json.loads(raw or "[]")
+    except ValueError:
+        return []
+    links = []
+    for row in rows if isinstance(rows, list) else []:
+        url = str(row.get("url") or "").strip() if isinstance(row, dict) else ""
+        if not re.match(r"^https?://", url, re.I):
+            continue
+        if (urlsplit(url).hostname or "").lower() in ("m.me", "www.m.me"):
+            continue
+        if url not in links:
+            links.append(url)
+    return links
+
+
+def _apply_same_as(html: str, raw_links: str) -> str:
+    """Write the current social profiles into the structured data, so what
+    Google is told about you matches the icons on the page. The static file
+    only carries GitHub, as the fallback for an empty list."""
+    links = _profile_links(raw_links)
+    if not links:
+        return html
+
+    def rewrite(match):
+        try:
+            data = json.loads(match.group(2))
+        except ValueError:
+            return match.group(0)
+        entity = data.get("mainEntity") if isinstance(data, dict) else None
+        if not isinstance(entity, dict):
+            return match.group(0)
+        entity["sameAs"] = links
+        # "</" is escaped so no value can ever close the <script> early.
+        body = json.dumps(data, ensure_ascii=False, indent=2).replace("</", "<\\/")
+        return match.group(1) + "\n" + body + "\n" + match.group(3)
+
+    return _LD_JSON_RE.sub(rewrite, html, count=1)
 
 
 def _inject_livereload(html: str) -> str:
@@ -2780,5 +3203,4 @@ def serve_sitemap(request: Request, db: Session = Depends(get_db)):
     return Response(text, media_type="application/xml", headers=dict(_NO_STORE))
 
 
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 app.mount("/", NoCacheStaticFiles(directory=str(STATIC_DIR), html=True), name="site")

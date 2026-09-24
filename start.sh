@@ -53,8 +53,6 @@ fi
 # Neither is on in a deployed copy; DEV is set here, not in the code.
 # ---------------------------------------------------------------------
 export DEV=1
-# The compact package uses lightweight male speech plus bundled recordings.
-export SPEECH_MODE=static
 
 ( sleep 1 && command -v open >/dev/null 2>&1 && open "http://127.0.0.1:8000" || true ) &
 uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir backend --reload-dir static

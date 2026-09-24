@@ -608,7 +608,6 @@
       })
       .then(function () {
         if (!open) return;
-        var myIndex = index;
         var el = find(step);
 
         /* An optional step whose control never appeared is dropped rather

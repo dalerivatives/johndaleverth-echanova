@@ -21,12 +21,6 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.14
-      # The optional Piper model can exceed a Free instance's memory. The
-      # public terminal and whoami use pre-generated WAV files; arbitrary chat
-      # uses lightweight eSpeak NG male robot audio in this mode.
-      # For optional neural mode, follow voices/README.md first.
-      - key: SPEECH_MODE
-        value: static
       - key: ADMIN_KEY
         sync: false        # set this yourself in the Render dashboard — do not commit it
       - key: DATABASE_URL
