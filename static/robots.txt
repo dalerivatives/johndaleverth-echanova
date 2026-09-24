@@ -20,6 +20,10 @@
 #   "Disallow: /api/" would quietly stop the keep-alive pings.
 # - The icon files: Google won't show a favicon in search results for a URL
 #   it isn't allowed to fetch — that is how a site ends up with the grey globe.
+# - /api/settings, /api/content/, /api/github/: the public, read-only data
+#   the home page loads to fill in its text, projects, achievements, tools
+#   and GitHub activity. Without these, Google renders the page with those
+#   sections empty. (Their write routes are admin-only regardless.)
 
 User-agent: *
 Allow: /api/health
@@ -33,6 +37,9 @@ Allow: /favicon.ico
 Allow: /icon-192.png
 Allow: /icon-512.png
 Allow: /site.webmanifest
+Allow: /api/settings
+Allow: /api/content/
+Allow: /api/github/
 Disallow: /editor.html
 Disallow: /api/
 
@@ -42,6 +49,9 @@ Allow: /favicon.ico
 Allow: /brand-icon.png
 Allow: /brand-icon-512.png
 Allow: /api/health
+Allow: /api/settings
+Allow: /api/content/
+Allow: /api/github/
 Disallow: /editor.html
 Disallow: /api/
 
